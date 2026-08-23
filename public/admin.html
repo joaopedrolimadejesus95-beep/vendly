@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vendly — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1816;
+    --paper: #faf6ef;
+    --paper-dim: #f0ead9;
+    --flame: #d84315;
+    --mustard: #e0a733;
+    --herb: #4a7c59;
+    --line: #ded5c2;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    background: var(--paper-dim);
+    color: var(--ink);
+    margin: 0;
+    padding: 0 0 80px;
+  }
+  .topo {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 20px 0;
+  }
+  .topo h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 2px;
+  }
+  .topo .empresa-nome {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    opacity: 0.65;
+    margin-bottom: 16px;
+  }
+
+  .abas {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .abas::-webkit-scrollbar { display: none; }
+  .aba {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    text-align: center;
+    padding: 12px 10px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(250, 246, 239, 0.55);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    user-select: none;
+  }
+  .aba.ativa {
+    color: var(--paper);
+    border-bottom-color: var(--flame);
+  }
+
+  .badge-contagem {
+    display: none;
+    background: var(--flame);
+    color: white;
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-left: 3px;
+    vertical-align: top;
+  }
+  .badge-contagem.visivel { display: inline-block; }
+
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px; }
+  .painel { display: none; }
+  .painel.ativa { display: block; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 28px 0 12px;
+  }
+  h2:first-child { margin-top: 0; }
+
+  .grade-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .stat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 14px;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a8073;
+    margin-bottom: 4px;
+  }
+  .stat-valor {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 20px;
+  }
+  .stat-valor.flame { color: var(--flame); }
+  .stat-valor.herb { color: var(--herb); }
+
+  .ranking-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 14px;
+  }
+  .ranking-item:last-child { border-bottom: none; }
+  .ranking-pos {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--flame);
+    width: 20px;
+  }
+  .ranking-nome { flex: 1; }
+  .ranking-qtd { font-family: var(--font-mono); color: #8a8073; font-size: 13px; }
+
+  .pedido-ticket {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .pedido-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #8a8073;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 8px;
+  }
+  .pedido-item {
+    display: flex;
+    font-size: 14px;
+    padding: 2px 0;
+  }
+  .pedido-item .qtd { font-family: var(--font-mono); width: 28px; color: var(--flame); font-weight: 700; }
+  .pedido-item .nome { flex: 1; }
+  .pedido-total {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+
+  .vazio {
+    text-align: center;
+    padding: 40px 20px;
+    color: #a49b8c;
+    font-size: 14px;
+  }
+
+  .atendimento-card {
+    background: var(--paper);
+    border: 1px solid var(--mustard);
+    border-left: 4px solid var(--flame);
+    border-radius: 2px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .atendimento-numero { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+  .atendimento-horario { font-family: var(--font-mono); font-size: 11px; color: #8a8073; }
+  .atendimento-mensagem { font-size: 13px; margin: 8px 0; color: var(--ink); font-style: italic; }
+
+  @keyframes pulsar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pulsando { animation: pulsar 1s ease-in-out infinite; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .produto {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--line);
+  }
+  .produto:last-child { border-bottom: none; }
+  .produto-info { flex: 1; min-width: 0; }
+  .produto-linha-nome {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .produto-nome { font-weight: 600; font-size: 15px; }
+  .produto-leader {
+    flex: 1;
+    border-bottom: 1px dotted #c9bfab;
+    margin-bottom: 4px;
+  }
+  .produto-preco { font-family: var(--font-mono); font-weight: 700; color: var(--flame); font-size: 14px; }
+  .produto-descricao { font-size: 12px; color: #8a8073; margin-top: 2px; }
+  .produto-estoque { font-family: var(--font-mono); font-size: 11px; color: var(--herb); margin-top: 4px; }
+  .produto-estoque.baixo { color: var(--flame); }
+  .produto-indisponivel { opacity: 0.45; }
+  .produto-adicionais { font-size: 11px; color: var(--mustard); margin-top: 4px; font-family: var(--font-mono); }
+
+  .adicional-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--paper-dim);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 4px 10px 4px 12px;
+    font-size: 12px;
+    margin: 4px 6px 4px 0;
+  }
+  .adicional-tag .remover-tag {
+    cursor: pointer;
+    color: var(--flame);
+    font-weight: 700;
+    background: none;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .botoes-produto { display: flex; gap: 6px; flex-shrink: 0; }
+  button {
+    border: none;
+    border-radius: 2px;
+    padding: 7px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: var(--font-body);
+  }
+  .btn-principal {
+    background: var(--flame);
+    color: white;
+    width: 100%;
+    padding: 13px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-radius: 2px;
+  }
+  .btn-secundario { background: var(--paper-dim); color: var(--ink); }
+  .btn-remover { background: #f9e4dc; color: var(--flame); }
+
+  label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #8a8073; margin: 12px 0 5px; }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    font-size: 15px;
+    font-family: var(--font-body);
+    background: white;
+  }
+  .linha { display: flex; gap: 8px; }
+  .linha > div { flex: 1; }
+
+  .toggle-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 14px;
+  }
+  .toggle-linha:last-child { border-bottom: none; }
+  input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--flame); }
+
+  #status-salvo {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 9px 18px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #status-salvo.visivel { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <h1>Vendly</h1>
+  <div class="empresa-nome" id="topo-empresa-nome">carregando...</div>
+  <div class="abas">
+    <div class="aba ativa" data-aba="vendas" onclick="mudarAba('vendas')">Vendas</div>
+    <div class="aba" data-aba="atendimentos" onclick="mudarAba('atendimentos')">
+      Atendimentos <span class="badge-contagem" id="badge-atendimentos"></span>
+    </div>
+    <div class="aba" data-aba="cardapio" onclick="mudarAba('cardapio')">Cardápio</div>
+    <div class="aba" data-aba="regras" onclick="mudarAba('regras')">Regras</div>
+    <div class="aba" data-aba="whatsapp" onclick="mudarAba('whatsapp')">WhatsApp</div>
+  </div>
+</div>
+
+<main>
+
+  <section class="painel ativa" id="painel-vendas">
+    <h2>Hoje</h2>
+    <div class="grade-stats">
+      <div class="stat">
+        <div class="stat-label">Faturamento hoje</div>
+        <div class="stat-valor flame" id="stat-faturamento-hoje">R$0,00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Pedidos hoje</div>
+        <div class="stat-valor" id="stat-pedidos-hoje">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Ticket médio</div>
+        <div class="stat-valor" id="stat-ticket-medio">R$0,00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Total de pedidos</div>
+        <div class="stat-valor herb" id="stat-total-pedidos">0</div>
+      </div>
+    </div>
+
+    <h2>Mais vendidos</h2>
+    <div class="card" id="lista-ranking"></div>
+
+    <h2>Pedidos recentes</h2>
+    <div id="lista-pedidos"></div>
+  </section>
+
+  <section class="painel" id="painel-atendimentos">
+    <h2>Aguardando atendente</h2>
+    <div id="lista-atendimentos"></div>
+  </section>
+
+  <section class="painel" id="painel-cardapio">
+    <h2>Produtos</h2>
+    <div id="lista-produtos"></div>
+
+    <div class="card">
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Adicionar / editar produto</strong>
+      <label>Nome</label>
+      <input type="text" id="produto-nome" placeholder="Ex: X-Bacon" />
+
+      <div class="linha">
+        <div>
+          <label>Preço (R$)</label>
+          <input type="number" id="produto-preco" step="0.01" placeholder="22.90" />
+        </div>
+        <div>
+          <label>Estoque</label>
+          <input type="number" id="produto-estoque" placeholder="50" />
+        </div>
+      </div>
+
+      <label>Ingredientes / descrição</label>
+      <input type="text" id="produto-descricao" placeholder="Ex: pão, hambúrguer, queijo, bacon" />
+
+      <label>Adicionais (opcional)</label>
+      <div id="lista-adicionais-form"></div>
+      <div class="linha" style="margin-top:6px">
+        <div><input type="text" id="adicional-nome" placeholder="Ex: Bacon extra" /></div>
+        <div style="flex:0 0 90px"><input type="number" id="adicional-preco" step="0.01" placeholder="5.00" /></div>
+        <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="adicionarAdicionalNaLista()">+</button></div>
+      </div>
+
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarProduto()">Salvar produto</button>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-regras">
+    <h2>Regras da empresa</h2>
+    <div class="card">
+      <label>Nome do estabelecimento</label>
+      <input type="text" id="empresa-nome" />
+
+      <div class="toggle-linha">
+        <span>Fazer entrega?</span>
+        <input type="checkbox" id="empresa-entrega" />
+      </div>
+
+      <label>Endereço do restaurante (mostrado para retirada)</label>
+      <input type="text" id="empresa-endereco" placeholder="Ex: Rua das Flores, 123 - Centro" />
+
+      <div class="toggle-linha">
+        <span>Exigir pagamento antes de confirmar?</span>
+        <input type="checkbox" id="empresa-pagamento-antecipado" />
+      </div>
+
+      <label>Formas de pagamento aceitas</label>
+      <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
+      <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
+      <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
+
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarEmpresa()">Salvar regras</button>
+    </div>
+
+    <h2>Senha do painel</h2>
+    <div class="card">
+      <div id="senha-explicacao" style="font-size:13px;color:#8a8073;margin-bottom:10px;"></div>
+
+      <label id="label-senha-atual" style="display:none">Senha atual</label>
+      <input type="password" id="senha-atual" style="display:none" />
+
+      <label>Nova senha</label>
+      <input type="password" id="senha-nova" placeholder="Pelo menos 4 caracteres" />
+
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarSenha()">Definir senha</button>
+      <div id="senha-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-whatsapp">
+    <h2>Conexão com o WhatsApp</h2>
+    <div class="card" style="text-align:center">
+      <div id="whatsapp-status" style="font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">Verificando conexão...</div>
+      <div id="whatsapp-qrcode"></div>
+      <button class="btn-principal" id="btn-conectar-whatsapp" onclick="conectarWhatsapp()" style="margin-top:14px">Conectar WhatsApp</button>
+      <button class="btn-remover" id="btn-desconectar-whatsapp" onclick="desconectarWhatsapp()" style="margin-top:8px;width:100%;display:none">Desconectar</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="status-salvo">Salvo ✓</div>
+
+<script>
+let produtoEmEdicao = null;
+let adicionaisFormAtual = [];
+let contagemAtendimentosAnterior = 0;
+let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
+
+// Pede permissão pra notificação do navegador assim que a página abre.
+if ("Notification" in window && Notification.permission === "default") {
+  Notification.requestPermission();
+}
+
+function tocarBip() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) { /* navegador sem suporte a áudio, ignora */ }
+}
+
+function notificar(titulo, corpo) {
+  tocarBip();
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(titulo, { body: corpo, icon: undefined });
+  }
+}
+
+function mudarAba(nome) {
+  document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === nome));
+  document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativa'));
+  document.getElementById('painel-' + nome).classList.add('ativa');
+  if (nome === 'whatsapp') verificarStatusWhatsapp();
+}
+
+function formatarMoeda(valor) {
+  return 'R$' + Number(valor || 0).toFixed(2).replace('.', ',');
+}
+
+async function carregarTudo() {
+  const [empresaResp, produtosResp, pedidosResp, atendimentosResp] = await Promise.all([
+    fetch('/api/empresa').then(r => r.json()),
+    fetch('/api/produtos').then(r => r.json()),
+    fetch('/api/pedidos').then(r => r.json()),
+    fetch('/api/atendimentos').then(r => r.json()),
+  ]);
+
+  document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
+  document.getElementById('empresa-nome').value = empresaResp.nome || '';
+  document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
+  document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
+  document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
+  document.getElementById('pag-pix').checked = (empresaResp.formasPagamento || []).includes('pix');
+  document.getElementById('pag-dinheiro').checked = (empresaResp.formasPagamento || []).includes('dinheiro');
+  document.getElementById('pag-cartao').checked = (empresaResp.formasPagamento || []).includes('cartão');
+
+  renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
+  renderizarVendas(pedidosResp.pedidos, pedidosResp.estatisticas);
+  renderizarAtendimentos(atendimentosResp.pendentes);
+
+  // Notifica quando algo NOVO aparece — nunca no primeiro carregamento da página.
+  if (contagemPedidosAnterior !== null && pedidosResp.estatisticas.totalPedidos > contagemPedidosAnterior) {
+    notificar('Novo pedido! 🍔', `Total de hoje: ${pedidosResp.estatisticas.pedidosHoje} pedidos`);
+  }
+  contagemPedidosAnterior = pedidosResp.estatisticas.totalPedidos;
+
+  if (atendimentosResp.pendentes.length > contagemAtendimentosAnterior) {
+    notificar('Cliente precisa de atendente 🙋', 'Alguém está esperando uma resposta na aba Atendimentos');
+  }
+  contagemAtendimentosAnterior = atendimentosResp.pendentes.length;
+
+  const badge = document.getElementById('badge-atendimentos');
+  badge.textContent = atendimentosResp.pendentes.length;
+  badge.classList.toggle('visivel', atendimentosResp.pendentes.length > 0);
+  badge.classList.toggle('pulsando', atendimentosResp.pendentes.length > 0);
+}
+
+// Verifica de novo a cada 5 segundos, pra funcionar como notificação "ao vivo".
+setInterval(carregarTudo, 5000);
+
+function renderizarAtendimentos(pendentes) {
+  const lista = document.getElementById('lista-atendimentos');
+  if (pendentes.length === 0) {
+    lista.innerHTML = '<div class="vazio">Nenhum cliente esperando atendente no momento.</div>';
+    return;
+  }
+  lista.innerHTML = pendentes.map(a => `
+    <div class="atendimento-card">
+      <div class="atendimento-numero">${a.numero.replace('@s.whatsapp.net', '')}</div>
+      <div class="atendimento-horario">${new Date(a.horario).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="atendimento-mensagem">"${a.ultimaMensagem}"</div>
+      <button class="btn-secundario" onclick="devolverParaIA('${a.numero}')">Já respondi — devolver pra IA</button>
+    </div>
+  `).join('');
+}
+
+async function devolverParaIA(numero) {
+  await fetch(`/api/atendimentos/${encodeURIComponent(numero)}/devolver`, { method: 'POST' });
+  carregarTudo();
+}
+
+async function carregarStatusSenha() {
+  const { definida } = await fetch('/api/senha/status').then(r => r.json());
+  const explicacao = document.getElementById('senha-explicacao');
+  const labelAtual = document.getElementById('label-senha-atual');
+  const campoAtual = document.getElementById('senha-atual');
+
+  if (definida) {
+    explicacao.textContent = 'Já existe uma senha definida. Pra trocar, informe a senha atual e a nova.';
+    labelAtual.style.display = 'block';
+    campoAtual.style.display = 'block';
+  } else {
+    explicacao.textContent = 'Ainda não foi definida nenhuma senha — qualquer pessoa com o link consegue acessar o painel. Defina uma agora.';
+    labelAtual.style.display = 'none';
+    campoAtual.style.display = 'none';
+  }
+}
+
+async function salvarSenha() {
+  const senhaAtual = document.getElementById('senha-atual').value;
+  const novaSenha = document.getElementById('senha-nova').value;
+  const erroDiv = document.getElementById('senha-erro');
+  erroDiv.textContent = '';
+
+  const resp = await fetch('/api/senha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ senhaAtual, novaSenha }),
+  });
+
+  if (!resp.ok) {
+    const dados = await resp.json();
+    erroDiv.textContent = dados.erro || 'Erro ao salvar a senha.';
+    return;
+  }
+
+  document.getElementById('senha-atual').value = '';
+  document.getElementById('senha-nova').value = '';
+  mostrarSalvo();
+  carregarStatusSenha();
+}
+
+async function verificarStatusWhatsapp() {
+  const statusDiv = document.getElementById('whatsapp-status');
+  const btnConectar = document.getElementById('btn-conectar-whatsapp');
+  const btnDesconectar = document.getElementById('btn-desconectar-whatsapp');
+  try {
+    const resp = await fetch('/api/whatsapp/status').then(r => r.json());
+    if (resp.estado === 'open') {
+      statusDiv.innerHTML = '🟢 WhatsApp conectado e funcionando';
+      btnConectar.style.display = 'none';
+      btnDesconectar.style.display = 'block';
+      document.getElementById('whatsapp-qrcode').innerHTML = '';
+    } else {
+      statusDiv.innerHTML = '🔴 WhatsApp não conectado';
+      btnConectar.style.display = 'block';
+      btnDesconectar.style.display = 'none';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = '⚠️ Não consegui verificar (confira se a Evolution API está rodando)';
+  }
+}
+
+async function conectarWhatsapp() {
+  const statusDiv = document.getElementById('whatsapp-status');
+  const qrDiv = document.getElementById('whatsapp-qrcode');
+  statusDiv.innerHTML = 'Gerando QR code...';
+  try {
+    const resp = await fetch('/api/whatsapp/conectar', { method: 'POST' }).then(r => r.json());
+    if (resp.qrcode) {
+      statusDiv.innerHTML = 'Abra o WhatsApp do restaurante → Aparelhos conectados → Conectar um aparelho, e escaneie:';
+      qrDiv.innerHTML = `<img src="${resp.qrcode}" style="max-width:250px;margin-top:10px" />`;
+      // Confere de novo em alguns segundos, pra atualizar sozinho quando conectar.
+      setTimeout(verificarStatusWhatsapp, 6000);
+    } else {
+      statusDiv.innerHTML = 'Não recebi o QR code. Tenta de novo em alguns segundos.';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = 'Erro ao gerar QR code: ' + e.message;
+  }
+}
+
+async function desconectarWhatsapp() {
+  if (!confirm('Desconectar o WhatsApp do restaurante?')) return;
+  await fetch('/api/whatsapp/desconectar', { method: 'POST' });
+  verificarStatusWhatsapp();
+}
+
+function renderizarVendas(pedidos, stats) {
+  document.getElementById('stat-faturamento-hoje').textContent = formatarMoeda(stats.faturamentoHoje);
+  document.getElementById('stat-pedidos-hoje').textContent = stats.pedidosHoje;
+  document.getElementById('stat-ticket-medio').textContent = formatarMoeda(stats.ticketMedio);
+  document.getElementById('stat-total-pedidos').textContent = stats.totalPedidos;
+
+  const ranking = document.getElementById('lista-ranking');
+  if (stats.maisVendidos.length === 0) {
+    ranking.innerHTML = '<div class="vazio">Nenhuma venda registrada ainda.</div>';
+  } else {
+    ranking.innerHTML = stats.maisVendidos.map((item, i) => `
+      <div class="ranking-item">
+        <span class="ranking-pos">${i + 1}º</span>
+        <span class="ranking-nome">${item.nome}</span>
+        <span class="ranking-qtd">${item.quantidade}x</span>
+      </div>
+    `).join('');
+  }
+
+  const lista = document.getElementById('lista-pedidos');
+  if (pedidos.length === 0) {
+    lista.innerHTML = '<div class="vazio">Os pedidos confirmados pelo WhatsApp vão aparecer aqui.</div>';
+  } else {
+    lista.innerHTML = pedidos.slice(0, 15).map(p => `
+      <div class="pedido-ticket">
+        <div class="pedido-cabecalho">
+          <span>Pedido #${p.id}</span>
+          <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + p.endereco : ''}</div>` : ''}
+        ${p.itens.map(item => `
+          <div class="pedido-item">
+            <span class="qtd">${item.quantidade}x</span>
+            <span class="nome">
+              ${item.nome}
+              ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
+              ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
+            </span>
+          </div>
+        `).join('')}
+        <div class="pedido-total">
+          <span>Total</span>
+          <span>${formatarMoeda(p.total)}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function renderizarProdutos(produtos, estoque) {
+  const lista = document.getElementById('lista-produtos');
+  lista.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'card';
+  produtos.forEach(p => {
+    const qtdEstoque = estoque[p.id] ?? 0;
+    const div = document.createElement('div');
+    div.className = 'produto' + (p.disponivel === false ? ' produto-indisponivel' : '');
+    div.innerHTML = `
+      <div class="produto-info">
+        <div class="produto-linha-nome">
+          <span class="produto-nome">${p.nome}</span>
+          <span class="produto-leader"></span>
+          <span class="produto-preco">${formatarMoeda(p.preco)}</span>
+        </div>
+        <div class="produto-descricao">${p.descricao || ''}</div>
+        ${(p.adicionais && p.adicionais.length > 0) ? `<div class="produto-adicionais">+ ${p.adicionais.map(a => `${a.nome} (${formatarMoeda(a.preco)})`).join(' · ')}</div>` : ''}
+        <div class="produto-estoque ${qtdEstoque < 10 ? 'baixo' : ''}">estoque: ${qtdEstoque}</div>
+      </div>
+      <div class="botoes-produto">
+        <button class="btn-secundario" onclick="editarProduto('${p.id}')">editar</button>
+        <button class="btn-remover" onclick="removerProduto('${p.id}')">remover</button>
+      </div>
+    `;
+    card.appendChild(div);
+  });
+  lista.appendChild(card);
+}
+
+function renderizarAdicionaisForm() {
+  const container = document.getElementById('lista-adicionais-form');
+  container.innerHTML = adicionaisFormAtual.map((a, i) => `
+    <span class="adicional-tag">
+      ${a.nome} (${formatarMoeda(a.preco)})
+      <button type="button" class="remover-tag" onclick="removerAdicionalDaLista(${i})">×</button>
+    </span>
+  `).join('');
+}
+
+function adicionarAdicionalNaLista() {
+  const nome = document.getElementById('adicional-nome').value.trim();
+  const preco = parseFloat(document.getElementById('adicional-preco').value);
+  if (!nome || isNaN(preco)) {
+    alert('Preencha o nome e o preço do adicional.');
+    return;
+  }
+  const id = 'add-' + nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  adicionaisFormAtual.push({ id, nome, preco });
+  document.getElementById('adicional-nome').value = '';
+  document.getElementById('adicional-preco').value = '';
+  renderizarAdicionaisForm();
+}
+
+function removerAdicionalDaLista(indice) {
+  adicionaisFormAtual.splice(indice, 1);
+  renderizarAdicionaisForm();
+}
+
+function editarProduto(id) {
+  fetch('/api/produtos').then(r => r.json()).then(({ produtos, estoque }) => {
+    const p = produtos.find(x => x.id === id);
+    if (!p) return;
+    produtoEmEdicao = id;
+    document.getElementById('produto-nome').value = p.nome;
+    document.getElementById('produto-preco').value = p.preco;
+    document.getElementById('produto-estoque').value = estoque[id] ?? 0;
+    document.getElementById('produto-descricao').value = p.descricao || '';
+    adicionaisFormAtual = p.adicionais ? [...p.adicionais] : [];
+    renderizarAdicionaisForm();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  });
+}
+
+async function salvarProduto() {
+  const nome = document.getElementById('produto-nome').value.trim();
+  const preco = parseFloat(document.getElementById('produto-preco').value);
+  const estoqueInicial = parseInt(document.getElementById('produto-estoque').value || '0', 10);
+  const descricao = document.getElementById('produto-descricao').value.trim();
+
+  if (!nome || isNaN(preco)) {
+    alert('Preencha ao menos o nome e o preço.');
+    return;
+  }
+
+  const id = produtoEmEdicao || nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+  await fetch('/api/produtos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, nome, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual }),
+  });
+
+  if (produtoEmEdicao) {
+    await fetch(`/api/estoque/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantidade: estoqueInicial }),
+    });
+  }
+
+  produtoEmEdicao = null;
+  adicionaisFormAtual = [];
+  document.getElementById('produto-nome').value = '';
+  document.getElementById('produto-preco').value = '';
+  document.getElementById('produto-estoque').value = '';
+  document.getElementById('produto-descricao').value = '';
+  renderizarAdicionaisForm();
+
+  mostrarSalvo();
+  carregarTudo();
+}
+
+async function removerProduto(id) {
+  if (!confirm('Remover esse produto do cardápio?')) return;
+  await fetch(`/api/produtos/${id}`, { method: 'DELETE' });
+  mostrarSalvo();
+  carregarTudo();
+}
+
+async function salvarEmpresa() {
+  const formasPagamento = [];
+  if (document.getElementById('pag-pix').checked) formasPagamento.push('pix');
+  if (document.getElementById('pag-dinheiro').checked) formasPagamento.push('dinheiro');
+  if (document.getElementById('pag-cartao').checked) formasPagamento.push('cartão');
+
+  await fetch('/api/empresa', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nome: document.getElementById('empresa-nome').value,
+      endereco: document.getElementById('empresa-endereco').value,
+      aceitaEntrega: document.getElementById('empresa-entrega').checked,
+      exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
+      formasPagamento,
+    }),
+  });
+  mostrarSalvo();
+  carregarTudo();
+}
+
+function mostrarSalvo() {
+  const el = document.getElementById('status-salvo');
+  el.classList.add('visivel');
+  setTimeout(() => el.classList.remove('visivel'), 1500);
+}
+
+carregarTudo();
+carregarStatusSenha();</script>
+</body>
+</html>

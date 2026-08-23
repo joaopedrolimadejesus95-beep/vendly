@@ -1,0 +1,17 @@
+{
+  "name": "vendly-bot",
+  "version": "0.1.0",
+  "description": "Bot WhatsApp com IA para captar pedidos - MVP do Vendly",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5",
+    "@anthropic-ai/sdk": "^0.32.1",
+    "node-thermal-printer": "^4.4.4"
+  }
+}

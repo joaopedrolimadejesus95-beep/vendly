@@ -1,0 +1,132 @@
+{
+  "empresa": {
+    "nome": "Hamburgueria do Zé",
+    "tipo": "restaurante",
+    "aceitaEntrega": true,
+    "endereco": "",
+    "formasPagamento": [
+      "pix",
+      "dinheiro",
+      "cartão"
+    ],
+    "exigePagamentoAntecipado": false
+  },
+  "catalogo": [
+    {
+      "id": "xburger",
+      "nome": "X-Burger",
+      "preco": 18.9,
+      "descricao": "pão, hambúrguer 150g, queijo, alface, tomate",
+      "disponivel": true,
+      "adicionais": [
+        {
+          "id": "add-bacon",
+          "nome": "Bacon extra",
+          "preco": 5
+        },
+        {
+          "id": "add-queijo",
+          "nome": "Queijo extra",
+          "preco": 3
+        },
+        {
+          "id": "add-hamburguer",
+          "nome": "Carne extra",
+          "preco": 8
+        }
+      ]
+    },
+    {
+      "id": "xbacon",
+      "nome": "X-Bacon",
+      "preco": 22.9,
+      "descricao": "pão, hambúrguer 150g, queijo, bacon, alface, tomate",
+      "disponivel": true,
+      "adicionais": [
+        {
+          "id": "add-bacon",
+          "nome": "Bacon extra",
+          "preco": 5
+        },
+        {
+          "id": "add-queijo",
+          "nome": "Queijo extra",
+          "preco": 3
+        },
+        {
+          "id": "add-hamburguer",
+          "nome": "Carne extra",
+          "preco": 8
+        }
+      ]
+    },
+    {
+      "id": "xsalada",
+      "nome": "X-Salada",
+      "preco": 20.9,
+      "descricao": "pão, hambúrguer 150g, queijo, alface, tomate, milho, maionese da casa",
+      "disponivel": true
+    },
+    {
+      "id": "duplobacon",
+      "nome": "Duplo Bacon",
+      "preco": 27.9,
+      "descricao": "pão, 2 hambúrgueres 150g, queijo duplo, bacon, alface, tomate",
+      "disponivel": true
+    },
+    {
+      "id": "batatap",
+      "nome": "Batata P",
+      "preco": 9.9,
+      "descricao": "porção pequena de batata frita",
+      "disponivel": true
+    },
+    {
+      "id": "batatag",
+      "nome": "Batata G",
+      "preco": 14.9,
+      "descricao": "porção grande de batata frita",
+      "disponivel": true
+    },
+    {
+      "id": "cocalata",
+      "nome": "Coca-Cola lata",
+      "preco": 5,
+      "descricao": "lata 350ml",
+      "disponivel": true
+    },
+    {
+      "id": "coca600",
+      "nome": "Coca-Cola 600ml",
+      "preco": 7,
+      "descricao": "garrafa 600ml",
+      "disponivel": true
+    },
+    {
+      "id": "guaranalata",
+      "nome": "Guaraná lata",
+      "preco": 5,
+      "descricao": "lata 350ml",
+      "disponivel": true
+    },
+    {
+      "id": "agua",
+      "nome": "Água",
+      "preco": 3,
+      "descricao": "garrafa 500ml, com ou sem gás",
+      "disponivel": true
+    }
+  ],
+  "estoque": {
+    "xburger": 50,
+    "xbacon": 50,
+    "xsalada": 50,
+    "duplobacon": 50,
+    "batatap": 50,
+    "batatag": 50,
+    "cocalata": 50,
+    "coca600": 50,
+    "guaranalata": 50,
+    "agua": 50
+  }
+}
