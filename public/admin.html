@@ -531,6 +531,22 @@ async function carregarTudo() {
   document.getElementById('pag-cartao').checked = (empresaResp.formasPagamento || []).includes('cartão');
 
   renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
+  processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+}
+
+// Roda a cada 5 segundos para as notificações "ao vivo" — busca só vendas e
+// atendimentos, sem tocar nos campos de formulário (nome, endereço, produto em
+// edição). Isso evita um bug real: o campo "voltava" pro valor antigo enquanto
+// alguém tentava editar, porque a atualização automática sobrescrevia tudo.
+async function atualizarVendasEAtendimentos() {
+  const [pedidosResp, atendimentosResp] = await Promise.all([
+    fetch('/api/pedidos').then(r => r.json()),
+    fetch('/api/atendimentos').then(r => r.json()),
+  ]);
+  processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+}
+
+function processarVendasEAtendimentos(pedidosResp, atendimentosResp) {
   renderizarVendas(pedidosResp.pedidos, pedidosResp.estatisticas);
   renderizarAtendimentos(atendimentosResp.pendentes);
 
@@ -551,8 +567,10 @@ async function carregarTudo() {
   badge.classList.toggle('pulsando', atendimentosResp.pendentes.length > 0);
 }
 
-// Verifica de novo a cada 5 segundos, pra funcionar como notificação "ao vivo".
-setInterval(carregarTudo, 5000);
+// Verifica de novo a cada 5 segundos, pra funcionar como notificação "ao vivo" —
+// mas SEM mexer nos formulários que a pessoa possa estar editando.
+setInterval(atualizarVendasEAtendimentos, 5000);
+
 
 function renderizarAtendimentos(pendentes) {
   const lista = document.getElementById('lista-atendimentos');
