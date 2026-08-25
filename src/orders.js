@@ -23,6 +23,7 @@ export function registrarPedido({ numeroCliente, itens, total, tipoEntrega, ende
     total,
     tipoEntrega: tipoEntrega || null,
     endereco: endereco || null,
+    impresso: false,
     dataHora: new Date().toISOString(),
   };
   pedidos.push(novoPedido);
@@ -33,6 +34,22 @@ export function registrarPedido({ numeroCliente, itens, total, tipoEntrega, ende
 export function listarPedidos() {
   // Mais recentes primeiro.
   return lerPedidos().slice().reverse();
+}
+
+// Usado pelo agente de impressão local (roda no restaurante) para saber
+// quais pedidos ainda não foram impressos.
+export function listarPedidosNaoImpressos() {
+  return lerPedidos().filter((p) => !p.impresso);
+}
+
+export function marcarComoImpresso(id) {
+  const pedidos = lerPedidos();
+  const pedido = pedidos.find((p) => p.id === id);
+  if (pedido) {
+    pedido.impresso = true;
+    salvarPedidos(pedidos);
+  }
+  return pedido;
 }
 
 export function getEstatisticas() {

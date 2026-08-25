@@ -4,8 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar } from "./whatsapp.js";
-import { registrarPedido, listarPedidos, getEstatisticas } from "./orders.js";
-import { imprimirComanda } from "./printer.js";
+import { registrarPedido, listarPedidos, getEstatisticas, listarPedidosNaoImpressos, marcarComoImpresso } from "./orders.js";
 import {
   baixarEstoque,
   getEmpresa,
@@ -112,10 +111,9 @@ app.post("/webhook/mensagem", async (req, res) => {
       });
       console.log(`[PEDIDO CONFIRMADO] ${numero}:`, resultado.itens, `Total: R$${resultado.total}`);
 
-      // A impressão nunca deve travar o atendimento — se falhar, só loga o aviso.
-      imprimirComanda(resultado).catch((erro) =>
-        console.error("[IMPRESSORA] Falha inesperada:", erro.message)
-      );
+      // A impressão acontece via um "agente" local no restaurante (ver
+      // /api/pedidos/pendentes-impressao), não daqui — o servidor está na
+      // nuvem e não alcança a impressora que fica na rede do restaurante.
 
       // TODO: lançar pedido também no painel do EiChefe, se um dia houver API.
     }
@@ -180,6 +178,16 @@ app.put("/api/estoque/:id", (req, res) => {
 
 app.get("/api/pedidos", (req, res) => {
   res.json({ pedidos: listarPedidos(), estatisticas: getEstatisticas() });
+});
+
+// Usadas pelo agente de impressão local (roda dentro do restaurante).
+app.get("/api/pedidos/pendentes-impressao", (req, res) => {
+  res.json({ pedidos: listarPedidosNaoImpressos() });
+});
+
+app.post("/api/pedidos/:id/marcar-impresso", (req, res) => {
+  const pedido = marcarComoImpresso(Number(req.params.id));
+  res.json({ ok: !!pedido });
 });
 
 app.get("/api/atendimentos", (req, res) => {
