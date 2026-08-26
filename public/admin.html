@@ -437,6 +437,27 @@
       <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
       <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
 
+      <label>Dias que funciona</label>
+      <div class="toggle-linha"><span>Domingo</span><input type="checkbox" class="dia-funcionamento" value="domingo" /></div>
+      <div class="toggle-linha"><span>Segunda</span><input type="checkbox" class="dia-funcionamento" value="segunda" /></div>
+      <div class="toggle-linha"><span>Terça</span><input type="checkbox" class="dia-funcionamento" value="terca" /></div>
+      <div class="toggle-linha"><span>Quarta</span><input type="checkbox" class="dia-funcionamento" value="quarta" /></div>
+      <div class="toggle-linha"><span>Quinta</span><input type="checkbox" class="dia-funcionamento" value="quinta" /></div>
+      <div class="toggle-linha"><span>Sexta</span><input type="checkbox" class="dia-funcionamento" value="sexta" /></div>
+      <div class="toggle-linha"><span>Sábado</span><input type="checkbox" class="dia-funcionamento" value="sabado" /></div>
+
+      <label>Horário de funcionamento (deixe em branco para não verificar)</label>
+      <div class="linha">
+        <div>
+          <label style="margin-top:0">Abre às</label>
+          <input type="text" id="empresa-horario-abertura" placeholder="18:00" />
+        </div>
+        <div>
+          <label style="margin-top:0">Fecha às</label>
+          <input type="text" id="empresa-horario-fechamento" placeholder="23:30" />
+        </div>
+      </div>
+
       <button class="btn-principal" style="margin-top:14px" onclick="salvarEmpresa()">Salvar regras</button>
     </div>
 
@@ -529,6 +550,11 @@ async function carregarTudo() {
   document.getElementById('pag-pix').checked = (empresaResp.formasPagamento || []).includes('pix');
   document.getElementById('pag-dinheiro').checked = (empresaResp.formasPagamento || []).includes('dinheiro');
   document.getElementById('pag-cartao').checked = (empresaResp.formasPagamento || []).includes('cartão');
+  document.querySelectorAll('.dia-funcionamento').forEach((el) => {
+    el.checked = (empresaResp.diasFuncionamento || []).includes(el.value);
+  });
+  document.getElementById('empresa-horario-abertura').value = empresaResp.horarioAbertura || '';
+  document.getElementById('empresa-horario-fechamento').value = empresaResp.horarioFechamento || '';
 
   renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
   processarVendasEAtendimentos(pedidosResp, atendimentosResp);
@@ -855,6 +881,10 @@ async function salvarEmpresa() {
   if (document.getElementById('pag-dinheiro').checked) formasPagamento.push('dinheiro');
   if (document.getElementById('pag-cartao').checked) formasPagamento.push('cartão');
 
+  const diasFuncionamento = Array.from(document.querySelectorAll('.dia-funcionamento'))
+    .filter((el) => el.checked)
+    .map((el) => el.value);
+
   await fetch('/api/empresa', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -864,6 +894,9 @@ async function salvarEmpresa() {
       aceitaEntrega: document.getElementById('empresa-entrega').checked,
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
       formasPagamento,
+      diasFuncionamento,
+      horarioAbertura: document.getElementById('empresa-horario-abertura').value,
+      horarioFechamento: document.getElementById('empresa-horario-fechamento').value,
     }),
   });
   mostrarSalvo();

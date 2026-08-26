@@ -159,6 +159,23 @@ e pergunte se quer ajustar.`;
  * @returns {Promise<object>} objeto estruturado do pedido
  */
 export async function interpretarMensagem(historico, mensagemAtual) {
+  const empresa = getEmpresa();
+
+  // Se a empresa não está funcionando agora (dia ou horário fora do
+  // configurado), responde direto sem gastar chamada de IA — mais rápido
+  // e mais barato, além de garantir que o bot nunca finge estar aberto
+  // fora do horário.
+  const statusFuncionamento = verificarFuncionamento(empresa);
+  if (!statusFuncionamento.aberto) {
+    return {
+      resposta_cliente: statusFuncionamento.mensagem,
+      status_pedido: "fora_do_escopo",
+      itens: [],
+      total: 0,
+      precisa_humano: false,
+    };
+  }
+
   const mensagens = [
     ...historico,
     { role: "user", content: mensagemAtual },
@@ -245,6 +262,58 @@ function recalcularTotal(pedido) {
   }
   pedido.total = Math.round(total * 100) / 100;
   return pedido;
+}
+
+// Confere se a empresa está funcionando agora, com base no dia da semana e
+// horário configurados. Se a empresa não configurou nada (diasFuncionamento
+// vazio/ausente), considera sempre aberta — mantém compatibilidade com
+// quem ainda não preencheu essa regra.
+function verificarFuncionamento(empresa) {
+  const diasConfigurados = empresa.diasFuncionamento;
+  if (!diasConfigurados || diasConfigurados.length === 0) {
+    return { aberto: true };
+  }
+
+  const agora = new Date();
+
+  // Descobre o dia da semana atual no fuso do Brasil (não do servidor,
+  // que pode estar em UTC), e normaliza pra bater com o formato salvo
+  // (ex: "terça-feira" -> "terca").
+  const nomeDiaLongo = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" })
+    .format(agora)
+    .replace("-feira", "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (!diasConfigurados.includes(nomeDiaLongo)) {
+    return {
+      aberto: false,
+      mensagem: `Hoje estamos fechados. Nosso funcionamento é: ${formatarDias(diasConfigurados)}${empresa.horarioAbertura ? `, das ${empresa.horarioAbertura} às ${empresa.horarioFechamento}` : ""}.`,
+    };
+  }
+
+  if (empresa.horarioAbertura && empresa.horarioFechamento) {
+    const horaAtual = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(agora);
+
+    if (horaAtual < empresa.horarioAbertura || horaAtual > empresa.horarioFechamento) {
+      return {
+        aberto: false,
+        mensagem: `No momento estamos fechados. Nosso horário hoje é das ${empresa.horarioAbertura} às ${empresa.horarioFechamento}. Volte mais tarde!`,
+      };
+    }
+  }
+
+  return { aberto: true };
+}
+
+function formatarDias(dias) {
+  const nomes = { domingo: "domingo", segunda: "segunda", terca: "terça", quarta: "quarta", quinta: "quinta", sexta: "sexta", sabado: "sábado" };
+  return dias.map((d) => nomes[d] || d).join(", ");
 }
 
 // Segunda camada de proteção: mesmo que a IA erre, o código confere
