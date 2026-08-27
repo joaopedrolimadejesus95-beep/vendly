@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar } from "./whatsapp.js";
-import { registrarPedido, listarPedidos, getEstatisticas, listarPedidosNaoImpressos, marcarComoImpresso } from "./orders.js";
+import { registrarPedido, listarPedidos, getEstatisticas, listarPedidosNaoImpressos, marcarComoImpresso, removerPedido } from "./orders.js";
 import {
   baixarEstoque,
   getEmpresa,
@@ -207,6 +207,11 @@ app.put("/api/estoque/:id", async (req, res) => {
 
 app.get("/api/pedidos", (req, res) => {
   res.json({ pedidos: listarPedidos(), estatisticas: getEstatisticas() });
+});
+
+app.delete("/api/pedidos/:id", async (req, res) => {
+  const removido = await removerPedido(Number(req.params.id));
+  res.json({ ok: removido });
 });
 
 // Usadas pelo agente de impressão local (roda dentro do restaurante).

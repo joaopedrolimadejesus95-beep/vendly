@@ -41,12 +41,18 @@ export function getEstoque() {
 export function catalogoFormatado() {
   return getCatalogo()
     .map((p) => {
-      const linhaBase = `- ${p.nome} (id: ${p.id}) — R$${p.preco.toFixed(2)} — ingredientes: ${p.descricao}`;
-      if (!p.adicionais || p.adicionais.length === 0) return linhaBase;
-      const adicionais = p.adicionais
-        .map((a) => `${a.nome} (id: ${a.id}, +R$${a.preco.toFixed(2)})`)
-        .join(", ");
-      return `${linhaBase}\n  Adicionais disponíveis para este item: ${adicionais}`;
+      let linha = `- ${p.nome} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
+      if (p.temMeiaPorcao && p.precoMeia) {
+        linha += ` / meia porção R$${p.precoMeia.toFixed(2)}`;
+      }
+      linha += ` — ingredientes: ${p.descricao}`;
+      if (p.adicionais && p.adicionais.length > 0) {
+        const adicionais = p.adicionais
+          .map((a) => `${a.nome} (id: ${a.id}, +R$${a.preco.toFixed(2)})`)
+          .join(", ");
+        linha += `\n  Adicionais disponíveis para este item: ${adicionais}`;
+      }
+      return linha;
     })
     .join("\n");
 }

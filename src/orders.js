@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { comFila } from "./fileLock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CAMINHO_PEDIDOS = join(__dirname, "..", "data", "pedidos.json");
@@ -15,20 +16,22 @@ function salvarPedidos(pedidos) {
 }
 
 export function registrarPedido({ numeroCliente, itens, total, tipoEntrega, endereco }) {
-  const pedidos = lerPedidos();
-  const novoPedido = {
-    id: pedidos.length + 1,
-    numeroCliente,
-    itens,
-    total,
-    tipoEntrega: tipoEntrega || null,
-    endereco: endereco || null,
-    impresso: false,
-    dataHora: new Date().toISOString(),
-  };
-  pedidos.push(novoPedido);
-  salvarPedidos(pedidos);
-  return novoPedido;
+  return comFila("pedidos.json", () => {
+    const pedidos = lerPedidos();
+    const novoPedido = {
+      id: pedidos.length + 1,
+      numeroCliente,
+      itens,
+      total,
+      tipoEntrega: tipoEntrega || null,
+      endereco: endereco || null,
+      impresso: false,
+      dataHora: new Date().toISOString(),
+    };
+    pedidos.push(novoPedido);
+    salvarPedidos(pedidos);
+    return novoPedido;
+  });
 }
 
 export function listarPedidos() {
@@ -43,13 +46,27 @@ export function listarPedidosNaoImpressos() {
 }
 
 export function marcarComoImpresso(id) {
-  const pedidos = lerPedidos();
-  const pedido = pedidos.find((p) => p.id === id);
-  if (pedido) {
-    pedido.impresso = true;
-    salvarPedidos(pedidos);
-  }
-  return pedido;
+  return comFila("pedidos.json", () => {
+    const pedidos = lerPedidos();
+    const pedido = pedidos.find((p) => p.id === id);
+    if (pedido) {
+      pedido.impresso = true;
+      salvarPedidos(pedidos);
+    }
+    return pedido;
+  });
+}
+
+// Usado quando o dono do restaurante quer cancelar/remover um pedido
+// registrado por engano, direto no painel (aba Vendas).
+export function removerPedido(id) {
+  return comFila("pedidos.json", () => {
+    const pedidos = lerPedidos();
+    const existeAntes = pedidos.some((p) => p.id === id);
+    const restantes = pedidos.filter((p) => p.id !== id);
+    salvarPedidos(restantes);
+    return existeAntes;
+  });
 }
 
 export function getEstatisticas() {

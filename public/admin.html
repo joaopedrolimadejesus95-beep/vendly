@@ -401,6 +401,15 @@
       <label>Ingredientes / descrição</label>
       <input type="text" id="produto-descricao" placeholder="Ex: pão, hambúrguer, queijo, bacon" />
 
+      <div class="toggle-linha">
+        <span>Tem opção de meia porção?</span>
+        <input type="checkbox" id="produto-tem-meia" onchange="document.getElementById('linha-preco-meia').style.display = this.checked ? 'block' : 'none'" />
+      </div>
+      <div id="linha-preco-meia" style="display:none">
+        <label>Preço da meia porção (R$)</label>
+        <input type="number" id="produto-preco-meia" step="0.01" placeholder="Ex: 12.50" />
+      </div>
+
       <label>Adicionais (opcional)</label>
       <div id="lista-adicionais-form"></div>
       <div class="linha" style="margin-top:6px">
@@ -636,6 +645,13 @@ async function devolverParaIA(numero) {
   carregarTudo();
 }
 
+async function excluirPedido(id) {
+  if (!confirm(`Excluir o pedido #${id}? Essa ação não pode ser desfeita.`)) return;
+  await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
+  mostrarSalvo();
+  carregarTudo();
+}
+
 async function carregarStatusSenha() {
   const { definida } = await fetch('/api/senha/status').then(r => r.json());
   const explicacao = document.getElementById('senha-explicacao');
@@ -757,7 +773,7 @@ function renderizarVendas(pedidos, stats) {
           <div class="pedido-item">
             <span class="qtd">${item.quantidade}x</span>
             <span class="nome">
-              ${item.nome}
+              ${item.nome}${item.porcao === 'meia' ? ' (meia)' : ''}
               ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
               ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
             </span>
@@ -767,6 +783,7 @@ function renderizarVendas(pedidos, stats) {
           <span>Total</span>
           <span>${formatarMoeda(p.total)}</span>
         </div>
+        <button class="btn-remover" style="width:100%;margin-top:10px;" onclick="excluirPedido(${p.id})">Excluir pedido</button>
       </div>
     `).join('');
   }
@@ -840,6 +857,9 @@ function editarProduto(id) {
     document.getElementById('produto-preco').value = p.preco;
     document.getElementById('produto-estoque').value = estoque[id] ?? 0;
     document.getElementById('produto-descricao').value = p.descricao || '';
+    document.getElementById('produto-tem-meia').checked = !!p.temMeiaPorcao;
+    document.getElementById('produto-preco-meia').value = p.precoMeia || '';
+    document.getElementById('linha-preco-meia').style.display = p.temMeiaPorcao ? 'block' : 'none';
     adicionaisFormAtual = p.adicionais ? [...p.adicionais] : [];
     renderizarAdicionaisForm();
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -851,9 +871,15 @@ async function salvarProduto() {
   const preco = parseFloat(document.getElementById('produto-preco').value);
   const estoqueInicial = parseInt(document.getElementById('produto-estoque').value || '0', 10);
   const descricao = document.getElementById('produto-descricao').value.trim();
+  const temMeiaPorcao = document.getElementById('produto-tem-meia').checked;
+  const precoMeia = temMeiaPorcao ? parseFloat(document.getElementById('produto-preco-meia').value) : null;
 
   if (!nome || isNaN(preco)) {
     alert('Preencha ao menos o nome e o preço.');
+    return;
+  }
+  if (temMeiaPorcao && isNaN(precoMeia)) {
+    alert('Preencha o preço da meia porção, ou desmarque a opção.');
     return;
   }
 
@@ -862,7 +888,7 @@ async function salvarProduto() {
   await fetch('/api/produtos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, nome, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual }),
+    body: JSON.stringify({ id, nome, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual, temMeiaPorcao, precoMeia }),
   });
 
   if (produtoEmEdicao) {
@@ -879,6 +905,9 @@ async function salvarProduto() {
   document.getElementById('produto-preco').value = '';
   document.getElementById('produto-estoque').value = '';
   document.getElementById('produto-descricao').value = '';
+  document.getElementById('produto-tem-meia').checked = false;
+  document.getElementById('produto-preco-meia').value = '';
+  document.getElementById('linha-preco-meia').style.display = 'none';
   renderizarAdicionaisForm();
 
   mostrarSalvo();

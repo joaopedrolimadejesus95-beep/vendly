@@ -41,6 +41,11 @@ const FERRAMENTA_PEDIDO = {
             nome: { type: "string" },
             quantidade: { type: "number" },
             preco_unitario: { type: "number" },
+            porcao: {
+              type: "string",
+              enum: ["inteira", "meia"],
+              description: "Se o produto tem opção de meia porção e o cliente escolheu, marque 'meia' e use o preço de meia porção do catálogo em preco_unitario. Caso contrário, 'inteira'.",
+            },
             observacao: {
               type: "string",
               description: "Observação livre do cliente sobre este item, ex: 'sem cebola', 'ponto da carne bem passado'. Deixe vazio se não houver.",
@@ -119,6 +124,11 @@ avisando educadamente que vai chamar alguém para tratar da reserva.
 
 Cada item pode ter uma OBSERVAÇÃO livre (ex: "sem cebola", "bem passado") — anote
 exatamente o que o cliente pedir, sem interpretar demais.
+
+Alguns produtos têm opção de MEIA PORÇÃO, com preço próprio (indicado no catálogo
+como "meia porção R$X"). Se o cliente pedir meia porção, use esse preço exato em
+preco_unitario e marque "porcao": "meia". Nunca ofereça meia porção pra produto
+que não tem essa opção no catálogo.
 
 Cada item também pode ter ADICIONAIS, mas SOMENTE os que estão listados no catálogo
 para aquele produto específico, com o preço exato de lá. Se o cliente pedir um
