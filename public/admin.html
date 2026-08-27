@@ -495,6 +495,7 @@ let produtoEmEdicao = null;
 let adicionaisFormAtual = [];
 let contagemAtendimentosAnterior = 0;
 let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
+let ultimoStatusWhatsapp = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
 
 // Pede permissão pra notificação do navegador assim que a página abre.
 if ("Notification" in window && Notification.permission === "default") {
@@ -570,6 +571,22 @@ async function atualizarVendasEAtendimentos() {
     fetch('/api/atendimentos').then(r => r.json()),
   ]);
   processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+  verificarStatusWhatsappSilencioso();
+}
+
+// Roda junto com as notificações de venda/atendimento, mas sem mexer na
+// tela — só avisa (som + notificação) se o WhatsApp desconectar sozinho
+// no meio do expediente, pra alguém perceber rápido e reconectar.
+async function verificarStatusWhatsappSilencioso() {
+  try {
+    const resp = await fetch('/api/whatsapp/status').then(r => r.json());
+    if (ultimoStatusWhatsapp === 'open' && resp.estado !== 'open') {
+      notificar('WhatsApp desconectado! ⚠️', 'O atendimento parou de funcionar — vá na aba WhatsApp para reconectar.');
+    }
+    ultimoStatusWhatsapp = resp.estado;
+  } catch (e) {
+    // Se nem der pra checar, não interrompe o resto do painel.
+  }
 }
 
 function processarVendasEAtendimentos(pedidosResp, atendimentosResp) {

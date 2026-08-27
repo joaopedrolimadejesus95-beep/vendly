@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
+import { comFila } from "./fileLock.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CAMINHO_DADOS = join(__dirname, "..", "data", "catalogo.json");
@@ -51,50 +52,63 @@ export function catalogoFormatado() {
 }
 
 export function baixarEstoque(itens = []) {
-  const dados = lerDados();
-  for (const item of itens) {
-    if (dados.estoque[item.produto_id] !== undefined) {
-      dados.estoque[item.produto_id] -= item.quantidade;
+  // Protegido por fila: se dois pedidos confirmarem quase juntos, a baixa
+  // de estoque de um espera a do outro terminar, em vez de os dois lerem
+  // o mesmo valor antigo e um "apagar" o desconto do outro.
+  return comFila("catalogo.json", () => {
+    const dados = lerDados();
+    for (const item of itens) {
+      if (dados.estoque[item.produto_id] !== undefined) {
+        dados.estoque[item.produto_id] -= item.quantidade;
+      }
     }
-  }
-  salvarDados(dados);
+    salvarDados(dados);
+  });
 }
 
 export function salvarEmpresa(novaEmpresa) {
-  const dados = lerDados();
-  dados.empresa = { ...dados.empresa, ...novaEmpresa };
-  salvarDados(dados);
-  return dados.empresa;
+  return comFila("catalogo.json", () => {
+    const dados = lerDados();
+    dados.empresa = { ...dados.empresa, ...novaEmpresa };
+    salvarDados(dados);
+    return dados.empresa;
+  });
 }
 
 export function salvarProduto(produto) {
-  const dados = lerDados();
-  const indiceExistente = dados.catalogo.findIndex((p) => p.id === produto.id);
-  if (indiceExistente >= 0) {
-    dados.catalogo[indiceExistente] = produto;
-  } else {
-    dados.catalogo.push(produto);
-    if (dados.estoque[produto.id] === undefined) {
-      dados.estoque[produto.id] = produto.estoqueInicial ?? 50;
+  return comFila("catalogo.json", () => {
+    const dados = lerDados();
+    const indiceExistente = dados.catalogo.findIndex((p) => p.id === produto.id);
+    if (indiceExistente >= 0) {
+      dados.catalogo[indiceExistente] = produto;
+    } else {
+      dados.catalogo.push(produto);
+      if (dados.estoque[produto.id] === undefined) {
+        dados.estoque[produto.id] = produto.estoqueInicial ?? 50;
+      }
     }
-  }
-  salvarDados(dados);
-  return dados.catalogo;
+    salvarDados(dados);
+    return dados.catalogo;
+  });
 }
 
 export function removerProduto(id) {
-  const dados = lerDados();
-  dados.catalogo = dados.catalogo.filter((p) => p.id !== id);
-  delete dados.estoque[id];
-  salvarDados(dados);
-  return dados.catalogo;
+  return comFila("catalogo.json", () => {
+    const dados = lerDados();
+    dados.catalogo = dados.catalogo.filter((p) => p.id !== id);
+    delete dados.estoque[id];
+    salvarDados(dados);
+    return dados.catalogo;
+  });
 }
 
 export function atualizarEstoqueManual(id, quantidade) {
-  const dados = lerDados();
-  dados.estoque[id] = quantidade;
-  salvarDados(dados);
-  return dados.estoque;
+  return comFila("catalogo.json", () => {
+    const dados = lerDados();
+    dados.estoque[id] = quantidade;
+    salvarDados(dados);
+    return dados.estoque;
+  });
 }
 
 // --- Senha do painel, definida pelo próprio estabelecimento ---

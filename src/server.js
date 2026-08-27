@@ -130,7 +130,7 @@ app.post("/webhook/mensagem", async (req, res) => {
     }
 
     if (resultado.status_pedido === "confirmado") {
-      baixarEstoque(resultado.itens);
+      await baixarEstoque(resultado.itens);
       registrarPedido({
         numeroCliente: numero,
         itens: resultado.itens,
@@ -162,8 +162,8 @@ app.get("/api/empresa", (req, res) => {
   res.json(getEmpresa());
 });
 
-app.put("/api/empresa", (req, res) => {
-  res.json(salvarEmpresa(req.body));
+app.put("/api/empresa", async (req, res) => {
+  res.json(await salvarEmpresa(req.body));
 });
 
 app.get("/api/senha/status", (req, res) => {
@@ -192,17 +192,17 @@ app.get("/api/produtos", (req, res) => {
   res.json({ produtos: getCatalogoCompleto(), estoque: getEstoque() });
 });
 
-app.post("/api/produtos", (req, res) => {
-  const produto = salvarProduto(req.body);
+app.post("/api/produtos", async (req, res) => {
+  const produto = await salvarProduto(req.body);
   res.json(produto);
 });
 
-app.delete("/api/produtos/:id", (req, res) => {
-  res.json(removerProduto(req.params.id));
+app.delete("/api/produtos/:id", async (req, res) => {
+  res.json(await removerProduto(req.params.id));
 });
 
-app.put("/api/estoque/:id", (req, res) => {
-  res.json(atualizarEstoqueManual(req.params.id, req.body.quantidade));
+app.put("/api/estoque/:id", async (req, res) => {
+  res.json(await atualizarEstoqueManual(req.params.id, req.body.quantidade));
 });
 
 app.get("/api/pedidos", (req, res) => {
