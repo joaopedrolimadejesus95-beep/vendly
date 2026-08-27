@@ -66,15 +66,44 @@ app.post("/webhook/mensagem", async (req, res) => {
 
     // A Evolution API manda vários tipos de evento; só nos interessa
     // mensagem de texto recebida (não enviada por nós mesmos).
-    const mensagem = evento?.data?.message?.conversation;
+    const mensagem = evento?.data?.message?.conversation
+      || evento?.data?.message?.extendedTextMessage?.text;
     const numero = evento?.data?.key?.remoteJid;
     const enviadaPorNos = evento?.data?.key?.fromMe;
     const ehGrupo = numero?.endsWith("@g.us");
 
+    // Detecta se a mensagem é áudio, imagem, figurinha, etc — o bot ainda
+    // não entende esses formatos. Em vez de ficar em silêncio (o que parece
+    // bot travado pro cliente), responde pedindo pra escrever.
+    const ehMidiaNaoSuportada = Boolean(
+      evento?.data?.message?.audioMessage
+      || evento?.data?.message?.imageMessage
+      || evento?.data?.message?.videoMessage
+      || evento?.data?.message?.stickerMessage
+      || evento?.data?.message?.documentMessage
+    );
+
     // O bot nunca deve responder em grupos — só em conversas diretas
     // com um cliente. Isso evita responder em grupos de família/amigos
     // que também estejam no WhatsApp conectado ao bot.
-    if (!mensagem || !numero || enviadaPorNos || ehGrupo) {
+    if (!numero || enviadaPorNos || ehGrupo) {
+      return res.sendStatus(200);
+    }
+
+    if (ehMidiaNaoSuportada) {
+      const tipoMidia = evento?.data?.message?.audioMessage
+        ? "áudios"
+        : evento?.data?.message?.stickerMessage
+        ? "figurinhas"
+        : "imagens/vídeos";
+      await enviarMensagem(
+        numero,
+        `Desculpa, ainda não consigo entender ${tipoMidia} 😅 Pode me mandar por texto, por favor?`
+      );
+      return res.sendStatus(200);
+    }
+
+    if (!mensagem) {
       return res.sendStatus(200);
     }
 
