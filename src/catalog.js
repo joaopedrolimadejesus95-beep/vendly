@@ -1,45 +1,80 @@
-import { readFileSync, writeFileSync } from "fs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
-import { comFila } from "./fileLock.js";
+import { pool } from "./db.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CAMINHO_DADOS = join(__dirname, "..", "data", "catalogo.json");
-
-// Em vez de dados fixos no código, o catálogo agora vem de um arquivo
-// JSON que a interface de administração (/admin) pode editar. Isso
-// permite que o dono do negócio cadastre produtos sem mexer em código.
-
-function lerDados() {
-  const conteudo = readFileSync(CAMINHO_DADOS, "utf-8");
-  return JSON.parse(conteudo);
+function gerarHash(senha, salt) {
+  return scryptSync(senha, salt, 64).toString("hex");
 }
 
-function salvarDados(dados) {
-  writeFileSync(CAMINHO_DADOS, JSON.stringify(dados, null, 2), "utf-8");
+function linhaParaProduto(linha) {
+  return {
+    id: linha.id,
+    nome: linha.nome,
+    preco: Number(linha.preco),
+    descricao: linha.descricao,
+    disponivel: linha.disponivel,
+    temMeiaPorcao: linha.tem_meia_porcao,
+    precoMeia: linha.preco_meia !== null ? Number(linha.preco_meia) : null,
+    adicionais: linha.adicionais || [],
+  };
 }
 
-export function getEmpresa() {
-  return lerDados().empresa;
+export async function getEmpresa() {
+  const { rows } = await pool.query("SELECT * FROM empresa WHERE id = 1");
+  const e = rows[0];
+  return {
+    nome: e.nome,
+    tipo: e.tipo,
+    aceitaEntrega: e.aceita_entrega,
+    endereco: e.endereco,
+    formasPagamento: e.formas_pagamento,
+    exigePagamentoAntecipado: e.exige_pagamento_antecipado,
+    diasFuncionamento: e.dias_funcionamento,
+    horarioAbertura: e.horario_abertura,
+    horarioFechamento: e.horario_fechamento,
+  };
 }
 
-export function getCatalogo() {
-  // Só retorna produtos marcados como disponíveis para a IA usar.
-  return lerDados().catalogo.filter((p) => p.disponivel !== false);
+export async function salvarEmpresa(novaEmpresa) {
+  const atual = await getEmpresa();
+  const dados = { ...atual, ...novaEmpresa };
+  await pool.query(
+    `UPDATE empresa SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
+     exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8
+     WHERE id = 1`,
+    [
+      dados.nome,
+      dados.aceitaEntrega,
+      dados.endereco,
+      JSON.stringify(dados.formasPagamento || []),
+      dados.exigePagamentoAntecipado,
+      JSON.stringify(dados.diasFuncionamento || []),
+      dados.horarioAbertura || "",
+      dados.horarioFechamento || "",
+    ]
+  );
+  return getEmpresa();
 }
 
-export function getCatalogoCompleto() {
-  // Todos os produtos, incluindo indisponíveis — usado pela tela de admin.
-  return lerDados().catalogo;
+// Só os produtos disponíveis — usado pela IA pra montar o cardápio real.
+export async function getCatalogo() {
+  const { rows } = await pool.query("SELECT * FROM produtos WHERE disponivel = true ORDER BY nome");
+  return rows.map(linhaParaProduto);
 }
 
-export function getEstoque() {
-  return lerDados().estoque;
+// Todos os produtos, incluindo indisponíveis — usado pela tela de admin.
+export async function getCatalogoCompleto() {
+  const { rows } = await pool.query("SELECT * FROM produtos ORDER BY nome");
+  return rows.map(linhaParaProduto);
 }
 
-export function catalogoFormatado() {
-  return getCatalogo()
+export async function getEstoque() {
+  const { rows } = await pool.query("SELECT id, estoque FROM produtos");
+  return Object.fromEntries(rows.map((r) => [r.id, r.estoque]));
+}
+
+export async function catalogoFormatado() {
+  const catalogo = await getCatalogo();
+  return catalogo
     .map((p) => {
       let linha = `- ${p.nome} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
       if (p.temMeiaPorcao && p.precoMeia) {
@@ -57,93 +92,79 @@ export function catalogoFormatado() {
     .join("\n");
 }
 
-export function baixarEstoque(itens = []) {
-  // Protegido por fila: se dois pedidos confirmarem quase juntos, a baixa
-  // de estoque de um espera a do outro terminar, em vez de os dois lerem
-  // o mesmo valor antigo e um "apagar" o desconto do outro.
-  return comFila("catalogo.json", () => {
-    const dados = lerDados();
+// Baixa de estoque ATÔMICA — o próprio Postgres garante que, mesmo com
+// dois pedidos confirmando ao mesmo tempo, nenhuma baixa se perde. Isso
+// substitui a fila manual (fileLock.js) que usávamos com arquivos.
+export async function baixarEstoque(itens = []) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
     for (const item of itens) {
-      if (dados.estoque[item.produto_id] !== undefined) {
-        dados.estoque[item.produto_id] -= item.quantidade;
-      }
+      await cliente.query(
+        "UPDATE produtos SET estoque = estoque - $1 WHERE id = $2",
+        [item.quantidade, item.produto_id]
+      );
     }
-    salvarDados(dados);
-  });
+    await cliente.query("COMMIT");
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
-export function salvarEmpresa(novaEmpresa) {
-  return comFila("catalogo.json", () => {
-    const dados = lerDados();
-    dados.empresa = { ...dados.empresa, ...novaEmpresa };
-    salvarDados(dados);
-    return dados.empresa;
-  });
+export async function salvarProduto(produto) {
+  await pool.query(
+    `INSERT INTO produtos (id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8, COALESCE((SELECT estoque FROM produtos WHERE id=$1), $9))
+     ON CONFLICT (id) DO UPDATE SET
+       nome=$2, preco=$3, descricao=$4, disponivel=$5, tem_meia_porcao=$6, preco_meia=$7, adicionais=$8`,
+    [
+      produto.id,
+      produto.nome,
+      produto.preco,
+      produto.descricao || "",
+      produto.disponivel ?? true,
+      produto.temMeiaPorcao || false,
+      produto.precoMeia || null,
+      JSON.stringify(produto.adicionais || []),
+      produto.estoqueInicial ?? 50,
+    ]
+  );
+  return getCatalogoCompleto();
 }
 
-export function salvarProduto(produto) {
-  return comFila("catalogo.json", () => {
-    const dados = lerDados();
-    const indiceExistente = dados.catalogo.findIndex((p) => p.id === produto.id);
-    if (indiceExistente >= 0) {
-      dados.catalogo[indiceExistente] = produto;
-    } else {
-      dados.catalogo.push(produto);
-      if (dados.estoque[produto.id] === undefined) {
-        dados.estoque[produto.id] = produto.estoqueInicial ?? 50;
-      }
-    }
-    salvarDados(dados);
-    return dados.catalogo;
-  });
+export async function removerProduto(id) {
+  await pool.query("DELETE FROM produtos WHERE id = $1", [id]);
+  return getCatalogoCompleto();
 }
 
-export function removerProduto(id) {
-  return comFila("catalogo.json", () => {
-    const dados = lerDados();
-    dados.catalogo = dados.catalogo.filter((p) => p.id !== id);
-    delete dados.estoque[id];
-    salvarDados(dados);
-    return dados.catalogo;
-  });
+export async function atualizarEstoqueManual(id, quantidade) {
+  await pool.query("UPDATE produtos SET estoque = $1 WHERE id = $2", [quantidade, id]);
+  return getEstoque();
 }
 
-export function atualizarEstoqueManual(id, quantidade) {
-  return comFila("catalogo.json", () => {
-    const dados = lerDados();
-    dados.estoque[id] = quantidade;
-    salvarDados(dados);
-    return dados.estoque;
-  });
+// --- Senha do painel ---
+
+export async function temSenhaDefinida() {
+  const { rows } = await pool.query("SELECT auth_hash FROM empresa WHERE id = 1");
+  return Boolean(rows[0]?.auth_hash);
 }
 
-// --- Senha do painel, definida pelo próprio estabelecimento ---
-// Nunca guardamos a senha em texto puro — só um "hash" (uma versão
-// embaralhada e irreversível dela), junto com um "salt" aleatório
-// que torna esse hash único mesmo se duas pessoas usarem a mesma senha.
-
-function gerarHash(senha, salt) {
-  return scryptSync(senha, salt, 64).toString("hex");
-}
-
-export function temSenhaDefinida() {
-  const dados = lerDados();
-  return Boolean(dados.auth?.hash);
-}
-
-export function verificarSenha(senhaTentativa) {
-  const dados = lerDados();
-  if (!dados.auth?.hash) return false;
-  const hashTentativa = gerarHash(senhaTentativa, dados.auth.salt);
-  const bufferSalvo = Buffer.from(dados.auth.hash, "hex");
+export async function verificarSenha(senhaTentativa) {
+  const { rows } = await pool.query("SELECT auth_salt, auth_hash FROM empresa WHERE id = 1");
+  const { auth_salt: salt, auth_hash: hash } = rows[0] || {};
+  if (!hash) return false;
+  const hashTentativa = gerarHash(senhaTentativa, salt);
+  const bufferSalvo = Buffer.from(hash, "hex");
   const bufferTentativa = Buffer.from(hashTentativa, "hex");
   if (bufferSalvo.length !== bufferTentativa.length) return false;
   return timingSafeEqual(bufferSalvo, bufferTentativa);
 }
 
-export function definirSenha(novaSenha) {
-  const dados = lerDados();
+export async function definirSenha(novaSenha) {
   const salt = randomBytes(16).toString("hex");
-  dados.auth = { salt, hash: gerarHash(novaSenha, salt) };
-  salvarDados(dados);
+  const hash = gerarHash(novaSenha, salt);
+  await pool.query("UPDATE empresa SET auth_salt = $1, auth_hash = $2 WHERE id = 1", [salt, hash]);
 }

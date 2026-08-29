@@ -42,7 +42,7 @@ export async function imprimirComanda(pedido) {
       return { impresso: false, motivo: "Impressora não respondeu" };
     }
 
-    const empresa = getEmpresa();
+    const empresa = await getEmpresa();
 
     impressora.alignCenter();
     impressora.bold(true);

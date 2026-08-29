@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { inicializarBancoDeDados } from "./db.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar } from "./whatsapp.js";
 import { registrarPedido, listarPedidos, getEstatisticas, listarPedidosNaoImpressos, marcarComoImpresso, removerPedido } from "./orders.js";
@@ -26,21 +27,26 @@ app.use(express.json());
 // Protege o painel de administração e a API com senha — mas agora a senha
 // é definida pelo próprio estabelecimento direto no painel (aba Regras),
 // não fica presa num arquivo .env que só quem programou consegue editar.
-function exigirSenha(req, res, next) {
-  // Enquanto o estabelecimento ainda não definiu nenhuma senha, libera o
-  // acesso — mas isso só deve acontecer na primeira configuração, local.
-  if (!temSenhaDefinida()) return next();
+async function exigirSenha(req, res, next) {
+  try {
+    // Enquanto o estabelecimento ainda não definiu nenhuma senha, libera o
+    // acesso — mas isso só deve acontecer na primeira configuração, local.
+    if (!(await temSenhaDefinida())) return next();
 
-  const cabecalho = req.headers.authorization || "";
-  const [tipo, credenciais] = cabecalho.split(" ");
+    const cabecalho = req.headers.authorization || "";
+    const [tipo, credenciais] = cabecalho.split(" ");
 
-  if (tipo === "Basic" && credenciais) {
-    const [, senhaEnviada] = Buffer.from(credenciais, "base64").toString().split(":");
-    if (verificarSenha(senhaEnviada)) return next();
+    if (tipo === "Basic" && credenciais) {
+      const [, senhaEnviada] = Buffer.from(credenciais, "base64").toString().split(":");
+      if (await verificarSenha(senhaEnviada)) return next();
+    }
+
+    res.set("WWW-Authenticate", 'Basic realm="Painel Vendly"');
+    res.status(401).send("Senha necessária para acessar o painel.");
+  } catch (erro) {
+    console.error("Erro ao verificar senha:", erro);
+    res.status(500).send("Erro interno ao verificar acesso.");
   }
-
-  res.set("WWW-Authenticate", 'Basic realm="Painel Vendly"');
-  res.status(401).send("Senha necessária para acessar o painel.");
 }
 
 app.use("/admin.html", exigirSenha);
@@ -131,7 +137,7 @@ app.post("/webhook/mensagem", async (req, res) => {
 
     if (resultado.status_pedido === "confirmado") {
       await baixarEstoque(resultado.itens);
-      registrarPedido({
+      await registrarPedido({
         numeroCliente: numero,
         itens: resultado.itens,
         total: resultado.total,
@@ -158,19 +164,19 @@ app.post("/webhook/mensagem", async (req, res) => {
 
 // ---- Rotas de administração (usadas pela página /admin.html) ----
 
-app.get("/api/empresa", (req, res) => {
-  res.json(getEmpresa());
+app.get("/api/empresa", async (req, res) => {
+  res.json(await getEmpresa());
 });
 
 app.put("/api/empresa", async (req, res) => {
   res.json(await salvarEmpresa(req.body));
 });
 
-app.get("/api/senha/status", (req, res) => {
-  res.json({ definida: temSenhaDefinida() });
+app.get("/api/senha/status", async (req, res) => {
+  res.json({ definida: await temSenhaDefinida() });
 });
 
-app.post("/api/senha", (req, res) => {
+app.post("/api/senha", async (req, res) => {
   const { senhaAtual, novaSenha } = req.body;
 
   if (!novaSenha || novaSenha.length < 4) {
@@ -180,16 +186,16 @@ app.post("/api/senha", (req, res) => {
   // Se já existe uma senha, exige a senha atual certa antes de trocar.
   // Se ainda não existe (primeira vez), qualquer um define a primeira —
   // é esperado que só o estabelecimento tenha acesso ao painel nesse momento.
-  if (temSenhaDefinida() && !verificarSenha(senhaAtual)) {
+  if ((await temSenhaDefinida()) && !(await verificarSenha(senhaAtual))) {
     return res.status(401).json({ erro: "Senha atual incorreta." });
   }
 
-  definirSenha(novaSenha);
+  await definirSenha(novaSenha);
   res.json({ ok: true });
 });
 
-app.get("/api/produtos", (req, res) => {
-  res.json({ produtos: getCatalogoCompleto(), estoque: getEstoque() });
+app.get("/api/produtos", async (req, res) => {
+  res.json({ produtos: await getCatalogoCompleto(), estoque: await getEstoque() });
 });
 
 app.post("/api/produtos", async (req, res) => {
@@ -205,8 +211,8 @@ app.put("/api/estoque/:id", async (req, res) => {
   res.json(await atualizarEstoqueManual(req.params.id, req.body.quantidade));
 });
 
-app.get("/api/pedidos", (req, res) => {
-  res.json({ pedidos: listarPedidos(), estatisticas: getEstatisticas() });
+app.get("/api/pedidos", async (req, res) => {
+  res.json({ pedidos: await listarPedidos(), estatisticas: await getEstatisticas() });
 });
 
 app.delete("/api/pedidos/:id", async (req, res) => {
@@ -215,12 +221,12 @@ app.delete("/api/pedidos/:id", async (req, res) => {
 });
 
 // Usadas pelo agente de impressão local (roda dentro do restaurante).
-app.get("/api/pedidos/pendentes-impressao", (req, res) => {
-  res.json({ pedidos: listarPedidosNaoImpressos() });
+app.get("/api/pedidos/pendentes-impressao", async (req, res) => {
+  res.json({ pedidos: await listarPedidosNaoImpressos() });
 });
 
-app.post("/api/pedidos/:id/marcar-impresso", (req, res) => {
-  const pedido = marcarComoImpresso(Number(req.params.id));
+app.post("/api/pedidos/:id/marcar-impresso", async (req, res) => {
+  const pedido = await marcarComoImpresso(Number(req.params.id));
   res.json({ ok: !!pedido });
 });
 
@@ -279,7 +285,15 @@ app.get("/", (req, res) => {
 });
 
 const PORTA = process.env.PORT || 3000;
-app.listen(PORTA, () => {
-  console.log(`Vendly bot escutando na porta ${PORTA}`);
-  console.log(`Painel de administração: http://localhost:${PORTA}/admin.html`);
-});
+
+inicializarBancoDeDados()
+  .then(() => {
+    app.listen(PORTA, () => {
+      console.log(`Vendly bot escutando na porta ${PORTA}`);
+      console.log(`Painel de administração: http://localhost:${PORTA}/admin.html`);
+    });
+  })
+  .catch((erro) => {
+    console.error("Não foi possível conectar ao banco de dados:", erro.message);
+    process.exit(1);
+  });

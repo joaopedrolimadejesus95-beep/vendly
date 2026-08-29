@@ -1,86 +1,63 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
-import { comFila } from "./fileLock.js";
+import { pool } from "./db.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CAMINHO_PEDIDOS = join(__dirname, "..", "data", "pedidos.json");
-
-function lerPedidos() {
-  if (!existsSync(CAMINHO_PEDIDOS)) return [];
-  return JSON.parse(readFileSync(CAMINHO_PEDIDOS, "utf-8"));
+function linhaParaPedido(linha) {
+  return {
+    id: linha.id,
+    numeroCliente: linha.numero_cliente,
+    itens: linha.itens,
+    total: Number(linha.total),
+    tipoEntrega: linha.tipo_entrega,
+    endereco: linha.endereco,
+    impresso: linha.impresso,
+    dataHora: linha.data_hora,
+  };
 }
 
-function salvarPedidos(pedidos) {
-  writeFileSync(CAMINHO_PEDIDOS, JSON.stringify(pedidos, null, 2), "utf-8");
+export async function registrarPedido({ numeroCliente, itens, total, tipoEntrega, endereco }) {
+  const { rows } = await pool.query(
+    `INSERT INTO pedidos (numero_cliente, itens, total, tipo_entrega, endereco)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [numeroCliente, JSON.stringify(itens), total, tipoEntrega || null, endereco || null]
+  );
+  return linhaParaPedido(rows[0]);
 }
 
-export function registrarPedido({ numeroCliente, itens, total, tipoEntrega, endereco }) {
-  return comFila("pedidos.json", () => {
-    const pedidos = lerPedidos();
-    const novoPedido = {
-      id: pedidos.length + 1,
-      numeroCliente,
-      itens,
-      total,
-      tipoEntrega: tipoEntrega || null,
-      endereco: endereco || null,
-      impresso: false,
-      dataHora: new Date().toISOString(),
-    };
-    pedidos.push(novoPedido);
-    salvarPedidos(pedidos);
-    return novoPedido;
-  });
+export async function listarPedidos() {
+  const { rows } = await pool.query("SELECT * FROM pedidos ORDER BY data_hora DESC");
+  return rows.map(linhaParaPedido);
 }
 
-export function listarPedidos() {
-  // Mais recentes primeiro.
-  return lerPedidos().slice().reverse();
+export async function listarPedidosNaoImpressos() {
+  const { rows } = await pool.query("SELECT * FROM pedidos WHERE impresso = false ORDER BY data_hora ASC");
+  return rows.map(linhaParaPedido);
 }
 
-// Usado pelo agente de impressão local (roda no restaurante) para saber
-// quais pedidos ainda não foram impressos.
-export function listarPedidosNaoImpressos() {
-  return lerPedidos().filter((p) => !p.impresso);
+export async function marcarComoImpresso(id) {
+  const { rows } = await pool.query("UPDATE pedidos SET impresso = true WHERE id = $1 RETURNING *", [id]);
+  return rows[0] ? linhaParaPedido(rows[0]) : null;
 }
 
-export function marcarComoImpresso(id) {
-  return comFila("pedidos.json", () => {
-    const pedidos = lerPedidos();
-    const pedido = pedidos.find((p) => p.id === id);
-    if (pedido) {
-      pedido.impresso = true;
-      salvarPedidos(pedidos);
-    }
-    return pedido;
-  });
+export async function removerPedido(id) {
+  const { rowCount } = await pool.query("DELETE FROM pedidos WHERE id = $1", [id]);
+  return rowCount > 0;
 }
 
-// Usado quando o dono do restaurante quer cancelar/remover um pedido
-// registrado por engano, direto no painel (aba Vendas).
-export function removerPedido(id) {
-  return comFila("pedidos.json", () => {
-    const pedidos = lerPedidos();
-    const existeAntes = pedidos.some((p) => p.id === id);
-    const restantes = pedidos.filter((p) => p.id !== id);
-    salvarPedidos(restantes);
-    return existeAntes;
-  });
-}
+export async function getEstatisticas() {
+  const hojeInicio = new Date();
+  hojeInicio.setHours(0, 0, 0, 0);
 
-export function getEstatisticas() {
-  const pedidos = lerPedidos();
-  const hoje = new Date().toDateString();
-
-  const pedidosHoje = pedidos.filter((p) => new Date(p.dataHora).toDateString() === hoje);
-  const faturamentoHoje = pedidosHoje.reduce((soma, p) => soma + p.total, 0);
-  const faturamentoTotal = pedidos.reduce((soma, p) => soma + p.total, 0);
-  const ticketMedio = pedidos.length > 0 ? faturamentoTotal / pedidos.length : 0;
+  const { rows: totalRows } = await pool.query(
+    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos"
+  );
+  const { rows: hojeRows } = await pool.query(
+    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE data_hora >= $1",
+    [hojeInicio.toISOString()]
+  );
+  const { rows: itensRows } = await pool.query("SELECT itens FROM pedidos");
 
   const contagemProdutos = {};
-  for (const pedido of pedidos) {
-    for (const item of pedido.itens) {
+  for (const linha of itensRows) {
+    for (const item of linha.itens) {
       contagemProdutos[item.nome] = (contagemProdutos[item.nome] || 0) + item.quantidade;
     }
   }
@@ -89,12 +66,15 @@ export function getEstatisticas() {
     .slice(0, 5)
     .map(([nome, quantidade]) => ({ nome, quantidade }));
 
+  const totalPedidos = totalRows[0].total;
+  const faturamentoTotal = totalRows[0].faturamento;
+
   return {
-    totalPedidos: pedidos.length,
-    pedidosHoje: pedidosHoje.length,
-    faturamentoHoje,
+    totalPedidos,
+    pedidosHoje: hojeRows[0].total,
+    faturamentoHoje: hojeRows[0].faturamento,
     faturamentoTotal,
-    ticketMedio,
+    ticketMedio: totalPedidos > 0 ? faturamentoTotal / totalPedidos : 0,
     maisVendidos,
   };
 }

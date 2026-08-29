@@ -94,8 +94,9 @@ const FERRAMENTA_PEDIDO = {
   },
 };
 
-function systemPrompt() {
-  const empresa = getEmpresa();
+async function systemPrompt() {
+  const empresa = await getEmpresa();
+  const catalogo = await catalogoFormatado();
   return `Você é a IA de atendimento da empresa "${empresa.nome}", um ${empresa.tipo}.
 
 Seu trabalho é entender o que o cliente quer pedir, com base SOMENTE no catálogo abaixo.
@@ -104,7 +105,7 @@ Se o cliente perguntar o que vem em algum item (ingredientes), responda usando
 exatamente a descrição do catálogo — não invente nem complete com suposições.
 
 CATÁLOGO:
-${catalogoFormatado()}
+${catalogo}
 
 Formas de pagamento aceitas: ${empresa.formasPagamento.join(", ")}.
 ${empresa.exigePagamentoAntecipado ? "Pagamento deve ser confirmado ANTES de fechar o pedido." : "Pagamento pode ser na entrega/retirada."}
@@ -169,7 +170,7 @@ e pergunte se quer ajustar.`;
  * @returns {Promise<object>} objeto estruturado do pedido
  */
 export async function interpretarMensagem(historico, mensagemAtual) {
-  const empresa = getEmpresa();
+  const empresa = await getEmpresa();
 
   // Se a empresa não está funcionando agora (dia ou horário fora do
   // configurado), responde direto sem gastar chamada de IA — mais rápido
@@ -194,7 +195,7 @@ export async function interpretarMensagem(historico, mensagemAtual) {
   const resposta = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 1000,
-    system: systemPrompt(),
+    system: await systemPrompt(),
     messages: mensagens,
     tools: [FERRAMENTA_PEDIDO],
     tool_choice: { type: "tool", name: "registrar_interacao" },
@@ -215,7 +216,7 @@ export async function interpretarMensagem(historico, mensagemAtual) {
     };
   }
 
-  return validarComEstoque(corrigirTotalNoTexto(recalcularTotal(corrigirQuebrasDeLinha(blocoFerramenta.input))));
+  return await validarComEstoque(corrigirTotalNoTexto(recalcularTotal(corrigirQuebrasDeLinha(blocoFerramenta.input))));
 }
 
 // Quarta camada de proteção: o número interno (pedido.total) já é
@@ -329,7 +330,7 @@ function formatarDias(dias) {
 // Segunda camada de proteção: mesmo que a IA erre, o código confere
 // o estoque de verdade antes de deixar o pedido ser confirmado,
 // e nunca deixa um "confirmado" vindo da IA marcar pagamento sozinho.
-function validarComEstoque(pedido) {
+async function validarComEstoque(pedido) {
   if (pedido.status_pedido !== "confirmado") return pedido;
 
   // Regra de segurança: nunca confirma pedido de entrega sem endereço,
@@ -345,7 +346,7 @@ function validarComEstoque(pedido) {
   // Isso é sempre uma etapa separada (Pilar 2 do documento de especificação).
   pedido.pagamento_confirmado = false;
 
-  const estoque = getEstoque();
+  const estoque = await getEstoque();
   for (const item of pedido.itens || []) {
     const disponivel = estoque[item.produto_id] ?? 0;
     if (item.quantidade > disponivel) {
