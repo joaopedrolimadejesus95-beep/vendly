@@ -1,9 +1,4 @@
-import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { pool } from "./db.js";
-
-function gerarHash(senha, salt) {
-  return scryptSync(senha, salt, 64).toString("hex");
-}
 
 function linhaParaProduto(linha) {
   return {
@@ -18,10 +13,16 @@ function linhaParaProduto(linha) {
   };
 }
 
-export async function getEmpresa() {
-  const { rows } = await pool.query("SELECT * FROM empresa WHERE id = 1");
+// Todas as funções abaixo recebem "empresaId" como primeiro parâmetro —
+// isso garante que cada restaurante só enxerga (e só consegue mexer)
+// nos próprios dados, nunca nos de outro cliente.
+
+export async function getEmpresa(empresaId) {
+  const { rows } = await pool.query("SELECT * FROM empresas WHERE id = $1", [empresaId]);
   const e = rows[0];
+  if (!e) return null;
   return {
+    id: e.id,
     nome: e.nome,
     tipo: e.tipo,
     aceitaEntrega: e.aceita_entrega,
@@ -31,16 +32,18 @@ export async function getEmpresa() {
     diasFuncionamento: e.dias_funcionamento,
     horarioAbertura: e.horario_abertura,
     horarioFechamento: e.horario_fechamento,
+    evolutionInstance: e.evolution_instance,
+    plano: e.plano || "base",
   };
 }
 
-export async function salvarEmpresa(novaEmpresa) {
-  const atual = await getEmpresa();
-  const dados = { ...atual, ...novaEmpresa };
+export async function salvarEmpresa(empresaId, novosDados) {
+  const atual = await getEmpresa(empresaId);
+  const dados = { ...atual, ...novosDados };
   await pool.query(
-    `UPDATE empresa SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
+    `UPDATE empresas SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
      exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8
-     WHERE id = 1`,
+     WHERE id = $9`,
     [
       dados.nome,
       dados.aceitaEntrega,
@@ -50,30 +53,37 @@ export async function salvarEmpresa(novaEmpresa) {
       JSON.stringify(dados.diasFuncionamento || []),
       dados.horarioAbertura || "",
       dados.horarioFechamento || "",
+      empresaId,
     ]
   );
-  return getEmpresa();
+  return getEmpresa(empresaId);
 }
 
-// Só os produtos disponíveis — usado pela IA pra montar o cardápio real.
-export async function getCatalogo() {
-  const { rows } = await pool.query("SELECT * FROM produtos WHERE disponivel = true ORDER BY nome");
+export async function getCatalogo(empresaId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM produtos WHERE empresa_id = $1 AND disponivel = true ORDER BY nome",
+    [empresaId]
+  );
   return rows.map(linhaParaProduto);
 }
 
-// Todos os produtos, incluindo indisponíveis — usado pela tela de admin.
-export async function getCatalogoCompleto() {
-  const { rows } = await pool.query("SELECT * FROM produtos ORDER BY nome");
+export async function getCatalogoCompleto(empresaId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM produtos WHERE empresa_id = $1 ORDER BY nome",
+    [empresaId]
+  );
   return rows.map(linhaParaProduto);
 }
 
-export async function getEstoque() {
-  const { rows } = await pool.query("SELECT id, estoque FROM produtos");
+export async function getEstoque(empresaId) {
+  const { rows } = await pool.query("SELECT id, estoque FROM produtos WHERE empresa_id = $1", [
+    empresaId,
+  ]);
   return Object.fromEntries(rows.map((r) => [r.id, r.estoque]));
 }
 
-export async function catalogoFormatado() {
-  const catalogo = await getCatalogo();
+export async function catalogoFormatado(empresaId) {
+  const catalogo = await getCatalogo(empresaId);
   return catalogo
     .map((p) => {
       let linha = `- ${p.nome} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
@@ -92,17 +102,14 @@ export async function catalogoFormatado() {
     .join("\n");
 }
 
-// Baixa de estoque ATÔMICA — o próprio Postgres garante que, mesmo com
-// dois pedidos confirmando ao mesmo tempo, nenhuma baixa se perde. Isso
-// substitui a fila manual (fileLock.js) que usávamos com arquivos.
-export async function baixarEstoque(itens = []) {
+export async function baixarEstoque(empresaId, itens = []) {
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
     for (const item of itens) {
       await cliente.query(
-        "UPDATE produtos SET estoque = estoque - $1 WHERE id = $2",
-        [item.quantidade, item.produto_id]
+        "UPDATE produtos SET estoque = estoque - $1 WHERE empresa_id = $2 AND id = $3",
+        [item.quantidade, empresaId, item.produto_id]
       );
     }
     await cliente.query("COMMIT");
@@ -114,14 +121,15 @@ export async function baixarEstoque(itens = []) {
   }
 }
 
-export async function salvarProduto(produto) {
+export async function salvarProduto(empresaId, produto) {
   await pool.query(
-    `INSERT INTO produtos (id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8, COALESCE((SELECT estoque FROM produtos WHERE id=$1), $9))
-     ON CONFLICT (id) DO UPDATE SET
-       nome=$2, preco=$3, descricao=$4, disponivel=$5, tem_meia_porcao=$6, preco_meia=$7, adicionais=$8`,
+    `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE((SELECT estoque FROM produtos WHERE empresa_id=$2 AND id=$1), $10))
+     ON CONFLICT (empresa_id, id) DO UPDATE SET
+       nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9`,
     [
       produto.id,
+      empresaId,
       produto.nome,
       produto.preco,
       produto.descricao || "",
@@ -132,39 +140,28 @@ export async function salvarProduto(produto) {
       produto.estoqueInicial ?? 50,
     ]
   );
-  return getCatalogoCompleto();
+  return getCatalogoCompleto(empresaId);
 }
 
-export async function removerProduto(id) {
-  await pool.query("DELETE FROM produtos WHERE id = $1", [id]);
-  return getCatalogoCompleto();
+export async function removerProduto(empresaId, id) {
+  await pool.query("DELETE FROM produtos WHERE empresa_id = $1 AND id = $2", [empresaId, id]);
+  return getCatalogoCompleto(empresaId);
 }
 
-export async function atualizarEstoqueManual(id, quantidade) {
-  await pool.query("UPDATE produtos SET estoque = $1 WHERE id = $2", [quantidade, id]);
-  return getEstoque();
+export async function atualizarEstoqueManual(empresaId, id, quantidade) {
+  await pool.query("UPDATE produtos SET estoque = $1 WHERE empresa_id = $2 AND id = $3", [
+    quantidade,
+    empresaId,
+    id,
+  ]);
+  return getEstoque(empresaId);
 }
 
-// --- Senha do painel ---
-
-export async function temSenhaDefinida() {
-  const { rows } = await pool.query("SELECT auth_hash FROM empresa WHERE id = 1");
-  return Boolean(rows[0]?.auth_hash);
-}
-
-export async function verificarSenha(senhaTentativa) {
-  const { rows } = await pool.query("SELECT auth_salt, auth_hash FROM empresa WHERE id = 1");
-  const { auth_salt: salt, auth_hash: hash } = rows[0] || {};
-  if (!hash) return false;
-  const hashTentativa = gerarHash(senhaTentativa, salt);
-  const bufferSalvo = Buffer.from(hash, "hex");
-  const bufferTentativa = Buffer.from(hashTentativa, "hex");
-  if (bufferSalvo.length !== bufferTentativa.length) return false;
-  return timingSafeEqual(bufferSalvo, bufferTentativa);
-}
-
-export async function definirSenha(novaSenha) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = gerarHash(novaSenha, salt);
-  await pool.query("UPDATE empresa SET auth_salt = $1, auth_hash = $2 WHERE id = 1", [salt, hash]);
+// Usado pelo webhook: dado o nome da instância da Evolution API que
+// recebeu a mensagem, descobre de qual empresa (restaurante) ela é.
+export async function getEmpresaPorInstancia(evolutionInstance) {
+  const { rows } = await pool.query("SELECT id FROM empresas WHERE evolution_instance = $1", [
+    evolutionInstance,
+  ]);
+  return rows[0]?.id ?? null;
 }

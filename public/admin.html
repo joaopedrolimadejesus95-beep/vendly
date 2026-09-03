@@ -102,6 +102,41 @@
   }
   h2:first-child { margin-top: 0; }
 
+  .grade-mesas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .mesa-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--herb);
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .mesa-card:hover { transform: translateY(-2px); }
+  .mesa-card.ocupada { border-top-color: var(--flame); }
+  .mesa-card .mesa-numero { font-family: var(--font-display); font-weight: 600; font-size: 18px; text-transform: uppercase; }
+  .mesa-card .mesa-status { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 4px; }
+  .mesa-card.ocupada .mesa-status { color: var(--flame); }
+  .mesa-card .mesa-total { font-family: var(--font-mono); font-size: 13px; font-weight: 700; margin-top: 6px; }
+
+  .badge-origem {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 20px;
+    margin-left: 6px;
+    background: var(--paper-dim);
+    color: var(--muted);
+  }
+  .badge-origem.mesa { background: #fdecdf; color: var(--flame); }
+
   .grade-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -329,14 +364,42 @@
 </head>
 <body>
 
+<div id="tela-login" style="display:flex; min-height:100vh; align-items:center; justify-content:center; background:var(--ink); padding:20px;">
+  <div style="background:var(--paper); max-width:360px; width:100%; padding:32px 28px; border-radius:2px;">
+    <div style="font-family:var(--font-display); font-weight:700; font-size:24px; text-transform:uppercase; letter-spacing:0.02em; margin-bottom:4px;">Vendly</div>
+    <div style="color:var(--muted); font-size:13px; margin-bottom:24px;">Entre com o login do seu restaurante</div>
+
+    <label>Usuário</label>
+    <input type="text" id="login-usuario" placeholder="seu-usuario" autocomplete="username" />
+
+    <label>Senha</label>
+    <input type="password" id="login-senha" placeholder="Sua senha" autocomplete="current-password" />
+
+    <button class="btn-principal" style="width:100%; margin-top:16px;" onclick="fazerLogin()">Entrar</button>
+    <div id="login-erro" style="color:var(--flame); font-size:13px; margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="app-principal" style="display:none;">
+
 <div class="topo">
-  <h1>Vendly</h1>
-  <div class="empresa-nome" id="topo-empresa-nome">carregando...</div>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h1>Vendly</h1>
+      <div class="empresa-nome" id="topo-empresa-nome">carregando...</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button onclick="document.getElementById('modal-tutorial').style.display='flex'" style="background:transparent;border:1px solid rgba(250,246,239,0.3);color:var(--paper);padding:7px 12px;font-size:12px;border-radius:2px;">Tutorial</button>
+      <a href="https://wa.me/5544999874707?text=Oi!%20Preciso%20de%20ajuda%20com%20o%20Vendly" target="_blank" style="background:var(--herb);color:white;padding:7px 12px;font-size:12px;border-radius:2px;text-decoration:none;white-space:nowrap;">Fale conosco</a>
+      <button onclick="fazerLogout()" style="background:transparent;border:1px solid rgba(250,246,239,0.3);color:var(--paper);padding:7px 12px;font-size:12px;border-radius:2px;">Sair</button>
+    </div>
+  </div>
   <div class="abas">
     <div class="aba ativa" data-aba="vendas" onclick="mudarAba('vendas')">Vendas</div>
     <div class="aba" data-aba="atendimentos" onclick="mudarAba('atendimentos')">
       Atendimentos <span class="badge-contagem" id="badge-atendimentos"></span>
     </div>
+    <div class="aba" data-aba="mesas" onclick="mudarAba('mesas')">Mesas</div>
     <div class="aba" data-aba="cardapio" onclick="mudarAba('cardapio')">Cardápio</div>
     <div class="aba" data-aba="regras" onclick="mudarAba('regras')">Regras</div>
     <div class="aba" data-aba="whatsapp" onclick="mudarAba('whatsapp')">WhatsApp</div>
@@ -378,6 +441,54 @@
     <div id="lista-atendimentos"></div>
   </section>
 
+  <section class="painel" id="painel-mesas">
+    <h2>Mesas</h2>
+    <div id="lista-mesas" class="grade-mesas"></div>
+
+    <div class="card" id="card-adicionar-mesa">
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Adicionar mesa</strong>
+      <label>Número ou nome da mesa</label>
+      <div class="linha">
+        <input type="text" id="mesa-novo-numero" placeholder="Ex: 5, Balcão, Área externa 2" />
+        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesaNova()">Adicionar</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="modal-mesa" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); max-width:420px; width:100%; max-height:85vh; overflow-y:auto; padding:24px; border-radius:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 id="modal-mesa-titulo" style="margin:0;">Mesa</h2>
+        <button onclick="fecharModalMesa()" class="btn-secundario" style="padding:4px 10px;">✕</button>
+      </div>
+
+      <div id="modal-mesa-itens" style="margin-bottom:16px;"></div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <label>Adicionar item</label>
+        <select id="mesa-select-produto" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px; font-size:15px; margin-bottom:8px;"></select>
+        <div class="linha">
+          <input type="number" id="mesa-item-quantidade" value="1" min="1" placeholder="Qtd" />
+          <button class="btn-secundario" style="flex: 0 0 auto;" onclick="adicionarItemNaMesa()">Adicionar</button>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; font-weight:700; font-size:16px; margin-bottom:16px;">
+        <span>Total</span>
+        <span id="modal-mesa-total">R$0,00</span>
+      </div>
+
+      <label>Forma de pagamento</label>
+      <select id="mesa-forma-pagamento" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px; font-size:15px; margin-bottom:14px;">
+        <option value="pix">Pix</option>
+        <option value="dinheiro">Dinheiro</option>
+        <option value="cartão">Cartão</option>
+      </select>
+
+      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual()">Fechar mesa e lançar pedido</button>
+    </div>
+  </div>
+
   <section class="painel" id="painel-cardapio">
     <h2>Produtos</h2>
     <div id="lista-produtos"></div>
@@ -398,8 +509,8 @@
         </div>
       </div>
 
-      <label>Ingredientes / descrição</label>
-      <input type="text" id="produto-descricao" placeholder="Ex: pão, hambúrguer, queijo, bacon" />
+      <label>Ingredientes / descrição <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(quanto mais detalhe, melhor a IA responde — ex: tipo de carne, tipo de queijo)</span></label>
+      <input type="text" id="produto-descricao" placeholder="Ex: pão brioche, hambúrguer de carne bovina 150g, queijo cheddar, bacon defumado" />
 
       <div class="toggle-linha">
         <span>Tem opção de meia porção?</span>
@@ -472,16 +583,24 @@
 
     <h2>Senha do painel</h2>
     <div class="card">
-      <div id="senha-explicacao" style="font-size:13px;color:#8a8073;margin-bottom:10px;"></div>
+      <div style="font-size:13px;color:#8a8073;margin-bottom:10px;">Pra trocar sua senha, informe a atual e a nova.</div>
 
-      <label id="label-senha-atual" style="display:none">Senha atual</label>
-      <input type="password" id="senha-atual" style="display:none" />
+      <label>Senha atual</label>
+      <input type="password" id="senha-atual" />
 
       <label>Nova senha</label>
       <input type="password" id="senha-nova" placeholder="Pelo menos 4 caracteres" />
 
-      <button class="btn-principal" style="margin-top:14px" onclick="salvarSenha()">Definir senha</button>
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarSenha()">Trocar senha</button>
       <div id="senha-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
+    </div>
+
+    <h2>Cancelar</h2>
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se você está pensando em cancelar, adoraríamos saber o motivo — isso nos ajuda a melhorar.</div>
+      <label>O que podemos melhorar? (opcional)</label>
+      <input type="text" id="feedback-cancelamento" placeholder="Conta pra gente o que aconteceu..." />
+      <button onclick="cancelarComFeedback()" class="btn-remover" style="width:100%;margin-top:14px;padding:13px;">Quero cancelar</button>
     </div>
   </section>
 
@@ -499,12 +618,90 @@
 
 <div id="status-salvo">Salvo ✓</div>
 
+<div id="modal-tutorial" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--paper); max-width:420px; width:100%; max-height:80vh; overflow-y:auto; padding:24px; border-radius:2px;">
+    <h2 style="margin-bottom:16px;">Como usar o Vendly</h2>
+    <div style="font-size:14px; line-height:1.7;">
+      <p style="margin-bottom:12px;"><b>Vendas</b> — acompanhe faturamento, ticket médio e o histórico de pedidos confirmados pelo WhatsApp.</p>
+      <p style="margin-bottom:12px;"><b>Atendimentos</b> — clientes que a IA transferiu pra você (reclamação, pedido de desconto, etc). Responda pelo WhatsApp normal e depois clica em "devolver pra IA".</p>
+      <p style="margin-bottom:12px;"><b>Cardápio</b> — cadastre, edite ou remova produtos. Quanto mais detalhe na descrição (tipo de carne, tipo de queijo), melhor a IA responde os clientes.</p>
+      <p style="margin-bottom:12px;"><b>Regras</b> — nome do restaurante, endereço, horário de funcionamento, formas de pagamento, e a senha do painel.</p>
+      <p style="margin-bottom:12px;"><b>WhatsApp</b> — conecte o número do restaurante escaneando o QR code.</p>
+    </div>
+    <button onclick="document.getElementById('modal-tutorial').style.display='none'" class="btn-principal" style="width:100%; margin-top:12px;">Entendi</button>
+  </div>
+</div>
+
 <script>
 let produtoEmEdicao = null;
+let planoAtual = 'base';
 let adicionaisFormAtual = [];
 let contagemAtendimentosAnterior = 0;
 let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
 let ultimoStatusWhatsapp = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
+
+// Envolve o fetch normal, adicionando o token de login automaticamente
+// em toda chamada de API, e voltando pra tela de login se a sessão
+// expirar ou for inválida (resposta 401).
+async function apiFetch(url, opcoes = {}) {
+  const token = localStorage.getItem('vendly_token');
+  const cabecalhos = { ...(opcoes.headers || {}) };
+  if (token) cabecalhos['Authorization'] = `Bearer ${token}`;
+
+  const resposta = await fetch(url, { ...opcoes, headers: cabecalhos });
+
+  if (resposta.status === 401 && url !== '/api/login') {
+    localStorage.removeItem('vendly_token');
+    mostrarTelaLogin();
+    throw new Error('Sessão expirada');
+  }
+  return resposta;
+}
+
+function mostrarTelaLogin() {
+  document.getElementById('tela-login').style.display = 'flex';
+  document.getElementById('app-principal').style.display = 'none';
+}
+
+function mostrarApp() {
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('app-principal').style.display = 'block';
+}
+
+async function fazerLogin() {
+  const login = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erroDiv = document.getElementById('login-erro');
+  erroDiv.textContent = '';
+
+  if (!login || !senha) {
+    erroDiv.textContent = 'Preencha login e senha.';
+    return;
+  }
+
+  try {
+    const resposta = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, senha }),
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      erroDiv.textContent = dados.erro || 'Não foi possível entrar.';
+      return;
+    }
+    localStorage.setItem('vendly_token', dados.token);
+    mostrarApp();
+    iniciarApp();
+  } catch (e) {
+    erroDiv.textContent = 'Erro de conexão. Tente de novo.';
+  }
+}
+
+function fazerLogout() {
+  localStorage.removeItem('vendly_token');
+  mostrarTelaLogin();
+}
 
 // Pede permissão pra notificação do navegador assim que a página abre.
 if ("Notification" in window && Notification.permission === "default") {
@@ -538,6 +735,27 @@ function mudarAba(nome) {
   document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativa'));
   document.getElementById('painel-' + nome).classList.add('ativa');
   if (nome === 'whatsapp') verificarStatusWhatsapp();
+  if (nome === 'mesas') {
+    if (planoAtual === 'pro' || planoAtual === 'premium') {
+      carregarMesas();
+    } else {
+      mostrarBloqueioMesas();
+    }
+  }
+}
+
+function mostrarBloqueioMesas() {
+  document.getElementById('lista-mesas').innerHTML = `
+    <div class="card" style="grid-column: 1 / -1; text-align:center; padding:36px 20px;">
+      <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+      <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">Mesas</div>
+      <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Pro e Premium — atenda pedido presencial com a mesma facilidade do WhatsApp.</div>
+      <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20fazer%20upgrade%20pro%20plano%20com%20Mesas" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer o plano Pro</a>
+    </div>
+  `;
+  // Esconde o formulário de "adicionar mesa" também — não faz sentido
+  // deixar cadastrar mesa se o plano nem dá acesso a usar elas.
+  document.getElementById('card-adicionar-mesa').style.display = 'none';
 }
 
 function formatarMoeda(valor) {
@@ -546,13 +764,14 @@ function formatarMoeda(valor) {
 
 async function carregarTudo() {
   const [empresaResp, produtosResp, pedidosResp, atendimentosResp] = await Promise.all([
-    fetch('/api/empresa').then(r => r.json()),
-    fetch('/api/produtos').then(r => r.json()),
-    fetch('/api/pedidos').then(r => r.json()),
-    fetch('/api/atendimentos').then(r => r.json()),
+    apiFetch('/api/empresa').then(r => r.json()),
+    apiFetch('/api/produtos').then(r => r.json()),
+    apiFetch('/api/pedidos').then(r => r.json()),
+    apiFetch('/api/atendimentos').then(r => r.json()),
   ]);
 
   document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
+  planoAtual = empresaResp.plano || 'base';
   document.getElementById('empresa-nome').value = empresaResp.nome || '';
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
@@ -576,8 +795,8 @@ async function carregarTudo() {
 // alguém tentava editar, porque a atualização automática sobrescrevia tudo.
 async function atualizarVendasEAtendimentos() {
   const [pedidosResp, atendimentosResp] = await Promise.all([
-    fetch('/api/pedidos').then(r => r.json()),
-    fetch('/api/atendimentos').then(r => r.json()),
+    apiFetch('/api/pedidos').then(r => r.json()),
+    apiFetch('/api/atendimentos').then(r => r.json()),
   ]);
   processarVendasEAtendimentos(pedidosResp, atendimentosResp);
   verificarStatusWhatsappSilencioso();
@@ -588,7 +807,7 @@ async function atualizarVendasEAtendimentos() {
 // no meio do expediente, pra alguém perceber rápido e reconectar.
 async function verificarStatusWhatsappSilencioso() {
   try {
-    const resp = await fetch('/api/whatsapp/status').then(r => r.json());
+    const resp = await apiFetch('/api/whatsapp/status').then(r => r.json());
     if (ultimoStatusWhatsapp === 'open' && resp.estado !== 'open') {
       notificar('WhatsApp desconectado! ⚠️', 'O atendimento parou de funcionar — vá na aba WhatsApp para reconectar.');
     }
@@ -621,8 +840,7 @@ function processarVendasEAtendimentos(pedidosResp, atendimentosResp) {
 
 // Verifica de novo a cada 5 segundos, pra funcionar como notificação "ao vivo" —
 // mas SEM mexer nos formulários que a pessoa possa estar editando.
-setInterval(atualizarVendasEAtendimentos, 5000);
-
+// (o setInterval só começa de verdade depois do login, dentro de iniciarApp())
 
 function renderizarAtendimentos(pendentes) {
   const lista = document.getElementById('lista-atendimentos');
@@ -641,32 +859,142 @@ function renderizarAtendimentos(pendentes) {
 }
 
 async function devolverParaIA(numero) {
-  await fetch(`/api/atendimentos/${encodeURIComponent(numero)}/devolver`, { method: 'POST' });
+  await apiFetch(`/api/atendimentos/${encodeURIComponent(numero)}/devolver`, { method: 'POST' });
   carregarTudo();
 }
 
 async function excluirPedido(id) {
   if (!confirm(`Excluir o pedido #${id}? Essa ação não pode ser desfeita.`)) return;
-  await fetch(`/api/pedidos/${id}`, { method: 'DELETE' });
+  await apiFetch(`/api/pedidos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
   carregarTudo();
 }
 
-async function carregarStatusSenha() {
-  const { definida } = await fetch('/api/senha/status').then(r => r.json());
-  const explicacao = document.getElementById('senha-explicacao');
-  const labelAtual = document.getElementById('label-senha-atual');
-  const campoAtual = document.getElementById('senha-atual');
+// --- Mesas ---
+let mesaAtualId = null;
 
-  if (definida) {
-    explicacao.textContent = 'Já existe uma senha definida. Pra trocar, informe a senha atual e a nova.';
-    labelAtual.style.display = 'block';
-    campoAtual.style.display = 'block';
-  } else {
-    explicacao.textContent = 'Ainda não foi definida nenhuma senha — qualquer pessoa com o link consegue acessar o painel. Defina uma agora.';
-    labelAtual.style.display = 'none';
-    campoAtual.style.display = 'none';
+async function carregarMesas() {
+  document.getElementById('card-adicionar-mesa').style.display = 'block';
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const lista = document.getElementById('lista-mesas');
+  if (mesas.length === 0) {
+    lista.innerHTML = '<div class="vazio">Nenhuma mesa cadastrada ainda. Adicione a primeira abaixo.</div>';
+    return;
   }
+  lista.innerHTML = mesas.map(m => `
+    <div class="mesa-card ${m.status}" onclick="abrirModalMesa(${m.id})">
+      <div class="mesa-numero">${m.numero}</div>
+      <div class="mesa-status">${m.status === 'ocupada' ? 'Ocupada' : 'Livre'}</div>
+      ${m.status === 'ocupada' ? `<div class="mesa-total">${formatarMoeda(m.total)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function criarMesaNova() {
+  const numero = document.getElementById('mesa-novo-numero').value.trim();
+  if (!numero) { alert('Digite o número ou nome da mesa.'); return; }
+  const resp = await apiFetch('/api/mesas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ numero }),
+  });
+  if (!resp.ok) {
+    const dados = await resp.json();
+    alert(dados.erro || 'Não foi possível criar a mesa.');
+    return;
+  }
+  document.getElementById('mesa-novo-numero').value = '';
+  mostrarSalvo();
+  carregarMesas();
+}
+
+async function abrirModalMesa(mesaId) {
+  mesaAtualId = mesaId;
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const mesa = mesas.find(m => m.id === mesaId);
+  if (!mesa) return;
+
+  document.getElementById('modal-mesa-titulo').textContent = `Mesa ${mesa.numero}`;
+  renderizarItensMesa(mesa);
+
+  // Popula o seletor de produtos com o cardápio real.
+  const { produtos } = await apiFetch('/api/produtos').then(r => r.json());
+  const select = document.getElementById('mesa-select-produto');
+  select.innerHTML = produtos.filter(p => p.disponivel !== false).map(p =>
+    `<option value="${p.id}" data-nome="${p.nome}" data-preco="${p.preco}">${p.nome} — ${formatarMoeda(p.preco)}</option>`
+  ).join('');
+
+  document.getElementById('modal-mesa').style.display = 'flex';
+}
+
+function renderizarItensMesa(mesa) {
+  const div = document.getElementById('modal-mesa-itens');
+  if (mesa.itensAtuais.length === 0) {
+    div.innerHTML = '<div class="vazio" style="padding:16px 0;">Nenhum item lançado ainda.</div>';
+  } else {
+    div.innerHTML = mesa.itensAtuais.map((item, i) => `
+      <div class="pedido-item" style="align-items:center;">
+        <span class="qtd">${item.quantidade}x</span>
+        <span class="nome">${item.nome}</span>
+        <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${i})">remover</button>
+      </div>
+    `).join('');
+  }
+  document.getElementById('modal-mesa-total').textContent = formatarMoeda(mesa.total);
+}
+
+async function adicionarItemNaMesa() {
+  const select = document.getElementById('mesa-select-produto');
+  const opcaoSelecionada = select.options[select.selectedIndex];
+  if (!opcaoSelecionada) return;
+
+  const quantidade = parseInt(document.getElementById('mesa-item-quantidade').value || '1', 10);
+  const item = {
+    produto_id: opcaoSelecionada.value,
+    nome: opcaoSelecionada.dataset.nome,
+    quantidade,
+    preco_unitario: parseFloat(opcaoSelecionada.dataset.preco),
+  };
+
+  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  const mesa = await resp.json();
+  renderizarItensMesa(mesa);
+  document.getElementById('mesa-item-quantidade').value = '1';
+  carregarMesas();
+}
+
+async function removerItemDaMesa(indice) {
+  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item/${indice}`, { method: 'DELETE' });
+  const mesa = await resp.json();
+  renderizarItensMesa(mesa);
+  carregarMesas();
+}
+
+async function fecharMesaAtual() {
+  const formaPagamento = document.getElementById('mesa-forma-pagamento').value;
+  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/fechar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ formaPagamento }),
+  });
+  if (!resp.ok) {
+    const dados = await resp.json();
+    alert(dados.erro || 'Não foi possível fechar a mesa.');
+    return;
+  }
+  fecharModalMesa();
+  mostrarSalvo();
+  carregarMesas();
+  carregarTudo();
+}
+
+function fecharModalMesa() {
+  document.getElementById('modal-mesa').style.display = 'none';
+  mesaAtualId = null;
 }
 
 async function salvarSenha() {
@@ -675,7 +1003,7 @@ async function salvarSenha() {
   const erroDiv = document.getElementById('senha-erro');
   erroDiv.textContent = '';
 
-  const resp = await fetch('/api/senha', {
+  const resp = await apiFetch('/api/senha', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ senhaAtual, novaSenha }),
@@ -690,7 +1018,6 @@ async function salvarSenha() {
   document.getElementById('senha-atual').value = '';
   document.getElementById('senha-nova').value = '';
   mostrarSalvo();
-  carregarStatusSenha();
 }
 
 async function verificarStatusWhatsapp() {
@@ -698,7 +1025,7 @@ async function verificarStatusWhatsapp() {
   const btnConectar = document.getElementById('btn-conectar-whatsapp');
   const btnDesconectar = document.getElementById('btn-desconectar-whatsapp');
   try {
-    const resp = await fetch('/api/whatsapp/status').then(r => r.json());
+    const resp = await apiFetch('/api/whatsapp/status').then(r => r.json());
     if (resp.estado === 'open') {
       statusDiv.innerHTML = '🟢 WhatsApp conectado e funcionando';
       btnConectar.style.display = 'none';
@@ -719,7 +1046,7 @@ async function conectarWhatsapp() {
   const qrDiv = document.getElementById('whatsapp-qrcode');
   statusDiv.innerHTML = 'Gerando QR code...';
   try {
-    const resp = await fetch('/api/whatsapp/conectar', { method: 'POST' }).then(r => r.json());
+    const resp = await apiFetch('/api/whatsapp/conectar', { method: 'POST' }).then(r => r.json());
     if (resp.qrcode) {
       statusDiv.innerHTML = 'Abra o WhatsApp do restaurante → Aparelhos conectados → Conectar um aparelho, e escaneie:';
       qrDiv.innerHTML = `<img src="${resp.qrcode}" style="max-width:250px;margin-top:10px" />`;
@@ -735,7 +1062,7 @@ async function conectarWhatsapp() {
 
 async function desconectarWhatsapp() {
   if (!confirm('Desconectar o WhatsApp do restaurante?')) return;
-  await fetch('/api/whatsapp/desconectar', { method: 'POST' });
+  await apiFetch('/api/whatsapp/desconectar', { method: 'POST' });
   verificarStatusWhatsapp();
 }
 
@@ -765,7 +1092,7 @@ function renderizarVendas(pedidos, stats) {
     lista.innerHTML = pedidos.slice(0, 15).map(p => `
       <div class="pedido-ticket">
         <div class="pedido-cabecalho">
-          <span>Pedido #${p.id}</span>
+          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${p.mesaNumero || ''}</span>` : `<span class="badge-origem">WhatsApp</span>`}</span>
           <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + p.endereco : ''}</div>` : ''}
@@ -849,7 +1176,7 @@ function removerAdicionalDaLista(indice) {
 }
 
 function editarProduto(id) {
-  fetch('/api/produtos').then(r => r.json()).then(({ produtos, estoque }) => {
+  apiFetch('/api/produtos').then(r => r.json()).then(({ produtos, estoque }) => {
     const p = produtos.find(x => x.id === id);
     if (!p) return;
     produtoEmEdicao = id;
@@ -885,14 +1212,14 @@ async function salvarProduto() {
 
   const id = produtoEmEdicao || nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 
-  await fetch('/api/produtos', {
+  await apiFetch('/api/produtos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, nome, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual, temMeiaPorcao, precoMeia }),
   });
 
   if (produtoEmEdicao) {
-    await fetch(`/api/estoque/${id}`, {
+    await apiFetch(`/api/estoque/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ quantidade: estoqueInicial }),
@@ -916,7 +1243,7 @@ async function salvarProduto() {
 
 async function removerProduto(id) {
   if (!confirm('Remover esse produto do cardápio?')) return;
-  await fetch(`/api/produtos/${id}`, { method: 'DELETE' });
+  await apiFetch(`/api/produtos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
   carregarTudo();
 }
@@ -931,7 +1258,7 @@ async function salvarEmpresa() {
     .filter((el) => el.checked)
     .map((el) => el.value);
 
-  await fetch('/api/empresa', {
+  await apiFetch('/api/empresa', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -949,13 +1276,41 @@ async function salvarEmpresa() {
   carregarTudo();
 }
 
+function cancelarComFeedback() {
+  const feedback = document.getElementById('feedback-cancelamento').value.trim();
+  const nomeEmpresa = document.getElementById('topo-empresa-nome').textContent || 'meu restaurante';
+  let mensagem = `Oi! Quero cancelar o Vendly do "${nomeEmpresa}".`;
+  if (feedback) {
+    mensagem += `\n\nMotivo/feedback: ${feedback}`;
+  }
+  window.open(`https://wa.me/5544999874707?text=${encodeURIComponent(mensagem)}`, '_blank');
+}
+
 function mostrarSalvo() {
   const el = document.getElementById('status-salvo');
   el.classList.add('visivel');
   setTimeout(() => el.classList.remove('visivel'), 1500);
 }
 
-carregarTudo();
-carregarStatusSenha();</script>
+// Só inicia o carregamento de dados depois de confirmar que tem um login
+// válido — antes disso, mostra a tela de login e não chama nenhuma API.
+let appJaIniciado = false;
+function iniciarApp() {
+  if (appJaIniciado) return;
+  appJaIniciado = true;
+  carregarTudo();
+  setInterval(atualizarVendasEAtendimentos, 5000);
+}
+
+if (localStorage.getItem('vendly_token')) {
+  mostrarApp();
+  iniciarApp();
+} else {
+  mostrarTelaLogin();
+}
+</script>
+
+</div><!-- fim de #app-principal -->
+
 </body>
 </html>

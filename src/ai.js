@@ -94,15 +94,19 @@ const FERRAMENTA_PEDIDO = {
   },
 };
 
-async function systemPrompt() {
-  const empresa = await getEmpresa();
-  const catalogo = await catalogoFormatado();
+async function systemPrompt(empresaId) {
+  const empresa = await getEmpresa(empresaId);
+  const catalogo = await catalogoFormatado(empresaId);
   return `Você é a IA de atendimento da empresa "${empresa.nome}", um ${empresa.tipo}.
 
 Seu trabalho é entender o que o cliente quer pedir, com base SOMENTE no catálogo abaixo.
 NUNCA invente produtos, preços ou ingredientes que não estão na lista.
-Se o cliente perguntar o que vem em algum item (ingredientes), responda usando
-exatamente a descrição do catálogo — não invente nem complete com suposições.
+Se o cliente perguntar o que vem em algum item (ingredientes, tipo de carne, tipo de
+queijo, se tem algum ingrediente específico), responda usando exatamente a descrição
+do catálogo — não invente nem complete com suposições. Se a descrição não mencionar
+o que o cliente perguntou (ex: perguntou "é carne de boi?" e a descrição só diz
+"hambúrguer"), diga que não tem essa informação específica cadastrada, em vez de
+supor uma resposta.
 
 CATÁLOGO:
 ${catalogo}
@@ -169,8 +173,8 @@ e pergunte se quer ajustar.`;
  * @param {string} mensagemAtual - nova mensagem do cliente
  * @returns {Promise<object>} objeto estruturado do pedido
  */
-export async function interpretarMensagem(historico, mensagemAtual) {
-  const empresa = await getEmpresa();
+export async function interpretarMensagem(empresaId, historico, mensagemAtual) {
+  const empresa = await getEmpresa(empresaId);
 
   // Se a empresa não está funcionando agora (dia ou horário fora do
   // configurado), responde direto sem gastar chamada de IA — mais rápido
@@ -195,7 +199,7 @@ export async function interpretarMensagem(historico, mensagemAtual) {
   const resposta = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 1000,
-    system: await systemPrompt(),
+    system: await systemPrompt(empresaId),
     messages: mensagens,
     tools: [FERRAMENTA_PEDIDO],
     tool_choice: { type: "tool", name: "registrar_interacao" },
@@ -216,7 +220,7 @@ export async function interpretarMensagem(historico, mensagemAtual) {
     };
   }
 
-  return await validarComEstoque(corrigirTotalNoTexto(recalcularTotal(corrigirQuebrasDeLinha(blocoFerramenta.input))));
+  return await validarComEstoque(empresaId, corrigirTotalNoTexto(recalcularTotal(corrigirQuebrasDeLinha(blocoFerramenta.input))));
 }
 
 // Quarta camada de proteção: o número interno (pedido.total) já é
@@ -330,7 +334,7 @@ function formatarDias(dias) {
 // Segunda camada de proteção: mesmo que a IA erre, o código confere
 // o estoque de verdade antes de deixar o pedido ser confirmado,
 // e nunca deixa um "confirmado" vindo da IA marcar pagamento sozinho.
-async function validarComEstoque(pedido) {
+async function validarComEstoque(empresaId, pedido) {
   if (pedido.status_pedido !== "confirmado") return pedido;
 
   // Regra de segurança: nunca confirma pedido de entrega sem endereço,
@@ -346,7 +350,7 @@ async function validarComEstoque(pedido) {
   // Isso é sempre uma etapa separada (Pilar 2 do documento de especificação).
   pedido.pagamento_confirmado = false;
 
-  const estoque = await getEstoque();
+  const estoque = await getEstoque(empresaId);
   for (const item of pedido.itens || []) {
     const disponivel = estoque[item.produto_id] ?? 0;
     if (item.quantidade > disponivel) {

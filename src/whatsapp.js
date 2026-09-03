@@ -1,28 +1,26 @@
 // Integração com a Evolution API (conexão não-oficial via QR code).
 // Documentação: https://doc.evolution-api.com
 //
-// A Evolution API expõe uma REST API simples: você manda POST pra ela
-// e ela entrega a mensagem no WhatsApp conectado.
+// Diferente de antes, o "nome da instância" (a conexão de WhatsApp)
+// agora é diferente PRA CADA EMPRESA — passado como parâmetro em cada
+// função, em vez de vir fixo do .env. Isso é o que permite cada
+// restaurante ter o próprio número conectado.
 
 const EVOLUTION_URL = process.env.EVOLUTION_API_URL; // ex: http://localhost:8080
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY;
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE_NAME; // nome que você dá pra conexão
 
-export async function enviarMensagem(numero, texto) {
-  const resposta = await fetch(
-    `${EVOLUTION_URL}/message/sendText/${EVOLUTION_INSTANCE}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_KEY,
-      },
-      body: JSON.stringify({
-        number: numero,
-        text: texto,
-      }),
-    }
-  );
+export async function enviarMensagem(instanceName, numero, texto) {
+  const resposta = await fetch(`${EVOLUTION_URL}/message/sendText/${instanceName}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: EVOLUTION_KEY,
+    },
+    body: JSON.stringify({
+      number: numero,
+      text: texto,
+    }),
+  });
 
   if (!resposta.ok) {
     const erro = await resposta.text();
@@ -32,36 +30,30 @@ export async function enviarMensagem(numero, texto) {
   return resposta.json();
 }
 
-// Funções abaixo permitem o próprio dono do restaurante conectar o WhatsApp
-// dele pela aba "WhatsApp" do painel, sem precisar de comando nenhum.
-
-export async function statusConexao() {
-  const resposta = await fetch(
-    `${EVOLUTION_URL}/instance/connectionState/${EVOLUTION_INSTANCE}`,
-    { headers: { apikey: EVOLUTION_KEY } }
-  );
+export async function statusConexao(instanceName) {
+  const resposta = await fetch(`${EVOLUTION_URL}/instance/connectionState/${instanceName}`, {
+    headers: { apikey: EVOLUTION_KEY },
+  });
   if (!resposta.ok) return { estado: "desconhecido" };
   const dados = await resposta.json();
   return { estado: dados?.instance?.state || "desconhecido" };
 }
 
-export async function gerarQrCode() {
+export async function gerarQrCode(instanceName) {
   // Tenta criar a instância (funciona se ela ainda não existir).
   await fetch(`${EVOLUTION_URL}/instance/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: EVOLUTION_KEY },
     body: JSON.stringify({
-      instanceName: EVOLUTION_INSTANCE,
+      instanceName,
       qrcode: true,
       integration: "WHATSAPP-BAILEYS",
     }),
   }).catch(() => null);
 
-  // Busca o QR code da instância (nova ou já existente).
-  const resposta = await fetch(
-    `${EVOLUTION_URL}/instance/connect/${EVOLUTION_INSTANCE}`,
-    { headers: { apikey: EVOLUTION_KEY } }
-  );
+  const resposta = await fetch(`${EVOLUTION_URL}/instance/connect/${instanceName}`, {
+    headers: { apikey: EVOLUTION_KEY },
+  });
   if (!resposta.ok) {
     throw new Error("Não foi possível gerar o QR code. Confira se a Evolution API está rodando.");
   }
@@ -69,9 +61,27 @@ export async function gerarQrCode() {
   return dados.base64 || dados.qrcode?.base64 || null;
 }
 
-export async function desconectar() {
-  await fetch(`${EVOLUTION_URL}/instance/logout/${EVOLUTION_INSTANCE}`, {
+export async function desconectar(instanceName) {
+  await fetch(`${EVOLUTION_URL}/instance/logout/${instanceName}`, {
     method: "DELETE",
     headers: { apikey: EVOLUTION_KEY },
   });
+}
+
+export async function configurarWebhook(instanceName, webhookUrl) {
+  const resposta = await fetch(`${EVOLUTION_URL}/webhook/set/${instanceName}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: EVOLUTION_KEY },
+    body: JSON.stringify({
+      webhook: {
+        url: webhookUrl,
+        enabled: true,
+        events: ["MESSAGES_UPSERT"],
+      },
+    }),
+  });
+  if (!resposta.ok) {
+    throw new Error("Não foi possível configurar o webhook.");
+  }
+  return resposta.json();
 }

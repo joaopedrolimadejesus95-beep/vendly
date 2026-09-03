@@ -10,50 +10,83 @@ function linhaParaPedido(linha) {
     endereco: linha.endereco,
     impresso: linha.impresso,
     dataHora: linha.data_hora,
+    origem: linha.origem || "whatsapp",
+    mesaNumero: linha.mesa_numero,
   };
 }
 
-export async function registrarPedido({ numeroCliente, itens, total, tipoEntrega, endereco }) {
+export async function registrarPedido(empresaId, { numeroCliente, itens, total, tipoEntrega, endereco, origem, mesaNumero }) {
   const { rows } = await pool.query(
-    `INSERT INTO pedidos (numero_cliente, itens, total, tipo_entrega, endereco)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [numeroCliente, JSON.stringify(itens), total, tipoEntrega || null, endereco || null]
+    `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, origem, mesa_numero)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [
+      empresaId,
+      numeroCliente,
+      JSON.stringify(itens),
+      total,
+      tipoEntrega || null,
+      endereco || null,
+      origem || "whatsapp",
+      mesaNumero || null,
+    ]
   );
   return linhaParaPedido(rows[0]);
 }
 
-export async function listarPedidos() {
-  const { rows } = await pool.query("SELECT * FROM pedidos ORDER BY data_hora DESC");
+export async function listarPedidos(empresaId, origem) {
+  if (origem && origem !== "todos") {
+    const { rows } = await pool.query(
+      "SELECT * FROM pedidos WHERE empresa_id = $1 AND origem = $2 ORDER BY data_hora DESC",
+      [empresaId, origem]
+    );
+    return rows.map(linhaParaPedido);
+  }
+  const { rows } = await pool.query(
+    "SELECT * FROM pedidos WHERE empresa_id = $1 ORDER BY data_hora DESC",
+    [empresaId]
+  );
   return rows.map(linhaParaPedido);
 }
 
-export async function listarPedidosNaoImpressos() {
-  const { rows } = await pool.query("SELECT * FROM pedidos WHERE impresso = false ORDER BY data_hora ASC");
+export async function listarPedidosNaoImpressos(empresaId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM pedidos WHERE empresa_id = $1 AND impresso = false ORDER BY data_hora ASC",
+    [empresaId]
+  );
   return rows.map(linhaParaPedido);
 }
 
-export async function marcarComoImpresso(id) {
-  const { rows } = await pool.query("UPDATE pedidos SET impresso = true WHERE id = $1 RETURNING *", [id]);
+export async function marcarComoImpresso(empresaId, id) {
+  const { rows } = await pool.query(
+    "UPDATE pedidos SET impresso = true WHERE empresa_id = $1 AND id = $2 RETURNING *",
+    [empresaId, id]
+  );
   return rows[0] ? linhaParaPedido(rows[0]) : null;
 }
 
-export async function removerPedido(id) {
-  const { rowCount } = await pool.query("DELETE FROM pedidos WHERE id = $1", [id]);
+export async function removerPedido(empresaId, id) {
+  const { rowCount } = await pool.query("DELETE FROM pedidos WHERE empresa_id = $1 AND id = $2", [
+    empresaId,
+    id,
+  ]);
   return rowCount > 0;
 }
 
-export async function getEstatisticas() {
+export async function getEstatisticas(empresaId) {
   const hojeInicio = new Date();
   hojeInicio.setHours(0, 0, 0, 0);
 
   const { rows: totalRows } = await pool.query(
-    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos"
+    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1",
+    [empresaId]
   );
   const { rows: hojeRows } = await pool.query(
-    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE data_hora >= $1",
-    [hojeInicio.toISOString()]
+    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1 AND data_hora >= $2",
+    [empresaId, hojeInicio.toISOString()]
   );
-  const { rows: itensRows } = await pool.query("SELECT itens FROM pedidos");
+  const { rows: itensRows } = await pool.query("SELECT itens FROM pedidos WHERE empresa_id = $1", [
+    empresaId,
+  ]);
 
   const contagemProdutos = {};
   for (const linha of itensRows) {

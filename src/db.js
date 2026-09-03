@@ -2,21 +2,18 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-// Uma "pool" (piscina) de conexões — o Postgres real, não mais arquivos JSON.
-// Isso resolve de vez o problema de concorrência (dois pedidos ao mesmo
-// tempo) porque o próprio banco de dados garante que operações não se
-// atropelem — não precisamos mais da fila manual (fileLock.js).
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Cria as tabelas na primeira vez que o servidor rodar, se ainda não
-// existirem. Isso permite "clonar" o projeto num servidor novo e ele já
-// se organizar sozinho, sem precisar rodar comando de migração manual.
+// Schema multi-empresa: cada restaurante cliente é uma linha na tabela
+// "empresas", com login e senha próprios. Produtos e pedidos "pertencem"
+// a uma empresa específica (empresa_id), garantindo que os dados de um
+// restaurante nunca aparecem pra outro.
 export async function inicializarBancoDeDados() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS empresa (
-      id INTEGER PRIMARY KEY DEFAULT 1,
+    CREATE TABLE IF NOT EXISTS empresas (
+      id SERIAL PRIMARY KEY,
       nome TEXT DEFAULT '',
       tipo TEXT DEFAULT 'restaurante',
       aceita_entrega BOOLEAN DEFAULT true,
@@ -26,16 +23,21 @@ export async function inicializarBancoDeDados() {
       dias_funcionamento JSONB DEFAULT '[]',
       horario_abertura TEXT DEFAULT '',
       horario_fechamento TEXT DEFAULT '',
-      auth_salt TEXT,
-      auth_hash TEXT,
-      CONSTRAINT unica_linha CHECK (id = 1)
+      login TEXT UNIQUE NOT NULL,
+      senha_salt TEXT NOT NULL,
+      senha_hash TEXT NOT NULL,
+      evolution_instance TEXT UNIQUE NOT NULL,
+      plano TEXT DEFAULT 'base',
+      criado_em TIMESTAMPTZ DEFAULT now()
     );
 
-    -- Garante que sempre existe exatamente 1 linha de configuração da empresa.
-    INSERT INTO empresa (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+    -- Garante o campo em bancos que já tinham "empresas" de antes do
+    -- sistema de planos existir.
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plano TEXT DEFAULT 'base';
 
     CREATE TABLE IF NOT EXISTS produtos (
-      id TEXT PRIMARY KEY,
+      id TEXT NOT NULL,
+      empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
       nome TEXT NOT NULL,
       preco NUMERIC(10,2) NOT NULL,
       descricao TEXT DEFAULT '',
@@ -43,18 +45,46 @@ export async function inicializarBancoDeDados() {
       tem_meia_porcao BOOLEAN DEFAULT false,
       preco_meia NUMERIC(10,2),
       adicionais JSONB DEFAULT '[]',
-      estoque INTEGER DEFAULT 0
+      estoque INTEGER DEFAULT 0,
+      PRIMARY KEY (empresa_id, id)
     );
 
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,
+      empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
       numero_cliente TEXT NOT NULL,
       itens JSONB NOT NULL,
       total NUMERIC(10,2) NOT NULL,
       tipo_entrega TEXT,
       endereco TEXT,
       impresso BOOLEAN DEFAULT false,
-      data_hora TIMESTAMPTZ DEFAULT now()
+      data_hora TIMESTAMPTZ DEFAULT now(),
+      origem TEXT DEFAULT 'whatsapp',
+      mesa_numero TEXT
     );
+
+    -- Adiciona as colunas novas em bancos que já tinham a tabela "pedidos"
+    -- de antes do módulo de Mesas existir (sem apagar nenhum pedido).
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS origem TEXT DEFAULT 'whatsapp';
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mesa_numero TEXT;
+
+    CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON pedidos(empresa_id);
+    CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON produtos(empresa_id);
+
+    -- Mesas do restaurante. Cada mesa guarda o "carrinho" da comanda em
+    -- andamento (itens_atuais) direto nela — quando o atendente fecha a
+    -- mesa, esse carrinho vira um pedido de verdade na tabela "pedidos"
+    -- (mesma tabela do WhatsApp) e a mesa volta a ficar livre.
+    CREATE TABLE IF NOT EXISTS mesas (
+      id SERIAL PRIMARY KEY,
+      empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+      numero TEXT NOT NULL,
+      status TEXT DEFAULT 'livre',
+      itens_atuais JSONB DEFAULT '[]',
+      aberta_em TIMESTAMPTZ,
+      UNIQUE(empresa_id, numero)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mesas_empresa ON mesas(empresa_id);
   `);
 }
