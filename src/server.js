@@ -3,7 +3,7 @@ import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
-import { listarMesas, criarMesa, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa } from "./mesas.js";
+import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
@@ -14,6 +14,8 @@ import {
   listarPedidosNaoImpressos,
   marcarComoImpresso,
   removerPedido,
+  listarPedidosPorMesa,
+  buscarPedidosMesaPorItem,
 } from "./orders.js";
 import {
   baixarEstoque,
@@ -59,25 +61,29 @@ function exigirLogin(req, res, next) {
 // senha, configurações ou WhatsApp. Essa lista é a única coisa que um
 // token de atendente consegue acessar.
 // Atendentes só podem usar a aba de Mesas — nada de mexer em cardápio,
-// senha, configurações ou WhatsApp. Essa lista é a única coisa que um
-// token de atendente consegue acessar.
+// senha, configurações ou WhatsApp. E dentro de Mesas, só conseguem
+// OPERAR mesas que já existem (adicionar item, fechar) — criar ou apagar
+// mesa é só o dono, pra não bagunçar o layout do salão sem querer.
 // IMPORTANTE: como esse middleware é montado com app.use("/api", ...), o
 // req.path aqui dentro já vem SEM o prefixo "/api" (o Express remove
-// automaticamente) — por isso os prefixos abaixo começam direto com "/".
+// automaticamente) — por isso os padrões abaixo começam direto com "/".
 const ROTAS_LIBERADAS_PARA_ATENDENTE = [
-  { metodo: "GET", prefixo: "/me" },
-  { metodo: "GET", prefixo: "/empresa" },
-  { metodo: "GET", prefixo: "/produtos" },
-  { metodo: "GET", prefixo: "/mesas" },
-  { metodo: "POST", prefixo: "/mesas" },
-  { metodo: "DELETE", prefixo: "/mesas" },
+  { metodo: "GET", regex: /^\/me$/ },
+  { metodo: "GET", regex: /^\/empresa$/ },
+  { metodo: "GET", regex: /^\/produtos$/ },
+  { metodo: "GET", regex: /^\/mesas$/ },
+  { metodo: "GET", regex: /^\/mesas\/busca$/ },
+  { metodo: "GET", regex: /^\/mesas\/\d+\/historico$/ },
+  { metodo: "POST", regex: /^\/mesas\/\d+\/item$/ },
+  { metodo: "DELETE", regex: /^\/mesas\/\d+\/item\/\d+$/ },
+  { metodo: "POST", regex: /^\/mesas\/\d+\/fechar$/ },
 ];
 
 function restringirAtendente(req, res, next) {
   if (req.tipoUsuario !== "atendente") return next();
 
   const liberado = ROTAS_LIBERADAS_PARA_ATENDENTE.some(
-    (r) => r.metodo === req.method && req.path.startsWith(r.prefixo)
+    (r) => r.metodo === req.method && r.regex.test(req.path)
   );
   if (!liberado) {
     return res.status(403).json({ erro: "Acesso restrito a administradores." });
@@ -312,6 +318,22 @@ app.post("/api/mesas", async (req, res) => {
   }
 });
 
+// Cria várias mesas numeradas de uma vez (ex: "da 1 até 50").
+app.post("/api/mesas/lote", async (req, res) => {
+  const de = Number(req.body.de);
+  const ate = Number(req.body.ate);
+
+  if (!Number.isInteger(de) || !Number.isInteger(ate) || de < 1 || ate < de) {
+    return res.status(400).json({ erro: "Informe um intervalo válido (ex: de 1 até 50)." });
+  }
+  if (ate - de > 300) {
+    return res.status(400).json({ erro: "Intervalo grande demais — no máximo 300 mesas de uma vez." });
+  }
+
+  const criadas = await criarMesasEmLote(req.empresaId, de, ate);
+  res.json({ criadas });
+});
+
 app.delete("/api/mesas/:id", async (req, res) => {
   res.json({ ok: await removerMesa(req.empresaId, Number(req.params.id)) });
 });
@@ -341,6 +363,27 @@ app.post("/api/mesas/:id/fechar", async (req, res) => {
   } catch (erro) {
     res.status(400).json({ erro: erro.message });
   }
+});
+
+// Histórico de pedidos já fechados de UMA mesa específica.
+app.get("/api/mesas/:id/historico", async (req, res) => {
+  const mesas = await listarMesas(req.empresaId);
+  const mesa = mesas.find((m) => m.id === Number(req.params.id));
+  if (!mesa) return res.status(404).json({ erro: "Mesa não encontrada." });
+  res.json({ pedidos: await listarPedidosPorMesa(req.empresaId, mesa.numero) });
+});
+
+// Busca global por item — mostra tanto mesas ABERTAS com esse item no
+// carrinho quanto pedidos de mesa já FECHADOS que tiveram esse item.
+app.get("/api/mesas/busca", async (req, res) => {
+  const termo = (req.query.termo || "").trim();
+  if (!termo) return res.json({ abertas: [], fechadas: [] });
+
+  const [abertas, fechadas] = await Promise.all([
+    buscarMesasAbertasComItem(req.empresaId, termo),
+    buscarPedidosMesaPorItem(req.empresaId, termo),
+  ]);
+  res.json({ abertas, fechadas });
 });
 
 // ---- Atendentes (contas de funcionário, só pro dono gerenciar) ----

@@ -102,6 +102,24 @@
   }
   h2:first-child { margin-top: 0; }
 
+  .mesa-produto-item {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mesa-produto-item:hover { background: var(--paper-dim); }
+  .mesa-produto-item.selecionado { background: #fdecdf; font-weight: 600; }
+  .mesa-adicional-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13.5px;
+  }
+
   .grade-mesas {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -443,6 +461,18 @@
 
   <section class="painel" id="painel-mesas">
     <h2>Mesas</h2>
+
+    <input type="text" id="mesa-filtro-numero" placeholder="Buscar mesa pelo número/nome..." oninput="filtrarGradeMesas()" style="margin-bottom:12px;" />
+
+    <div class="card" style="margin-bottom:14px;">
+      <label>Buscar pedido por item (ex: alcatra)</label>
+      <div class="linha">
+        <input type="text" id="mesa-busca-item-termo" placeholder="Nome do item..." />
+        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="buscarPedidosPorItem()">Buscar</button>
+      </div>
+      <div id="mesa-busca-item-resultado" style="margin-top:10px;"></div>
+    </div>
+
     <div id="lista-mesas" class="grade-mesas"></div>
 
     <div class="card" id="card-adicionar-mesa">
@@ -451,6 +481,16 @@
       <div class="linha">
         <input type="text" id="mesa-novo-numero" placeholder="Ex: 5, Balcão, Área externa 2" />
         <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesaNova()">Adicionar</button>
+      </div>
+
+      <div style="border-top:1px dashed var(--line); margin:16px 0 12px; padding-top:12px;">
+        <label>Ou criar várias numeradas de uma vez</label>
+        <div class="linha">
+          <input type="number" id="mesa-lote-de" placeholder="De (ex: 1)" min="1" />
+          <input type="number" id="mesa-lote-ate" placeholder="Até (ex: 50)" min="1" />
+          <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesasEmLoteUI()">Criar</button>
+        </div>
+        <div id="mesa-lote-status" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
       </div>
     </div>
   </section>
@@ -465,11 +505,22 @@
       <div id="modal-mesa-itens" style="margin-bottom:16px;"></div>
 
       <div class="card" style="margin-bottom:12px;">
-        <label>Adicionar item</label>
-        <select id="mesa-select-produto" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px; font-size:15px; margin-bottom:8px;"></select>
-        <div class="linha">
-          <input type="number" id="mesa-item-quantidade" value="1" min="1" placeholder="Qtd" />
-          <button class="btn-secundario" style="flex: 0 0 auto;" onclick="adicionarItemNaMesa()">Adicionar</button>
+        <label>Buscar produto</label>
+        <input type="text" id="mesa-busca-produto" placeholder="Digite pra buscar..." oninput="filtrarProdutosMesa()" style="margin-bottom:8px;" />
+        <div id="mesa-lista-produtos" style="max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
+
+        <div id="mesa-item-selecionado-bloco" style="display:none; border-top:1px dashed var(--line); padding-top:12px; margin-top:4px;">
+          <div id="mesa-item-selecionado-nome" style="font-weight:600; margin-bottom:8px;"></div>
+
+          <div id="mesa-adicionais-lista" style="margin-bottom:10px;"></div>
+
+          <label>Observação (opcional)</label>
+          <input type="text" id="mesa-item-observacao" placeholder="Ex: sem cebola, bem passado..." style="margin-bottom:8px;" />
+
+          <div class="linha">
+            <input type="number" id="mesa-item-quantidade" value="1" min="1" placeholder="Qtd" />
+            <button class="btn-secundario" style="flex: 0 0 auto;" onclick="adicionarItemNaMesa()">Adicionar</button>
+          </div>
         </div>
       </div>
 
@@ -486,6 +537,11 @@
       </select>
 
       <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual()">Fechar mesa e lançar pedido</button>
+
+      <div style="border-top:1px dashed var(--line); margin-top:20px; padding-top:14px;">
+        <button onclick="alternarHistoricoMesa()" class="btn-secundario" style="width:100%;" id="btn-toggle-historico-mesa">Ver histórico desta mesa</button>
+        <div id="historico-mesa-lista" style="display:none; margin-top:12px;"></div>
+      </div>
     </div>
   </div>
 
@@ -991,10 +1047,99 @@ async function carregarMesas() {
     return;
   }
   lista.innerHTML = mesas.map(m => `
-    <div class="mesa-card ${m.status}" onclick="abrirModalMesa(${m.id})">
+    <div class="mesa-card ${m.status}" data-numero="${m.numero.toLowerCase()}" onclick="abrirModalMesa(${m.id})">
       <div class="mesa-numero">${m.numero}</div>
       <div class="mesa-status">${m.status === 'ocupada' ? 'Ocupada' : 'Livre'}</div>
       ${m.status === 'ocupada' ? `<div class="mesa-total">${formatarMoeda(m.total)}</div>` : ''}
+    </div>
+  `).join('');
+  // Reaplica o filtro de busca, já que a lista acabou de ser redesenhada
+  // (isso roda de novo a cada 5s, então sem isso o filtro "sumiria" sozinho).
+  filtrarGradeMesas();
+}
+
+// Filtro simples, direto no navegador — não precisa perguntar pro
+// servidor toda vez que a pessoa digita uma letra.
+function filtrarGradeMesas() {
+  const termo = document.getElementById('mesa-filtro-numero').value.trim().toLowerCase();
+  document.querySelectorAll('.mesa-card').forEach((card) => {
+    const bate = !termo || card.dataset.numero.includes(termo);
+    card.style.display = bate ? '' : 'none';
+  });
+}
+
+async function buscarPedidosPorItem() {
+  const termo = document.getElementById('mesa-busca-item-termo').value.trim();
+  const resultado = document.getElementById('mesa-busca-item-resultado');
+  if (!termo) {
+    resultado.innerHTML = '';
+    return;
+  }
+
+  const { abertas, fechadas } = await apiFetch(`/api/mesas/busca?termo=${encodeURIComponent(termo)}`).then(r => r.json());
+
+  let html = '';
+
+  if (abertas.length === 0) {
+    html += `<div class="vazio" style="padding:8px 0;">Nenhuma mesa aberta com "${termo}" no momento.</div>`;
+  } else {
+    html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">MESAS ABERTAS COM ESSE ITEM</div>`;
+    html += abertas.map(m => `
+      <div class="pedido-item" style="align-items:center;cursor:pointer;" onclick="abrirModalMesa(${m.id})">
+        <span class="nome">Mesa ${m.numero}</span>
+        <span style="color:var(--flame);font-size:12px;">Ver mesa →</span>
+      </div>
+    `).join('');
+  }
+
+  html += `<button class="btn-secundario" style="width:100%;margin-top:12px;" onclick="mostrarPedidosFechadosPorItem('${termo.replace(/'/g, "\\'")}')">Ver também pedidos já fechados</button>`;
+  html += `<div id="mesa-busca-item-fechados"></div>`;
+
+  resultado.innerHTML = html;
+}
+
+async function mostrarPedidosFechadosPorItem(termo) {
+  const { fechadas } = await apiFetch(`/api/mesas/busca?termo=${encodeURIComponent(termo)}`).then(r => r.json());
+  const div = document.getElementById('mesa-busca-item-fechados');
+  if (!div) return;
+
+  if (fechadas.length === 0) {
+    div.innerHTML = `<div class="vazio" style="padding:8px 0;">Nenhum pedido fechado encontrado com "${termo}".</div>`;
+    return;
+  }
+
+  div.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:10px 0 6px;">PEDIDOS JÁ FECHADOS</div>` +
+    fechadas.map(p => `
+      <div class="pedido-item" style="align-items:center;">
+        <span class="nome">Mesa ${p.mesaNumero} — Pedido #${p.id}</span>
+        <span style="font-size:12px;color:var(--muted);">${new Date(p.dataHora).toLocaleDateString('pt-BR')}</span>
+      </div>
+    `).join('');
+}
+
+let historicoMesaCarregado = false;
+async function alternarHistoricoMesa() {
+  const div = document.getElementById('historico-mesa-lista');
+  const aberto = div.style.display !== 'none';
+
+  if (aberto) {
+    div.style.display = 'none';
+    document.getElementById('btn-toggle-historico-mesa').textContent = 'Ver histórico desta mesa';
+    return;
+  }
+
+  div.style.display = 'block';
+  document.getElementById('btn-toggle-historico-mesa').textContent = 'Esconder histórico';
+
+  const { pedidos } = await apiFetch(`/api/mesas/${mesaAtualId}/historico`).then(r => r.json());
+  if (pedidos.length === 0) {
+    div.innerHTML = '<div class="vazio" style="padding:10px 0;">Essa mesa ainda não tem pedido fechado no histórico.</div>';
+    return;
+  }
+  div.innerHTML = pedidos.map(p => `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="nome">Pedido #${p.id} — ${formatarMoeda(p.total)}</span>
+      <span style="font-size:12px;color:var(--muted);">${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
     </div>
   `).join('');
 }
@@ -1017,6 +1162,38 @@ async function criarMesaNova() {
   carregarMesas();
 }
 
+async function criarMesasEmLoteUI() {
+  const de = parseInt(document.getElementById('mesa-lote-de').value, 10);
+  const ate = parseInt(document.getElementById('mesa-lote-ate').value, 10);
+  const statusDiv = document.getElementById('mesa-lote-status');
+  statusDiv.textContent = '';
+
+  if (!de || !ate || ate < de) {
+    statusDiv.textContent = 'Preenche um intervalo válido (ex: de 1 até 50).';
+    return;
+  }
+
+  const resp = await apiFetch('/api/mesas/lote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ de, ate }),
+  });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    statusDiv.textContent = dados.erro || 'Não foi possível criar as mesas.';
+    return;
+  }
+
+  statusDiv.textContent = `${dados.criadas} mesa(s) nova(s) criada(s). ${(ate - de + 1) - dados.criadas > 0 ? 'As demais já existiam.' : ''}`;
+  document.getElementById('mesa-lote-de').value = '';
+  document.getElementById('mesa-lote-ate').value = '';
+  mostrarSalvo();
+  carregarMesas();
+}
+
+let mesaProdutosDisponiveis = [];
+let mesaProdutoSelecionado = null;
+
 async function abrirModalMesa(mesaId) {
   mesaAtualId = mesaId;
   const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
@@ -1026,14 +1203,63 @@ async function abrirModalMesa(mesaId) {
   document.getElementById('modal-mesa-titulo').textContent = `Mesa ${mesa.numero}`;
   renderizarItensMesa(mesa);
 
-  // Popula o seletor de produtos com o cardápio real.
+  // Busca o cardápio real, pra usar na busca/seleção de produto.
   const { produtos } = await apiFetch('/api/produtos').then(r => r.json());
-  const select = document.getElementById('mesa-select-produto');
-  select.innerHTML = produtos.filter(p => p.disponivel !== false).map(p =>
-    `<option value="${p.id}" data-nome="${p.nome}" data-preco="${p.preco}">${p.nome} — ${formatarMoeda(p.preco)}</option>`
-  ).join('');
+  mesaProdutosDisponiveis = produtos.filter(p => p.disponivel !== false);
+  document.getElementById('mesa-busca-produto').value = '';
+  mesaProdutoSelecionado = null;
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  filtrarProdutosMesa();
 
   document.getElementById('modal-mesa').style.display = 'flex';
+}
+
+function filtrarProdutosMesa() {
+  const termo = document.getElementById('mesa-busca-produto').value.trim().toLowerCase();
+  const lista = document.getElementById('mesa-lista-produtos');
+
+  const encontrados = termo
+    ? mesaProdutosDisponiveis.filter(p => p.nome.toLowerCase().includes(termo))
+    : mesaProdutosDisponiveis;
+
+  if (encontrados.length === 0) {
+    lista.innerHTML = '<div class="vazio" style="padding:10px 0;">Nenhum produto encontrado.</div>';
+    return;
+  }
+
+  lista.innerHTML = encontrados.map(p => `
+    <div class="mesa-produto-item ${mesaProdutoSelecionado?.id === p.id ? 'selecionado' : ''}" onclick="selecionarProdutoMesa('${p.id}')">
+      <span>${p.nome}</span>
+      <span>${formatarMoeda(p.preco)}</span>
+    </div>
+  `).join('');
+}
+
+function selecionarProdutoMesa(produtoId) {
+  mesaProdutoSelecionado = mesaProdutosDisponiveis.find(p => p.id === produtoId);
+  if (!mesaProdutoSelecionado) return;
+
+  filtrarProdutosMesa(); // re-renderiza pra destacar o selecionado
+
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'block';
+  document.getElementById('mesa-item-selecionado-nome').textContent =
+    `${mesaProdutoSelecionado.nome} — ${formatarMoeda(mesaProdutoSelecionado.preco)}`;
+  document.getElementById('mesa-item-observacao').value = '';
+  document.getElementById('mesa-item-quantidade').value = '1';
+
+  const adicionaisDiv = document.getElementById('mesa-adicionais-lista');
+  const adicionais = mesaProdutoSelecionado.adicionais || [];
+  if (adicionais.length === 0) {
+    adicionaisDiv.innerHTML = '';
+  } else {
+    adicionaisDiv.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Adicionais</div>` +
+      adicionais.map(a => `
+        <label class="mesa-adicional-linha">
+          <input type="checkbox" class="mesa-adicional-checkbox" value="${a.id}" data-nome="${a.nome}" data-preco="${a.preco}" />
+          ${a.nome} (+${formatarMoeda(a.preco)})
+        </label>
+      `).join('');
+  }
 }
 
 function renderizarItensMesa(mesa) {
@@ -1044,7 +1270,11 @@ function renderizarItensMesa(mesa) {
     div.innerHTML = mesa.itensAtuais.map((item, i) => `
       <div class="pedido-item" style="align-items:center;">
         <span class="qtd">${item.quantidade}x</span>
-        <span class="nome">${item.nome}</span>
+        <span class="nome">
+          ${item.nome}
+          ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
+          ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
+        </span>
         <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${i})">remover</button>
       </div>
     `).join('');
@@ -1053,16 +1283,23 @@ function renderizarItensMesa(mesa) {
 }
 
 async function adicionarItemNaMesa() {
-  const select = document.getElementById('mesa-select-produto');
-  const opcaoSelecionada = select.options[select.selectedIndex];
-  if (!opcaoSelecionada) return;
+  if (!mesaProdutoSelecionado) return;
 
   const quantidade = parseInt(document.getElementById('mesa-item-quantidade').value || '1', 10);
+  const observacao = document.getElementById('mesa-item-observacao').value.trim();
+  const adicionais = Array.from(document.querySelectorAll('.mesa-adicional-checkbox:checked')).map(el => ({
+    id: el.value,
+    nome: el.dataset.nome,
+    preco: parseFloat(el.dataset.preco),
+  }));
+
   const item = {
-    produto_id: opcaoSelecionada.value,
-    nome: opcaoSelecionada.dataset.nome,
+    produto_id: mesaProdutoSelecionado.id,
+    nome: mesaProdutoSelecionado.nome,
     quantidade,
-    preco_unitario: parseFloat(opcaoSelecionada.dataset.preco),
+    preco_unitario: mesaProdutoSelecionado.preco,
+    adicionais,
+    observacao: observacao || undefined,
   };
 
   const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
@@ -1072,7 +1309,12 @@ async function adicionarItemNaMesa() {
   });
   const mesa = await resp.json();
   renderizarItensMesa(mesa);
-  document.getElementById('mesa-item-quantidade').value = '1';
+
+  // Limpa a seleção pra pessoa buscar o próximo item do zero.
+  mesaProdutoSelecionado = null;
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('mesa-busca-produto').value = '';
+  filtrarProdutosMesa();
   carregarMesas();
 }
 
@@ -1098,12 +1340,21 @@ async function fecharMesaAtual() {
   fecharModalMesa();
   mostrarSalvo();
   carregarMesas();
-  carregarTudo();
+  // Um atendente não tem permissão pra ver Vendas/Atendimentos — só
+  // recarrega o painel inteiro se for o dono, senão só as mesas mesmo.
+  if (tipoUsuario === 'empresa') {
+    carregarTudo();
+  }
 }
 
 function fecharModalMesa() {
   document.getElementById('modal-mesa').style.display = 'none';
   mesaAtualId = null;
+  mesaProdutoSelecionado = null;
+  // Reseta o histórico pra não ficar "grudado" quando abrir outra mesa.
+  document.getElementById('historico-mesa-lista').style.display = 'none';
+  document.getElementById('historico-mesa-lista').innerHTML = '';
+  document.getElementById('btn-toggle-historico-mesa').textContent = 'Ver histórico desta mesa';
 }
 
 async function salvarSenha() {
@@ -1437,6 +1688,9 @@ function ajustarMenuParaAtendente() {
   });
   const botaoTutorial = document.querySelector('button[onclick*="modal-tutorial"]');
   if (botaoTutorial) botaoTutorial.style.display = 'none';
+  // Criar/apagar mesa é só o dono — o atendente só opera as que já existem.
+  const cardAdicionarMesa = document.getElementById('card-adicionar-mesa');
+  if (cardAdicionarMesa) cardAdicionarMesa.style.display = 'none';
 }
 
 if (localStorage.getItem('vendly_token')) {

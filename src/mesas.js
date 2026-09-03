@@ -28,6 +28,22 @@ export async function listarMesas(empresaId) {
   return rows.map(linhaParaMesa);
 }
 
+// Busca mesas ABERTAS (com carrinho em andamento) que têm algum item com
+// esse nome (ex: "alcatra") — usado na busca global por item, lado "aberto".
+export async function buscarMesasAbertasComItem(empresaId, termo) {
+  const { rows } = await pool.query(
+    `SELECT * FROM mesas
+     WHERE empresa_id = $1 AND status = 'ocupada'
+     AND EXISTS (
+       SELECT 1 FROM jsonb_array_elements(itens_atuais) item
+       WHERE item->>'nome' ILIKE $2
+     )
+     ORDER BY numero`,
+    [empresaId, `%${termo}%`]
+  );
+  return rows.map(linhaParaMesa);
+}
+
 // Cria uma mesa nova (ex: "Mesa 1", "Balcão 3") — o dono cadastra as mesas
 // que existem de verdade no restaurante, uma vez.
 export async function criarMesa(empresaId, numero) {
@@ -36,6 +52,24 @@ export async function criarMesa(empresaId, numero) {
     [empresaId, numero]
   );
   return linhaParaMesa(rows[0]);
+}
+
+// Cria várias mesas numeradas de uma vez (ex: "da 1 até 50"), pra não
+// precisar cadastrar um restaurante inteiro uma por uma. Se uma mesa com
+// aquele número já existir, simplesmente pula ela (não dá erro, não
+// duplica) — assim é seguro rodar de novo sem medo de bagunçar o que já
+// tinha.
+export async function criarMesasEmLote(empresaId, de, ate) {
+  let criadas = 0;
+  for (let numero = de; numero <= ate; numero++) {
+    const { rowCount } = await pool.query(
+      `INSERT INTO mesas (empresa_id, numero) VALUES ($1, $2)
+       ON CONFLICT (empresa_id, numero) DO NOTHING`,
+      [empresaId, String(numero)]
+    );
+    if (rowCount > 0) criadas++;
+  }
+  return criadas;
 }
 
 export async function removerMesa(empresaId, mesaId) {
