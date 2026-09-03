@@ -86,5 +86,20 @@ export async function inicializarBancoDeDados() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_mesas_empresa ON mesas(empresa_id);
+
+    -- Contas de atendente (garçom, caixa, etc) — login separado do dono,
+    -- com acesso restrito só à aba de Mesas. Só faz sentido pra quem tem
+    -- o módulo de Mesas no plano.
+    CREATE TABLE IF NOT EXISTS atendentes (
+      id SERIAL PRIMARY KEY,
+      empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+      nome TEXT NOT NULL,
+      login TEXT UNIQUE NOT NULL,
+      senha_salt TEXT NOT NULL,
+      senha_hash TEXT NOT NULL,
+      criado_em TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_atendentes_empresa ON atendentes(empresa_id);
   `);
 }

@@ -595,6 +595,23 @@
       <div id="senha-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
     </div>
 
+    <div id="secao-atendentes" style="display:none;">
+      <h2>Atendentes</h2>
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Contas de funcionário (garçom, caixa) — só conseguem usar a aba de Mesas, sem acesso ao resto do painel.</div>
+        <div id="lista-atendentes" style="margin-bottom:16px;"></div>
+
+        <label>Nome</label>
+        <input type="text" id="atendente-nome" placeholder="Ex: Pedro" />
+        <label>Login</label>
+        <input type="text" id="atendente-login" placeholder="Ex: pedro" />
+        <label>Senha</label>
+        <input type="password" id="atendente-senha" placeholder="Pelo menos 4 caracteres" />
+        <button class="btn-secundario" style="width:100%;margin-top:14px;" onclick="criarAtendenteNovo()">Adicionar atendente</button>
+        <div id="atendente-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
+      </div>
+    </div>
+
     <h2>Cancelar</h2>
     <div class="card">
       <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se você está pensando em cancelar, adoraríamos saber o motivo — isso nos ajuda a melhorar.</div>
@@ -606,11 +623,21 @@
 
   <section class="painel" id="painel-whatsapp">
     <h2>Conexão com o WhatsApp</h2>
-    <div class="card" style="text-align:center">
-      <div id="whatsapp-status" style="font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">Verificando conexão...</div>
-      <div id="whatsapp-qrcode"></div>
-      <button class="btn-principal" id="btn-conectar-whatsapp" onclick="conectarWhatsapp()" style="margin-top:14px">Conectar WhatsApp</button>
-      <button class="btn-remover" id="btn-desconectar-whatsapp" onclick="desconectarWhatsapp()" style="margin-top:8px;width:100%;display:none">Desconectar</button>
+    <div id="whatsapp-conteudo">
+      <div class="card" style="text-align:center">
+        <div id="whatsapp-status" style="font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">Verificando conexão...</div>
+        <div id="whatsapp-qrcode"></div>
+        <button class="btn-principal" id="btn-conectar-whatsapp" onclick="conectarWhatsapp()" style="margin-top:14px">Conectar WhatsApp</button>
+        <button class="btn-remover" id="btn-desconectar-whatsapp" onclick="desconectarWhatsapp()" style="margin-top:8px;width:100%;display:none">Desconectar</button>
+      </div>
+    </div>
+    <div id="whatsapp-bloqueio" style="display:none;">
+      <div class="card" style="text-align:center; padding:36px 20px;">
+        <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+        <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">WhatsApp</div>
+        <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Base e Pro — deixe a IA atender seus clientes automaticamente pelo WhatsApp.</div>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20os%20planos%20com%20WhatsApp" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com WhatsApp</a>
+      </div>
     </div>
   </section>
 
@@ -730,13 +757,35 @@ function notificar(titulo, corpo) {
   }
 }
 
+// Mesma matriz de funcionalidades do servidor — os 3 planos não são uma
+// escada, são combinações diferentes (ver src/auth.js pra explicação completa).
+const MATRIZ_PLANOS = {
+  mesas: { whatsapp: false, mesas: true },
+  base: { whatsapp: true, mesas: false },
+  pro: { whatsapp: true, mesas: true },
+};
+function temFuncionalidade(funcionalidade) {
+  return Boolean(MATRIZ_PLANOS[planoAtual]?.[funcionalidade]);
+}
+
 function mudarAba(nome) {
   document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === nome));
   document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativa'));
   document.getElementById('painel-' + nome).classList.add('ativa');
-  if (nome === 'whatsapp') verificarStatusWhatsapp();
+
+  if (nome === 'whatsapp') {
+    if (temFuncionalidade('whatsapp')) {
+      document.getElementById('whatsapp-conteudo').style.display = 'block';
+      document.getElementById('whatsapp-bloqueio').style.display = 'none';
+      verificarStatusWhatsapp();
+    } else {
+      document.getElementById('whatsapp-conteudo').style.display = 'none';
+      document.getElementById('whatsapp-bloqueio').style.display = 'block';
+    }
+  }
+
   if (nome === 'mesas') {
-    if (planoAtual === 'pro' || planoAtual === 'premium') {
+    if (temFuncionalidade('mesas')) {
       carregarMesas();
     } else {
       mostrarBloqueioMesas();
@@ -749,8 +798,8 @@ function mostrarBloqueioMesas() {
     <div class="card" style="grid-column: 1 / -1; text-align:center; padding:36px 20px;">
       <div style="font-size:32px; margin-bottom:10px;">🔒</div>
       <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">Mesas</div>
-      <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Pro e Premium — atenda pedido presencial com a mesma facilidade do WhatsApp.</div>
-      <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20fazer%20upgrade%20pro%20plano%20com%20Mesas" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer o plano Pro</a>
+      <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Mesas e Pro — atenda pedido presencial com a mesma facilidade do WhatsApp.</div>
+      <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20o%20m%C3%B3dulo%20de%20Mesas" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com Mesas</a>
     </div>
   `;
   // Esconde o formulário de "adicionar mesa" também — não faz sentido
@@ -785,8 +834,68 @@ async function carregarTudo() {
   document.getElementById('empresa-horario-abertura').value = empresaResp.horarioAbertura || '';
   document.getElementById('empresa-horario-fechamento').value = empresaResp.horarioFechamento || '';
 
+  // A seção de atendentes só faz sentido pra quem tem o módulo de Mesas.
+  const secaoAtendentes = document.getElementById('secao-atendentes');
+  if (temFuncionalidade('mesas')) {
+    secaoAtendentes.style.display = 'block';
+    carregarAtendentes();
+  } else {
+    secaoAtendentes.style.display = 'none';
+  }
+
   renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
   processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+}
+
+async function carregarAtendentes() {
+  const { atendentes } = await apiFetch('/api/atendentes').then(r => r.json());
+  const lista = document.getElementById('lista-atendentes');
+  if (atendentes.length === 0) {
+    lista.innerHTML = '<div class="vazio" style="padding:10px 0;">Nenhum atendente cadastrado ainda.</div>';
+    return;
+  }
+  lista.innerHTML = atendentes.map(a => `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="nome">${a.nome} <span style="color:var(--muted);font-size:12px;">(${a.login})</span></span>
+      <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerAtendenteExistente(${a.id})">remover</button>
+    </div>
+  `).join('');
+}
+
+async function criarAtendenteNovo() {
+  const nome = document.getElementById('atendente-nome').value.trim();
+  const login = document.getElementById('atendente-login').value.trim();
+  const senha = document.getElementById('atendente-senha').value;
+  const erroDiv = document.getElementById('atendente-erro');
+  erroDiv.textContent = '';
+
+  if (!nome || !login || !senha) {
+    erroDiv.textContent = 'Preenche nome, login e senha.';
+    return;
+  }
+
+  const resp = await apiFetch('/api/atendentes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, login, senha }),
+  });
+  if (!resp.ok) {
+    const dados = await resp.json();
+    erroDiv.textContent = dados.erro || 'Não foi possível criar o atendente.';
+    return;
+  }
+
+  document.getElementById('atendente-nome').value = '';
+  document.getElementById('atendente-login').value = '';
+  document.getElementById('atendente-senha').value = '';
+  mostrarSalvo();
+  carregarAtendentes();
+}
+
+async function removerAtendenteExistente(id) {
+  if (!confirm('Remover esse atendente? Ele não vai mais conseguir entrar no painel.')) return;
+  await apiFetch(`/api/atendentes/${id}`, { method: 'DELETE' });
+  carregarAtendentes();
 }
 
 // Roda a cada 5 segundos para as notificações "ao vivo" — busca só vendas e
@@ -1295,11 +1404,39 @@ function mostrarSalvo() {
 // Só inicia o carregamento de dados depois de confirmar que tem um login
 // válido — antes disso, mostra a tela de login e não chama nenhuma API.
 let appJaIniciado = false;
-function iniciarApp() {
+let tipoUsuario = 'empresa';
+
+async function iniciarApp() {
   if (appJaIniciado) return;
   appJaIniciado = true;
-  carregarTudo();
-  setInterval(atualizarVendasEAtendimentos, 5000);
+
+  const me = await apiFetch('/api/me').then(r => r.json());
+  tipoUsuario = me.tipo;
+
+  if (tipoUsuario === 'atendente') {
+    // Atendente só usa a aba de Mesas — nem carrega o resto do painel,
+    // que ele não tem permissão de ver mesmo (o servidor bloquearia).
+    const empresaResp = await apiFetch('/api/empresa').then(r => r.json());
+    document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
+    planoAtual = empresaResp.plano || 'base';
+    ajustarMenuParaAtendente();
+    mudarAba('mesas');
+    setInterval(carregarMesas, 5000);
+  } else {
+    carregarTudo();
+    setInterval(atualizarVendasEAtendimentos, 5000);
+  }
+}
+
+// Esconde tudo que não seja a aba de Mesas — um atendente não tem
+// permissão pra mais nada, então nem faz sentido mostrar essas abas.
+function ajustarMenuParaAtendente() {
+  ['vendas', 'atendimentos', 'cardapio', 'regras', 'whatsapp'].forEach((aba) => {
+    const botaoAba = document.querySelector(`.aba[data-aba="${aba}"]`);
+    if (botaoAba) botaoAba.style.display = 'none';
+  });
+  const botaoTutorial = document.querySelector('button[onclick*="modal-tutorial"]');
+  if (botaoTutorial) botaoTutorial.style.display = 'none';
 }
 
 if (localStorage.getItem('vendly_token')) {

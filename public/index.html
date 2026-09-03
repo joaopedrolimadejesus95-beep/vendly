@@ -276,18 +276,23 @@
   .feature p { color: var(--muted); font-size: 13.5px; }
 
   /* ---- PRICING ---- */
-  .pricing-wrap { display: flex; justify-content: center; }
+  .pricing-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .pricing-wrap { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; } }
   .price-card {
     background: var(--ink);
     color: var(--paper);
-    max-width: 420px;
     width: 100%;
-    padding: 40px 36px;
+    padding: 36px 28px;
     position: relative;
-    border: 1px solid var(--flame);
+    border: 1px solid rgba(250,246,239,0.15);
   }
+  .price-card.destaque {
+    border: 1px solid var(--flame);
+    transform: scale(1.03);
+  }
+  @media (max-width: 880px) { .price-card.destaque { transform: none; } }
   .price-badge {
-    position: absolute; top: -13px; left: 36px;
+    position: absolute; top: -13px; left: 28px;
     background: var(--flame);
     color: var(--paper);
     font-family: var(--font-mono);
@@ -296,26 +301,27 @@
     padding: 4px 10px;
     text-transform: uppercase;
   }
-  .price-card h3 { font-size: 20px; margin-bottom: 6px; }
+  .price-card h3 { font-size: 19px; margin-bottom: 6px; }
   .price-card .price-value {
     font-family: var(--font-mono);
-    font-size: 44px;
+    font-size: 36px;
     font-weight: 700;
-    margin: 18px 0 4px;
+    margin: 16px 0 4px;
   }
-  .price-card .price-value span { font-size: 16px; color: rgba(250,246,239,0.55); font-weight: 400; }
-  .price-card .price-desc { color: rgba(250,246,239,0.6); font-size: 14px; margin-bottom: 24px; }
-  .price-list { list-style: none; margin-bottom: 28px; }
+  .price-card .price-value span { font-size: 15px; color: rgba(250,246,239,0.55); font-weight: 400; }
+  .price-card .price-desc { color: rgba(250,246,239,0.6); font-size: 13.5px; margin-bottom: 22px; min-height: 40px; }
+  .price-list { list-style: none; margin-bottom: 24px; }
   .price-list li {
-    padding: 9px 0;
+    padding: 8px 0;
     border-bottom: 1px dotted rgba(250,246,239,0.15);
-    font-size: 14.5px;
+    font-size: 13.5px;
     display: flex;
     gap: 10px;
   }
   .price-list li::before { content: "✓"; color: var(--herb); font-weight: 700; }
-  .price-card .btn-primary { display: block; text-align: center; width: 100%; }
-  .price-note { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+  .price-card .btn-primary { display: block; text-align: center; width: 100%; font-size: 14px; padding: 12px 20px; }
+  .price-card .btn-ghost { display: block; text-align: center; width: 100%; font-size: 14px; padding: 12px 20px; box-sizing: border-box; }
+  .price-note { text-align: center; margin-top: 24px; font-size: 13px; color: var(--muted); }
   .price-note a { color: var(--flame); text-decoration: underline; }
 
   /* ---- CTA FINAL ---- */
@@ -522,27 +528,52 @@
   <div class="wrap">
     <div class="section-head" style="margin-inline:auto; text-align:center;">
       <span class="eyebrow">Assinatura</span>
-      <h2>Um preço simples, sem letra miúda</h2>
+      <h2>Escolha o plano do seu jeito</h2>
       <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">Testado com restaurante real, em uso todos os dias.</p>
     </div>
     <div class="pricing-wrap">
       <div class="price-card">
-        <span class="price-badge">Vendly</span>
-        <h3>Plano completo</h3>
-        <p class="price-desc">Tudo que seu restaurante precisa pra automatizar o WhatsApp, num plano só.</p>
+        <h3>Vendly Mesas</h3>
+        <p class="price-desc">Atendimento presencial, sem depender do WhatsApp.</p>
+        <div class="price-value">R$79<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Módulo de Mesas</li>
+          <li>Pedidos presenciais/balcão</li>
+          <li>Impressão automática de comanda</li>
+          <li>Histórico completo por mesa</li>
+          <li>Painel de vendas em tempo real</li>
+        </ul>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Mesas" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero o Mesas</a>
+      </div>
+
+      <div class="price-card">
+        <h3>Vendly Base</h3>
+        <p class="price-desc">Tudo pra automatizar o atendimento do WhatsApp.</p>
         <div class="price-value">R$150<span>/mês</span></div>
         <ul class="price-list">
           <li>Atendimento por IA ilimitado</li>
           <li>Cardápio, adicionais e meia porção</li>
           <li>Controle de estoque</li>
-          <li>Impressão automática de comanda</li>
           <li>Painel de vendas em tempo real</li>
           <li>Transferência pra atendente humano</li>
         </ul>
-        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20a%20usar%20a%20Vendly" class="btn-primary">Quero começar agora</a>
-        <div class="price-note">Sem fidelidade. Cancele quando quiser.</div>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Base" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero o Base</a>
+      </div>
+
+      <div class="price-card destaque">
+        <span class="price-badge">Mais completo</span>
+        <h3>Vendly Pro</h3>
+        <p class="price-desc">WhatsApp e Mesas juntos, no mesmo painel.</p>
+        <div class="price-value">R$199<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Tudo do plano Base</li>
+          <li>Tudo do plano Mesas</li>
+          <li>Um único painel pra tudo</li>
+        </ul>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Pro" class="btn-primary">Quero o Pro</a>
       </div>
     </div>
+    <div class="price-note">Sem fidelidade. Cancele quando quiser.</div>
   </div>
 </section>
 

@@ -23,8 +23,8 @@ if (!nome || !login || !senha || !evolutionInstance) {
   process.exit(1);
 }
 
-if (!["base", "pro", "premium"].includes(plano)) {
-  console.error("Plano inválido. Use: base, pro ou premium.");
+if (!["mesas", "base", "pro"].includes(plano)) {
+  console.error("Plano inválido. Use: mesas, base ou pro.");
   process.exit(1);
 }
 

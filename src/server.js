@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
 import { listarMesas, criarMesa, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa } from "./mesas.js";
-import { autenticar, trocarSenha, gerarToken, verificarToken, temAcessoAoPlano } from "./auth.js";
+import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
 import {
@@ -34,6 +34,8 @@ app.use(express.json());
 // Todas as rotas de API (exceto login e webhook) exigem um token válido.
 // O token identifica QUAL empresa está fazendo a requisição — isso é o
 // que garante que cada restaurante só vê e mexe nos próprios dados.
+// Também identifica o TIPO de conta (dono ou atendente) — atendentes têm
+// acesso restrito, verificado logo abaixo.
 function exigirLogin(req, res, next) {
   const cabecalho = req.headers.authorization || "";
   const [tipo, token] = cabecalho.split(" ");
@@ -42,12 +44,44 @@ function exigirLogin(req, res, next) {
     return res.status(401).json({ erro: "Não autenticado." });
   }
 
-  const empresaId = verificarToken(token);
-  if (!empresaId) {
+  const resultado = verificarToken(token);
+  if (!resultado) {
     return res.status(401).json({ erro: "Sessão inválida ou expirada. Faça login de novo." });
   }
 
-  req.empresaId = empresaId;
+  req.empresaId = resultado.empresaId;
+  req.tipoUsuario = resultado.tipo;
+  req.atendenteId = resultado.atendenteId;
+  next();
+}
+
+// Atendentes só podem usar a aba de Mesas — nada de mexer em cardápio,
+// senha, configurações ou WhatsApp. Essa lista é a única coisa que um
+// token de atendente consegue acessar.
+// Atendentes só podem usar a aba de Mesas — nada de mexer em cardápio,
+// senha, configurações ou WhatsApp. Essa lista é a única coisa que um
+// token de atendente consegue acessar.
+// IMPORTANTE: como esse middleware é montado com app.use("/api", ...), o
+// req.path aqui dentro já vem SEM o prefixo "/api" (o Express remove
+// automaticamente) — por isso os prefixos abaixo começam direto com "/".
+const ROTAS_LIBERADAS_PARA_ATENDENTE = [
+  { metodo: "GET", prefixo: "/me" },
+  { metodo: "GET", prefixo: "/empresa" },
+  { metodo: "GET", prefixo: "/produtos" },
+  { metodo: "GET", prefixo: "/mesas" },
+  { metodo: "POST", prefixo: "/mesas" },
+  { metodo: "DELETE", prefixo: "/mesas" },
+];
+
+function restringirAtendente(req, res, next) {
+  if (req.tipoUsuario !== "atendente") return next();
+
+  const liberado = ROTAS_LIBERADAS_PARA_ATENDENTE.some(
+    (r) => r.metodo === req.method && req.path.startsWith(r.prefixo)
+  );
+  if (!liberado) {
+    return res.status(403).json({ erro: "Acesso restrito a administradores." });
+  }
   next();
 }
 
@@ -56,6 +90,8 @@ app.use("/api", (req, res, next) => {
   if (req.path === "/login") return next();
   return exigirLogin(req, res, next);
 });
+
+app.use("/api", restringirAtendente);
 
 app.use(express.static(join(__dirname, "..", "public")));
 
@@ -76,12 +112,24 @@ function getConversa(empresaId, numero) {
 
 app.post("/api/login", async (req, res) => {
   const { login, senha } = req.body;
+
   const empresaId = await autenticar(login, senha);
-  if (!empresaId) {
-    return res.status(401).json({ erro: "Login ou senha incorretos." });
+  if (empresaId) {
+    return res.json({ token: gerarToken(empresaId) });
   }
-  const token = gerarToken(empresaId);
-  res.json({ token });
+
+  // Não é dono — tenta como atendente antes de recusar de vez.
+  const resultadoAtendente = await autenticarAtendente(login, senha);
+  if (resultadoAtendente) {
+    return res.json({ token: gerarTokenAtendente(resultadoAtendente.atendenteId, resultadoAtendente.empresaId) });
+  }
+
+  res.status(401).json({ erro: "Login ou senha incorretos." });
+});
+
+app.get("/api/me", async (req, res) => {
+  const empresa = await getEmpresa(req.empresaId);
+  res.json({ tipo: req.tipoUsuario, plano: empresa.plano, nomeEmpresa: empresa.nome });
 });
 
 // ---- Webhook (chamado pela Evolution API, não por uma pessoa) ----
@@ -97,6 +145,15 @@ app.post("/webhook/mensagem", async (req, res) => {
     const empresaId = nomeInstancia ? await getEmpresaPorInstancia(nomeInstancia) : null;
     if (!empresaId) {
       console.error("[WEBHOOK] Instância desconhecida:", nomeInstancia);
+      return res.sendStatus(200);
+    }
+
+    // Proteção extra: se a empresa não tem mais o plano com WhatsApp
+    // (ex: fez downgrade pro plano Mesas), ignora a mensagem mesmo que
+    // a instância continue tecnicamente conectada.
+    const empresaDoWebhook = await getEmpresa(empresaId);
+    if (!temFuncionalidade(empresaDoWebhook.plano, "whatsapp")) {
+      console.log(`[WEBHOOK] Empresa ${empresaId} não tem plano com WhatsApp — mensagem ignorada.`);
       return res.sendStatus(200);
     }
 
@@ -227,16 +284,14 @@ app.get("/api/pedidos", async (req, res) => {
 // ---- Mesas (atendimento presencial) ----
 // Reaproveita o mesmo estoque e a mesma tabela de pedidos do WhatsApp —
 // não existe estoque "separado" pra mesa, é tudo centralizado.
-// Exige plano Pro ou Premium — quem está no Base recebe um aviso claro
-// pra fazer upgrade, em vez de simplesmente sumir a funcionalidade.
+// Exige plano Mesas ou Pro — quem está no Base não tem essa funcionalidade.
 
 async function exigirPlanoMesas(req, res, next) {
   const empresa = await getEmpresa(req.empresaId);
-  if (!temAcessoAoPlano(empresa.plano, "pro")) {
+  if (!temFuncionalidade(empresa.plano, "mesas")) {
     return res.status(403).json({
-      erro: "O módulo de Mesas é exclusivo dos planos Pro e Premium.",
+      erro: "O módulo de Mesas é exclusivo dos planos Mesas e Pro.",
       planoAtual: empresa.plano,
-      planoNecessario: "pro",
     });
   }
   next();
@@ -288,6 +343,34 @@ app.post("/api/mesas/:id/fechar", async (req, res) => {
   }
 });
 
+// ---- Atendentes (contas de funcionário, só pro dono gerenciar) ----
+// Um token de atendente nunca chega até aqui — a rota nem está na lista
+// de rotas liberadas pra ele (restringirAtendente bloqueia antes).
+
+app.use("/api/atendentes", exigirPlanoMesas);
+
+app.get("/api/atendentes", async (req, res) => {
+  res.json({ atendentes: await listarAtendentes(req.empresaId) });
+});
+
+app.post("/api/atendentes", async (req, res) => {
+  try {
+    const { nome, login, senha } = req.body;
+    if (!nome || !login || !senha) {
+      return res.status(400).json({ erro: "Preencha nome, login e senha." });
+    }
+    const id = await criarAtendente({ empresaId: req.empresaId, nome, login, senha });
+    res.json({ id, nome, login });
+  } catch (erro) {
+    // Login duplicado cai aqui (a coluna é UNIQUE no banco).
+    res.status(400).json({ erro: "Esse login já está em uso. Escolha outro." });
+  }
+});
+
+app.delete("/api/atendentes/:id", async (req, res) => {
+  res.json({ ok: await removerAtendente(req.empresaId, Number(req.params.id)) });
+});
+
 app.delete("/api/pedidos/:id", async (req, res) => {
   const removido = await removerPedido(req.empresaId, Number(req.params.id));
   res.json({ ok: removido });
@@ -325,6 +408,20 @@ app.post("/api/atendimentos/:numero/devolver", (req, res) => {
 });
 
 // ---- WhatsApp (cada empresa conecta o próprio número) ----
+// Exige plano Base ou Pro — quem está só no Mesas não usa WhatsApp.
+
+async function exigirPlanoWhatsapp(req, res, next) {
+  const empresa = await getEmpresa(req.empresaId);
+  if (!temFuncionalidade(empresa.plano, "whatsapp")) {
+    return res.status(403).json({
+      erro: "O atendimento por WhatsApp é exclusivo dos planos Base e Pro.",
+      planoAtual: empresa.plano,
+    });
+  }
+  next();
+}
+
+app.use("/api/whatsapp", exigirPlanoWhatsapp);
 
 app.get("/api/whatsapp/status", async (req, res) => {
   try {
