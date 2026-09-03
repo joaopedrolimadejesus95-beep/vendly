@@ -32,7 +32,9 @@ async function tabelaExiste(nome) {
 
 async function migrar() {
   const existeSchemaAntigo = await tabelaExiste("empresa");
-  if (!existeSchemaAntigo) {
+  const existeBackupDeTentativaAnterior = await tabelaExiste("empresa_antiga_backup");
+
+  if (!existeSchemaAntigo && !existeBackupDeTentativaAnterior) {
     console.log("Nenhuma tabela antiga (schema single-tenant) encontrada.");
     console.log("Criando as tabelas novas (multi-empresa) do zero...");
     await inicializarBancoDeDados();
@@ -40,10 +42,18 @@ async function migrar() {
     process.exit(0);
   }
 
-  console.log("Lendo os dados do schema antigo (antes de mexer em qualquer tabela)...");
-  const { rows: empresaAntigaRows } = await pool.query("SELECT * FROM empresa WHERE id = 1");
-  const { rows: produtosAntigos } = await pool.query("SELECT * FROM produtos");
-  const { rows: pedidosAntigos } = await pool.query("SELECT * FROM pedidos");
+  // Se uma tentativa anterior já tinha renomeado as tabelas (mas falhou
+  // antes de terminar), lê direto do backup em vez de tentar renomear
+  // de novo — evita "tabela não existe" numa segunda tentativa.
+  const prefixoOrigem = existeSchemaAntigo ? "" : "_antiga_backup";
+  console.log(
+    existeSchemaAntigo
+      ? "Lendo os dados do schema antigo (antes de mexer em qualquer tabela)..."
+      : "Encontrado backup de uma tentativa anterior — continuando de onde parou..."
+  );
+  const { rows: empresaAntigaRows } = await pool.query(`SELECT * FROM empresa${prefixoOrigem} WHERE id = 1`);
+  const { rows: produtosAntigos } = await pool.query(`SELECT * FROM produtos${prefixoOrigem}`);
+  const { rows: pedidosAntigos } = await pool.query(`SELECT * FROM pedidos${prefixoOrigem}`);
 
   if (empresaAntigaRows.length === 0) {
     console.log("Tabela antiga existe mas está vazia — nada para migrar.");
@@ -52,13 +62,24 @@ async function migrar() {
   const e = empresaAntigaRows[0];
   console.log(`✓ Lido: empresa "${e.nome}", ${produtosAntigos.length} produtos, ${pedidosAntigos.length} pedidos`);
 
-  console.log("\nRenomeando as tabelas antigas pra abrir espaço pras novas...");
-  await pool.query("ALTER TABLE empresa RENAME TO empresa_antiga_backup");
-  await pool.query("ALTER TABLE produtos RENAME TO produtos_antiga_backup");
-  await pool.query("ALTER TABLE pedidos RENAME TO pedidos_antiga_backup");
+  if (existeSchemaAntigo) {
+    console.log("\nRenomeando as tabelas antigas pra abrir espaço pras novas...");
+    await pool.query("ALTER TABLE empresa RENAME TO empresa_antiga_backup");
+    await pool.query("ALTER TABLE produtos RENAME TO produtos_antiga_backup");
+    await pool.query("ALTER TABLE pedidos RENAME TO pedidos_antiga_backup");
+  }
 
-  console.log("Criando as tabelas novas (multi-empresa)...");
+  console.log("Criando as tabelas novas (multi-empresa), se ainda não existirem...");
   await inicializarBancoDeDados();
+
+  // Se uma tentativa anterior já tinha criado a empresa (mas falhou
+  // depois, nos produtos/pedidos), não tenta criar de novo.
+  const { rows: jaExisteEmpresaNova } = await pool.query("SELECT id FROM empresas WHERE login = $1", [login]);
+  if (jaExisteEmpresaNova.length > 0) {
+    console.log(`\nEmpresa com login "${login}" já existe (de uma tentativa anterior) — pulando a criação dela.`);
+    console.log("Se quiser migrar produtos/pedidos que faltaram, rode o script de novo com outro login, ou peça ajuda.");
+    process.exit(0);
+  }
 
   const salt = randomBytes(16).toString("hex");
   const hash = gerarHash(senha, salt);
@@ -73,9 +94,9 @@ async function migrar() {
       e.tipo,
       e.aceita_entrega,
       e.endereco,
-      e.formas_pagamento,
+      JSON.stringify(e.formas_pagamento),
       e.exige_pagamento_antecipado,
-      e.dias_funcionamento,
+      JSON.stringify(e.dias_funcionamento),
       e.horario_abertura,
       e.horario_fechamento,
       login,
@@ -92,7 +113,7 @@ async function migrar() {
     await pool.query(
       `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [p.id, empresaId, p.nome, p.preco, p.descricao, p.disponivel, p.tem_meia_porcao, p.preco_meia, p.adicionais, p.estoque]
+      [p.id, empresaId, p.nome, p.preco, p.descricao, p.disponivel, p.tem_meia_porcao, p.preco_meia, JSON.stringify(p.adicionais), p.estoque]
     );
   }
   console.log(`✓ ${produtosAntigos.length} produtos migrados`);
@@ -101,7 +122,7 @@ async function migrar() {
     await pool.query(
       `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, impresso, data_hora)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [empresaId, p.numero_cliente, p.itens, p.total, p.tipo_entrega, p.endereco, p.impresso, p.data_hora]
+      [empresaId, p.numero_cliente, JSON.stringify(p.itens), p.total, p.tipo_entrega, p.endereco, p.impresso, p.data_hora]
     );
   }
   console.log(`✓ ${pedidosAntigos.length} pedidos migrados`);
