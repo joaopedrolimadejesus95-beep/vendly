@@ -1,105 +1,136 @@
-# Vendly Bot — MVP
+# Vendly — SaaS de atendimento para restaurantes
 
-Bot de WhatsApp que entende pedidos usando IA, com base num catálogo real
-(sem inventar produto ou preço), valida contra o estoque, e prepara o
-terreno para lançar o pedido em um sistema de gestão depois.
+Plataforma multi-empresa com dois canais de venda, usando o mesmo estoque
+e o mesmo painel:
 
-## Como funciona (visão geral)
+- **WhatsApp + IA** — entende pedidos em português natural, com base num
+  catálogo real (nunca inventa produto/preço/ingrediente).
+- **Mesas** — atendimento presencial (garçom/caixa lança pedido direto,
+  fecha a mesa, gera comanda e venda igual ao WhatsApp).
+
+Cada restaurante cliente tem login próprio, dados isolados dos outros
+clientes, e um plano que libera WhatsApp, Mesas, ou os dois.
+
+## Arquitetura (visão geral)
 
 ```
 Cliente manda mensagem no WhatsApp
         ↓
 Evolution API recebe e chama nosso webhook (/webhook/mensagem)
         ↓
+O webhook identifica DE QUAL EMPRESA é a mensagem (pelo nome da instância)
+        ↓
 server.js decide: IA responde ou está pausado pra humano?
         ↓
-ai.js manda a mensagem + catálogo pra Claude, recebe JSON estruturado
+ai.js manda a mensagem + catálogo DAQUELA EMPRESA pra Claude
         ↓
-server.js valida estoque, decide se confirma o pedido
+Camadas de proteção conferem preço real, estoque, e recalculam o total
         ↓
 whatsapp.js envia a resposta de volta pro cliente
 ```
 
-## Passo a passo para rodar
-
-### 1. Instalar dependências
-
-```bash
-npm install
+```
+Atendente/dono abre uma mesa no painel
+        ↓
+Adiciona itens (busca, adicionais, observação) — trava de linha no banco
+impede perder item se dois pedidos chegarem juntos na mesma mesa
+        ↓
+Fecha a mesa — tudo numa única transação: baixa estoque + cria pedido +
+libera a mesa, ou nada disso acontece (nunca fica pela metade)
+        ↓
+Pedido aparece no mesmo painel de Vendas que os pedidos do WhatsApp
 ```
 
-### 2. Configurar variáveis de ambiente
+## Estrutura do código
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `src/db.js` | Conexão com Postgres e criação das tabelas |
+| `src/auth.js` | Login (dono e atendente), senha, token de sessão, planos |
+| `src/catalog.js` | Empresa, cardápio, estoque — tudo escopado por empresa |
+| `src/orders.js` | Pedidos (WhatsApp e Mesa), estatísticas de vendas |
+| `src/mesas.js` | Mesas, carrinho em andamento, fechamento com transação |
+| `src/ai.js` | Prompt da IA e as camadas de proteção (preço, estoque, total) |
+| `src/whatsapp.js` | Integração com a Evolution API |
+| `src/server.js` | Rotas HTTP, autenticação, permissões por plano |
+| `public/admin.html` | Painel administrativo (SPA, um arquivo só) |
+| `public/index.html` | Landing page (serve automaticamente na raiz do site) |
+
+## Scripts de administração
+
+Como ainda não existe cadastro público de clientes, você mesmo gerencia
+os clientes por linha de comando no servidor:
+
+```bash
+# Cadastrar um cliente novo
+node criar-empresa.mjs "Nome do Restaurante" login senha nome-instancia-whatsapp plano
+
+# Mudar o plano de um cliente já existente
+node mudar-plano.mjs login novoPlano
+
+# Migrar de uma versão antiga (single-tenant) para o multi-empresa
+node migrar-para-multiempresa.mjs login senha nomeInstanciaWhatsApp plano
+```
+
+Planos válidos: `mesas`, `base`, `pro` (veja a matriz de funcionalidades
+em `src/auth.js`).
+
+## Rodando localmente
+
+### 1. Banco de dados
+
+Precisa de um Postgres rodando (local ou remoto). Se estiver testando
+local, um jeito rápido:
+
+```bash
+docker run -d --name vendly-postgres -p 5432:5432 \
+  -e POSTGRES_USER=vendly -e POSTGRES_PASSWORD=vendly123 -e POSTGRES_DB=vendly \
+  postgres:16
+```
+
+### 2. Variáveis de ambiente
 
 ```bash
 cp .env.example .env
 ```
 
 Preencha:
-- `ANTHROPIC_API_KEY`: pegue em https://console.anthropic.com
-- As variáveis da Evolution API (próximo passo)
+- `ANTHROPIC_API_KEY` — console.anthropic.com
+- `DATABASE_URL` — string de conexão do Postgres
+- `SESSION_SECRET` — gere com `openssl rand -hex 32`
+- As variáveis da Evolution API (WhatsApp)
 
-### 3. Subir a Evolution API (localmente, via Docker)
-
-Se ainda não tem Docker instalado, instale primeiro. Depois:
+### 3. Instalar dependências e criar a primeira empresa
 
 ```bash
-docker run -d \
-  --name evolution-api \
-  -p 8080:8080 \
-  -e AUTHENTICATION_API_KEY=sua-chave-da-evolution \
-  atendai/evolution-api:latest
+npm install
+node criar-empresa.mjs "Restaurante Teste" teste senha123 vendly-teste pro
 ```
 
-Isso sobe a Evolution API na porta 8080.
-
-### 4. Conectar seu número de WhatsApp de teste
-
-Com a Evolution API rodando, você cria uma "instância" (uma conexão) e
-escaneia um QR code com o WhatsApp — igual conectar o WhatsApp Web.
-A documentação oficial (https://doc.evolution-api.com) tem o passo a
-passo exato da versão mais recente, incluindo como criar a instância
-e pegar o QR code.
-
-**Importante:** use um número de teste/secundário no começo, não o
-número principal do restaurante — a Evolution API é uma conexão não
-oficial e existe risco de banimento pela Meta.
-
-### 5. Configurar o webhook da Evolution API
-
-Aponte o webhook da sua instância pra:
-```
-http://SEU-SERVIDOR:3000/webhook/mensagem
-```
-
-Se estiver testando localmente, use uma ferramenta como `ngrok` pra
-expor sua porta 3000 pra internet (a Evolution API precisa alcançar
-seu servidor).
-
-### 6. Rodar o bot
+### 4. Rodar
 
 ```bash
 npm start
 ```
 
-Mande uma mensagem tipo "quero 2 x-bacon e uma coca" pro número
-conectado e acompanhe o terminal.
+Acessa `http://localhost:3000/admin.html` e entra com o login/senha que
+você criou.
 
-## O que já funciona
+## O que já está pronto
 
-- Entende pedidos em linguagem natural, restrito ao catálogo real
-- Nunca inventa produto ou preço (o catálogo é sempre injetado no prompt)
-- Confirma o pedido com o cliente antes de fechar
-- Valida contra o estoque antes de confirmar
-- Detecta quando precisa transferir pra um humano (fora do escopo de pedido)
-- Fluxo de "conversa pausada" quando um funcionário assume manualmente
-  (a lógica está pronta em `pausadaParaHumano`; falta a interface pro
-  funcionário ativar isso — próxima etapa)
+- Multi-empresa com isolamento de dados testado (uma empresa nunca vê
+  dado de outra)
+- Login separado por dono e por atendente (acesso restrito a Mesas)
+- 3 planos com trava real de funcionalidade (backend e interface)
+- WhatsApp: pedido em linguagem natural, adicionais, meia porção,
+  observação, múltiplas camadas de proteção contra erro de preço/conta
+- Mesas: busca de item, adicionais, observação, histórico por mesa,
+  busca global (aberta + fechada), criação em lote
+- Impressão de comanda (programa separado, roda no restaurante)
+- Landing page com os 3 planos
 
-## Próximos passos (não implementados ainda)
+## Próximos passos conhecidos
 
-- Validação de pagamento (Pix) antes de confirmar, quando a empresa exigir
-- Lançar o pedido confirmado em algum destino (painel próprio ou
-  integração Saipos/Consumer)
-- Interface pro funcionário assumir/devolver a conversa
-- Persistência real (banco de dados em vez de memória)
-- Catálogo por empresa (hoje é fixo pra uma hamburgueria de teste)
+Veja `DEPLOY.md` para o guia de colocar no ar, e o relatório mais recente
+do projeto pra saber o que ainda falta (HTTPS/domínio próprio, migrar
+pra API oficial do WhatsApp quando escalar, etc).

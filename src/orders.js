@@ -1,6 +1,22 @@
 import { pool } from "./db.js";
 
-function linhaParaPedido(linha) {
+// Calcula "meia-noite de hoje" no fuso do Brasil (não do servidor, que
+// roda em UTC) — sem isso, pedidos feitos entre 21h e 23h59 (horário de
+// Brasília) contariam errado como sendo "de amanhã" nas estatísticas.
+// Mesmo princípio já usado na checagem de horário de funcionamento.
+function inicioDoDiaEmSaoPaulo() {
+  const agora = new Date();
+  const dataFormatada = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(agora); // formato "AAAA-MM-DD"
+  // São Paulo é sempre UTC-3 (sem horário de verão desde 2019).
+  return new Date(`${dataFormatada}T00:00:00-03:00`);
+}
+
+export function linhaParaPedido(linha) {
   return {
     id: linha.id,
     numeroCliente: linha.numero_cliente,
@@ -12,13 +28,14 @@ function linhaParaPedido(linha) {
     dataHora: linha.data_hora,
     origem: linha.origem || "whatsapp",
     mesaNumero: linha.mesa_numero,
+    atendenteNome: linha.atendente_nome,
   };
 }
 
-export async function registrarPedido(empresaId, { numeroCliente, itens, total, tipoEntrega, endereco, origem, mesaNumero }) {
+export async function registrarPedido(empresaId, { numeroCliente, itens, total, tipoEntrega, endereco, origem, mesaNumero, atendenteNome }) {
   const { rows } = await pool.query(
-    `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, origem, mesa_numero)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, origem, mesa_numero, atendente_nome)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
     [
       empresaId,
       numeroCliente,
@@ -28,6 +45,7 @@ export async function registrarPedido(empresaId, { numeroCliente, itens, total, 
       endereco || null,
       origem || "whatsapp",
       mesaNumero || null,
+      atendenteNome || null,
     ]
   );
   return linhaParaPedido(rows[0]);
@@ -100,8 +118,7 @@ export async function buscarPedidosMesaPorItem(empresaId, termo) {
 }
 
 export async function getEstatisticas(empresaId) {
-  const hojeInicio = new Date();
-  hojeInicio.setHours(0, 0, 0, 0);
+  const hojeInicio = inicioDoDiaEmSaoPaulo();
 
   const { rows: totalRows } = await pool.query(
     "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1",

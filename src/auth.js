@@ -60,6 +60,19 @@ export async function listarAtendentes(empresaId) {
   return rows;
 }
 
+// Usado pra saber o nome de quem fechou uma mesa (pra imprimir na comanda).
+// Filtra por empresaId também (não só o id do atendente) — mesmo que hoje
+// o id sempre venha de um token assinado e confiável, é mais seguro
+// manter o mesmo padrão do resto do código (nunca confiar só no id solto).
+export async function getNomeAtendente(empresaId, atendenteId) {
+  if (!atendenteId) return null;
+  const { rows } = await pool.query(
+    "SELECT nome FROM atendentes WHERE id = $1 AND empresa_id = $2",
+    [atendenteId, empresaId]
+  );
+  return rows[0]?.nome ?? null;
+}
+
 export async function removerAtendente(empresaId, atendenteId) {
   const { rowCount } = await pool.query(
     "DELETE FROM atendentes WHERE empresa_id = $1 AND id = $2",

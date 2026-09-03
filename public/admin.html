@@ -362,22 +362,68 @@
   .toggle-linha:last-child { border-bottom: none; }
   input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--flame); }
 
-  #status-salvo {
+  /* Toast — substitui os alertas feios do navegador por uma notificação
+     no estilo da marca, que desaparece sozinha. */
+  #toast {
     position: fixed;
-    bottom: 16px;
+    bottom: 20px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(10px);
     background: var(--ink);
     color: var(--paper);
-    padding: 9px 18px;
-    border-radius: 2px;
+    padding: 12px 20px;
+    border-radius: 3px;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 13px;
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.25s ease, transform 0.25s ease;
     pointer-events: none;
+    z-index: 300;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    max-width: 90vw;
+    text-align: center;
   }
-  #status-salvo.visivel { opacity: 1; }
+  #toast.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.erro { background: var(--flame); }
+  #toast.sucesso { background: var(--herb); }
+
+  /* Confirmação estilizada — substitui o confirm() feio do navegador. */
+  #modal-confirmar {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,24,22,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #modal-confirmar .caixa {
+    background: var(--paper);
+    max-width: 360px;
+    width: 100%;
+    padding: 26px 24px;
+    border-radius: 3px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+  #modal-confirmar .caixa p { font-size: 15px; line-height: 1.5; margin-bottom: 20px; }
+  #modal-confirmar .botoes { display: flex; gap: 10px; }
+  #modal-confirmar .botoes button { flex: 1; padding: 11px; }
+
+  /* Botões desabilitados durante uma ação (evita clique duplo/erro) */
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  /* Um pouco mais de vida nos elementos interativos, sem exagero */
+  .btn-principal, .btn-secundario, .btn-remover, .nav-cta {
+    transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
+  }
+  .btn-principal:active, .btn-secundario:active { transform: scale(0.98); }
+  .card { transition: box-shadow 0.15s ease; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--flame) !important;
+    box-shadow: 0 0 0 3px rgba(216,67,21,0.12);
+  }
 </style>
 </head>
 <body>
@@ -391,9 +437,9 @@
     <input type="text" id="login-usuario" placeholder="seu-usuario" autocomplete="username" />
 
     <label>Senha</label>
-    <input type="password" id="login-senha" placeholder="Sua senha" autocomplete="current-password" />
+    <input type="password" id="login-senha" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') fazerLogin(document.querySelector('#tela-login .btn-principal'))" />
 
-    <button class="btn-principal" style="width:100%; margin-top:16px;" onclick="fazerLogin()">Entrar</button>
+    <button class="btn-principal" style="width:100%; margin-top:16px;" onclick="fazerLogin(this)">Entrar</button>
     <div id="login-erro" style="color:var(--flame); font-size:13px; margin-top:10px;"></div>
   </div>
 </div>
@@ -480,7 +526,7 @@
       <label>Número ou nome da mesa</label>
       <div class="linha">
         <input type="text" id="mesa-novo-numero" placeholder="Ex: 5, Balcão, Área externa 2" />
-        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesaNova()">Adicionar</button>
+        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesaNova(this)">Adicionar</button>
       </div>
 
       <div style="border-top:1px dashed var(--line); margin:16px 0 12px; padding-top:12px;">
@@ -536,7 +582,7 @@
         <option value="cartão">Cartão</option>
       </select>
 
-      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual()">Fechar mesa e lançar pedido</button>
+      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual(this)">Fechar mesa e lançar pedido</button>
 
       <div style="border-top:1px dashed var(--line); margin-top:20px; padding-top:14px;">
         <button onclick="alternarHistoricoMesa()" class="btn-secundario" style="width:100%;" id="btn-toggle-historico-mesa">Ver histórico desta mesa</button>
@@ -699,7 +745,17 @@
 
 </main>
 
-<div id="status-salvo">Salvo ✓</div>
+<div id="toast"></div>
+
+<div id="modal-confirmar">
+  <div class="caixa">
+    <p id="modal-confirmar-texto"></p>
+    <div class="botoes">
+      <button class="btn-secundario" onclick="_confirmarResolver(false)">Cancelar</button>
+      <button class="btn-remover" onclick="_confirmarResolver(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <div id="modal-tutorial" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
   <div style="background:var(--paper); max-width:420px; width:100%; max-height:80vh; overflow-y:auto; padding:24px; border-radius:2px;">
@@ -751,7 +807,7 @@ function mostrarApp() {
   document.getElementById('app-principal').style.display = 'block';
 }
 
-async function fazerLogin() {
+async function fazerLogin(botao) {
   const login = document.getElementById('login-usuario').value.trim();
   const senha = document.getElementById('login-senha').value;
   const erroDiv = document.getElementById('login-erro');
@@ -762,23 +818,25 @@ async function fazerLogin() {
     return;
   }
 
-  try {
-    const resposta = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login, senha }),
-    });
-    const dados = await resposta.json();
-    if (!resposta.ok) {
-      erroDiv.textContent = dados.erro || 'Não foi possível entrar.';
-      return;
+  await comBotaoDesabilitado(botao, 'Entrando...', async () => {
+    try {
+      const resposta = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, senha }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        erroDiv.textContent = dados.erro || 'Não foi possível entrar.';
+        return;
+      }
+      localStorage.setItem('vendly_token', dados.token);
+      mostrarApp();
+      iniciarApp();
+    } catch (e) {
+      erroDiv.textContent = 'Erro de conexão. Tente de novo.';
     }
-    localStorage.setItem('vendly_token', dados.token);
-    mostrarApp();
-    iniciarApp();
-  } catch (e) {
-    erroDiv.textContent = 'Erro de conexão. Tente de novo.';
-  }
+  });
 }
 
 function fazerLogout() {
@@ -949,7 +1007,7 @@ async function criarAtendenteNovo() {
 }
 
 async function removerAtendenteExistente(id) {
-  if (!confirm('Remover esse atendente? Ele não vai mais conseguir entrar no painel.')) return;
+  if (!(await confirmarAcao('Remover esse atendente? Ele não vai mais conseguir entrar no painel.'))) return;
   await apiFetch(`/api/atendentes/${id}`, { method: 'DELETE' });
   carregarAtendentes();
 }
@@ -1029,7 +1087,7 @@ async function devolverParaIA(numero) {
 }
 
 async function excluirPedido(id) {
-  if (!confirm(`Excluir o pedido #${id}? Essa ação não pode ser desfeita.`)) return;
+  if (!(await confirmarAcao(`Excluir o pedido #${id}? Essa ação não pode ser desfeita.`))) return;
   await apiFetch(`/api/pedidos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
   carregarTudo();
@@ -1144,22 +1202,24 @@ async function alternarHistoricoMesa() {
   `).join('');
 }
 
-async function criarMesaNova() {
+async function criarMesaNova(botao) {
   const numero = document.getElementById('mesa-novo-numero').value.trim();
-  if (!numero) { alert('Digite o número ou nome da mesa.'); return; }
-  const resp = await apiFetch('/api/mesas', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ numero }),
+  if (!numero) { toast('Digite o número ou nome da mesa.', 'erro'); return; }
+  await comBotaoDesabilitado(botao, 'Adicionando...', async () => {
+    const resp = await apiFetch('/api/mesas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero }),
+    });
+    if (!resp.ok) {
+      const dados = await resp.json();
+      toast(dados.erro || 'Não foi possível criar a mesa.', 'erro');
+      return;
+    }
+    document.getElementById('mesa-novo-numero').value = '';
+    mostrarSalvo();
+    carregarMesas();
   });
-  if (!resp.ok) {
-    const dados = await resp.json();
-    alert(dados.erro || 'Não foi possível criar a mesa.');
-    return;
-  }
-  document.getElementById('mesa-novo-numero').value = '';
-  mostrarSalvo();
-  carregarMesas();
 }
 
 async function criarMesasEmLoteUI() {
@@ -1325,26 +1385,28 @@ async function removerItemDaMesa(indice) {
   carregarMesas();
 }
 
-async function fecharMesaAtual() {
+async function fecharMesaAtual(botao) {
   const formaPagamento = document.getElementById('mesa-forma-pagamento').value;
-  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/fechar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ formaPagamento }),
+  await comBotaoDesabilitado(botao, 'Fechando...', async () => {
+    const resp = await apiFetch(`/api/mesas/${mesaAtualId}/fechar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formaPagamento }),
+    });
+    if (!resp.ok) {
+      const dados = await resp.json();
+      toast(dados.erro || 'Não foi possível fechar a mesa.', 'erro');
+      return;
+    }
+    fecharModalMesa();
+    mostrarSalvo();
+    carregarMesas();
+    // Um atendente não tem permissão pra ver Vendas/Atendimentos — só
+    // recarrega o painel inteiro se for o dono, senão só as mesas mesmo.
+    if (tipoUsuario === 'empresa') {
+      carregarTudo();
+    }
   });
-  if (!resp.ok) {
-    const dados = await resp.json();
-    alert(dados.erro || 'Não foi possível fechar a mesa.');
-    return;
-  }
-  fecharModalMesa();
-  mostrarSalvo();
-  carregarMesas();
-  // Um atendente não tem permissão pra ver Vendas/Atendimentos — só
-  // recarrega o painel inteiro se for o dono, senão só as mesas mesmo.
-  if (tipoUsuario === 'empresa') {
-    carregarTudo();
-  }
 }
 
 function fecharModalMesa() {
@@ -1421,7 +1483,7 @@ async function conectarWhatsapp() {
 }
 
 async function desconectarWhatsapp() {
-  if (!confirm('Desconectar o WhatsApp do restaurante?')) return;
+  if (!(await confirmarAcao('Desconectar o WhatsApp do restaurante? O atendimento automático vai parar até conectar de novo.'))) return;
   await apiFetch('/api/whatsapp/desconectar', { method: 'POST' });
   verificarStatusWhatsapp();
 }
@@ -1456,6 +1518,7 @@ function renderizarVendas(pedidos, stats) {
           <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + p.endereco : ''}</div>` : ''}
+        ${p.atendenteNome ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">👤 ${p.atendenteNome}</div>` : ''}
         ${p.itens.map(item => `
           <div class="pedido-item">
             <span class="qtd">${item.quantidade}x</span>
@@ -1520,7 +1583,7 @@ function adicionarAdicionalNaLista() {
   const nome = document.getElementById('adicional-nome').value.trim();
   const preco = parseFloat(document.getElementById('adicional-preco').value);
   if (!nome || isNaN(preco)) {
-    alert('Preencha o nome e o preço do adicional.');
+    toast('Preencha o nome e o preço do adicional.', 'erro');
     return;
   }
   const id = 'add-' + nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
@@ -1562,11 +1625,11 @@ async function salvarProduto() {
   const precoMeia = temMeiaPorcao ? parseFloat(document.getElementById('produto-preco-meia').value) : null;
 
   if (!nome || isNaN(preco)) {
-    alert('Preencha ao menos o nome e o preço.');
+    toast('Preencha ao menos o nome e o preço.', 'erro');
     return;
   }
   if (temMeiaPorcao && isNaN(precoMeia)) {
-    alert('Preencha o preço da meia porção, ou desmarque a opção.');
+    toast('Preencha o preço da meia porção, ou desmarque a opção.', 'erro');
     return;
   }
 
@@ -1602,7 +1665,7 @@ async function salvarProduto() {
 }
 
 async function removerProduto(id) {
-  if (!confirm('Remover esse produto do cardápio?')) return;
+  if (!(await confirmarAcao('Remover esse produto do cardápio? Ele não aparecerá mais pros clientes.'))) return;
   await apiFetch(`/api/produtos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
   carregarTudo();
@@ -1646,10 +1709,45 @@ function cancelarComFeedback() {
   window.open(`https://wa.me/5544999874707?text=${encodeURIComponent(mensagem)}`, '_blank');
 }
 
+let toastTimeoutId = null;
+function toast(mensagem, tipo = 'sucesso') {
+  const el = document.getElementById('toast');
+  el.textContent = mensagem;
+  el.className = tipo === 'erro' ? 'erro visivel' : tipo === 'sucesso' ? 'sucesso visivel' : 'visivel';
+  clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(() => el.classList.remove('visivel'), 2600);
+}
+
 function mostrarSalvo() {
-  const el = document.getElementById('status-salvo');
-  el.classList.add('visivel');
-  setTimeout(() => el.classList.remove('visivel'), 1500);
+  toast('Salvo ✓', 'sucesso');
+}
+
+// Substitui o confirm() feio do navegador por uma caixa no estilo do
+// Vendly. Uso: if (await confirmarAcao('Tem certeza?')) { ... }
+let _confirmarResolverAtual = null;
+function confirmarAcao(mensagem) {
+  document.getElementById('modal-confirmar-texto').textContent = mensagem;
+  document.getElementById('modal-confirmar').style.display = 'flex';
+  return new Promise((resolve) => { _confirmarResolverAtual = resolve; });
+}
+function _confirmarResolver(valor) {
+  document.getElementById('modal-confirmar').style.display = 'none';
+  if (_confirmarResolverAtual) _confirmarResolverAtual(valor);
+  _confirmarResolverAtual = null;
+}
+
+// Evita clique duplo (que causaria erro real, tipo criar mesa 2x) —
+// desabilita o botão e troca o texto enquanto a ação está em andamento.
+async function comBotaoDesabilitado(botao, textoCarregando, acao) {
+  const textoOriginal = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = textoCarregando;
+  try {
+    await acao();
+  } finally {
+    botao.disabled = false;
+    botao.textContent = textoOriginal;
+  }
 }
 
 // Só inicia o carregamento de dados depois de confirmar que tem um login

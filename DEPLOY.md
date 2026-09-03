@@ -1,43 +1,26 @@
-# Guia de Deploy — colocando o Vendly no ar de verdade
+# Guia de Deploy — colocando o Vendly no ar
 
-## Sobre "salvar os dados" (persistência)
+## Visão geral do que precisa rodar no servidor
 
-Hoje o Vendly guarda tudo em arquivos simples:
-- `data/catalogo.json` — cardápio, estoque, regras da empresa
-- `data/pedidos.json` — histórico de pedidos
+- **Postgres** — guarda tudo (empresas, produtos, pedidos, mesas,
+  atendentes). Recomendo rodar via Docker, no mesmo docker-compose da
+  Evolution API.
+- **Evolution API** — a conexão de WhatsApp (não-oficial, via QR code).
+- **O bot em si** (`src/server.js`) — roda com `pm2`, fora do Docker,
+  direto no servidor.
 
-Isso funciona bem, mas **só se o servidor onde você hospedar mantiver esses
-arquivos entre reinícios**. Alguns provedores de hospedagem "esquecem" tudo
-que foi salvo em disco toda vez que reiniciam o servidor (isso é comum em
-planos gratuitos de hospedagem "serverless"). Se isso acontecer com o
-Vendly, você perderia o cardápio e o histórico de pedidos sem aviso.
-
-**Por isso, escolha um provedor que ofereça "disco persistente" (persistent
-volume/disk):**
-
-| Provedor | Tem disco persistente no plano gratuito/barato? |
-|---|---|
-| Railway | Sim, fácil de configurar |
-| Render | Sim, no plano pago (a partir de ~US$7/mês) |
-| Uma VPS própria (Hetzner, DigitalOcean, Contabo) | Sim, sempre — é um servidor completo |
-
-**Minha recomendação para você agora:** uma VPS simples (tipo Hetzner ou
-Contabo, ambas têm planos bem baratos, R$20-30/mês) é a opção mais robusta
-e didática — você aprende a mexer num servidor de verdade, e nunca corre
-risco de perder dados por causa do plano do provedor.
-
-## Passo a passo (usando uma VPS)
+## Passo a passo (VPS)
 
 ### 1. Contratar e acessar a VPS
 
-Depois de contratar, você recebe um IP e uma senha (ou chave SSH). Acessa
-via terminal:
+Recomendo pelo menos 1GB de RAM (o Postgres + Evolution API + bot juntos
+não cabem confortavelmente em 512MB).
 
 ```
 ssh root@SEU_IP_AQUI
 ```
 
-### 2. Instalar Node.js e Docker na VPS
+### 2. Instalar Node.js e Docker
 
 ```
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -45,36 +28,59 @@ apt install -y nodejs
 curl -fsSL https://get.docker.com | sh
 ```
 
-### 3. Subir a Evolution API na VPS (mesmo docker-compose que já usamos local)
+### 3. Subir Evolution API + Postgres via Docker
 
-Copia o `docker-compose.yml` (o mesmo que você já tem) pra VPS e roda:
+O `docker-compose.yml` sobe os três containers (Evolution API, Postgres,
+Redis). Importante: exponha a porta do Postgres pro host (o bot roda
+fora do Docker e precisa alcançar o banco):
+
+```yaml
+evolution-postgres:
+  ports:
+    - "5433:5432"   # <- essa linha é essencial
+```
 
 ```
 docker compose up -d
 ```
 
-### 4. Copiar o projeto do bot pra VPS
-
-Do seu computador, você pode usar `scp` para copiar a pasta, ou subir o
-código num repositório Git (GitHub) e clonar direto na VPS — o segundo
-jeito é mais organizado conforme o projeto cresce.
-
-### 5. Configurar o `.env` na VPS
-
-Mesma lógica de sempre, mas com uma diferença importante:
+### 4. Criar o banco `vendly` dentro desse Postgres
 
 ```
-ADMIN_PASSWORD=uma-senha-forte-de-verdade
+docker exec -it evolution-postgres psql -U evolution -c "CREATE USER vendly WITH PASSWORD 'senha-forte' SUPERUSER;"
+docker exec -it evolution-postgres psql -U evolution -c "CREATE DATABASE vendly OWNER vendly;"
+```
+
+### 5. Clonar o projeto e configurar o `.env`
+
+```
+git clone <seu-repositorio> vendly
+cd vendly
+npm install
+cp .env.example .env
+nano .env
+```
+
+Preenche, no mínimo:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://vendly:senha-forte@localhost:5433/vendly
+SESSION_SECRET=<gere com: openssl rand -hex 32>
 EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_API_KEY=<a mesma chave do docker-compose>
+URL_PUBLICA_SERVIDOR=http://SEU_IP:3000
 ```
 
-**Nunca esqueça o `ADMIN_PASSWORD`** — sem ele, qualquer pessoa que
-encontrar o link do seu painel consegue mexer no cardápio e ver os pedidos.
+**Nunca reuse o mesmo `SESSION_SECRET` depois de já ter clientes usando
+o painel** — trocar essa chave invalida todos os logins ativos.
 
-### 6. Rodar o bot continuamente (mesmo se a VPS reiniciar)
+### 6. Cadastrar o primeiro cliente
 
-Em vez de `npm start` (que para se você fechar o terminal), usa o `pm2`,
-uma ferramenta que mantém o processo rodando sempre:
+```
+node criar-empresa.mjs "Nome do Restaurante" login senha nome-instancia plano
+```
+
+### 7. Rodar com `pm2` (mantém rodando mesmo se você fechar o terminal)
 
 ```
 npm install -g pm2
@@ -83,20 +89,45 @@ pm2 startup
 pm2 save
 ```
 
-### 7. Domínio e HTTPS (opcional, mas recomendado)
+### 8. Domínio e HTTPS (recomendado antes de ter vários clientes)
 
-Se você tiver um domínio (ex: `vendly.com.br`), aponta ele pro IP da VPS
-e usa um proxy como Caddy ou Nginx com Let's Encrypt pra ter HTTPS grátis
-automático. Isso deixa o link mais profissional e seguro — posso te ajudar
-com isso quando chegar nessa etapa.
+Sem isso, o link fica feio (`http://IP:3000`) e alguns navegadores
+bloqueiam por não ser HTTPS. Com um domínio próprio + Caddy (gera
+certificado grátis sozinho), o link vira `https://seudominio.com.br`,
+limpo e confiável.
 
-## Backup dos dados (recomendado)
-
-Mesmo com disco persistente, vale copiar os arquivos `data/catalogo.json`
-e `data/pedidos.json` de vez em quando para outro lugar (seu computador,
-Google Drive, etc) — é rápido e evita perder tudo em caso de problema na
-VPS. Um comando simples:
+## Atualizando o código depois (rotina normal)
 
 ```
-scp root@SEU_IP:/caminho/do/projeto/data/*.json ./backup-vendly/
+# no seu PC
+git add .
+git commit -m "..."
+git push
+
+# no servidor
+git pull
+pm2 restart vendly-bot
 ```
+
+Se a atualização mudar o schema do banco, as tabelas se ajustam
+sozinhas (`CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN IF NOT
+EXISTS`) — não precisa rodar nada manual na maioria dos casos.
+
+## Backup dos dados
+
+Diferente da versão antiga (arquivo JSON), os dados agora ficam no
+Postgres. Backup com `pg_dump`, de dentro do container:
+
+```
+docker exec evolution-postgres pg_dump -U vendly vendly > backup-$(date +%Y%m%d).sql
+```
+
+Guarda esse arquivo fora do servidor de vez em quando (seu computador,
+Google Drive) — principalmente antes de qualquer atualização grande.
+
+## Se algo der errado numa migração de schema
+
+Sempre faça o backup do passo anterior **antes** de rodar qualquer
+script de migração. Os scripts (`migrar-para-multiempresa.mjs`) são
+pensados pra serem seguros de rodar de novo caso falhem no meio (não
+duplicam dado), mas o backup continua sendo sua rede de segurança real.

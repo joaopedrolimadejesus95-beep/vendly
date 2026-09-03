@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem } from "./mesas.js";
-import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente } from "./auth.js";
+import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
 import {
@@ -57,9 +57,6 @@ function exigirLogin(req, res, next) {
   next();
 }
 
-// Atendentes só podem usar a aba de Mesas — nada de mexer em cardápio,
-// senha, configurações ou WhatsApp. Essa lista é a única coisa que um
-// token de atendente consegue acessar.
 // Atendentes só podem usar a aba de Mesas — nada de mexer em cardápio,
 // senha, configurações ou WhatsApp. E dentro de Mesas, só conseguem
 // OPERAR mesas que já existem (adicionar item, fechar) — criar ou apagar
@@ -358,7 +355,10 @@ app.delete("/api/mesas/:id/item/:indice", async (req, res) => {
 
 app.post("/api/mesas/:id/fechar", async (req, res) => {
   try {
-    const pedido = await fecharMesa(req.empresaId, Number(req.params.id), req.body.formaPagamento);
+    // Se quem fechou foi um atendente, guarda o nome dele pra imprimir na
+    // comanda — se foi o próprio dono, não precisa (só existe um dono).
+    const atendenteNome = req.tipoUsuario === "atendente" ? await getNomeAtendente(req.empresaId, req.atendenteId) : null;
+    const pedido = await fecharMesa(req.empresaId, Number(req.params.id), req.body.formaPagamento, atendenteNome);
     res.json({ ok: true, pedido });
   } catch (erro) {
     res.status(400).json({ erro: erro.message });

@@ -1,6 +1,5 @@
 import { pool } from "./db.js";
-import { baixarEstoque } from "./catalog.js";
-import { registrarPedido } from "./orders.js";
+import { linhaParaPedido } from "./orders.js";
 
 function linhaParaMesa(linha) {
   return {
@@ -82,76 +81,126 @@ export async function removerMesa(empresaId, mesaId) {
 
 // Adiciona um item ao "carrinho" da mesa. Se a mesa estava livre, ela
 // passa a ficar "ocupada" automaticamente.
+// Protegido com trava de linha (SELECT ... FOR UPDATE): se dois pedidos
+// chegarem quase juntos pra mesma mesa (ex: dois garçons no mesmo
+// instante), o segundo espera o primeiro terminar, em vez de sobrescrever
+// e perder um item sem ninguém perceber.
 export async function adicionarItemMesa(empresaId, mesaId, item) {
-  const { rows } = await pool.query("SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2", [
-    empresaId,
-    mesaId,
-  ]);
-  if (rows.length === 0) throw new Error("Mesa não encontrada.");
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const { rows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, mesaId]
+    );
+    if (rows.length === 0) throw new Error("Mesa não encontrada.");
 
-  const mesa = rows[0];
-  const itensAtuais = [...(mesa.itens_atuais || []), item];
-  const jaEstavaAberta = mesa.status !== "livre";
+    const mesa = rows[0];
+    const itensAtuais = [...(mesa.itens_atuais || []), item];
+    const jaEstavaAberta = mesa.status !== "livre";
 
-  const { rows: atualizadas } = await pool.query(
-    `UPDATE mesas SET itens_atuais = $1, status = 'ocupada', aberta_em = $2 WHERE empresa_id = $3 AND id = $4 RETURNING *`,
-    [JSON.stringify(itensAtuais), jaEstavaAberta ? mesa.aberta_em : new Date().toISOString(), empresaId, mesaId]
-  );
-  return linhaParaMesa(atualizadas[0]);
+    const { rows: atualizadas } = await cliente.query(
+      `UPDATE mesas SET itens_atuais = $1, status = 'ocupada', aberta_em = $2 WHERE empresa_id = $3 AND id = $4 RETURNING *`,
+      [JSON.stringify(itensAtuais), jaEstavaAberta ? mesa.aberta_em : new Date().toISOString(), empresaId, mesaId]
+    );
+    await cliente.query("COMMIT");
+    return linhaParaMesa(atualizadas[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
+// Mesma proteção de trava de linha do adicionarItemMesa.
 export async function removerItemMesa(empresaId, mesaId, indiceItem) {
-  const { rows } = await pool.query("SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2", [
-    empresaId,
-    mesaId,
-  ]);
-  if (rows.length === 0) throw new Error("Mesa não encontrada.");
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const { rows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, mesaId]
+    );
+    if (rows.length === 0) throw new Error("Mesa não encontrada.");
 
-  const itensAtuais = (rows[0].itens_atuais || []).filter((_, i) => i !== indiceItem);
+    const itensAtuais = (rows[0].itens_atuais || []).filter((_, i) => i !== indiceItem);
 
-  const { rows: atualizadas } = await pool.query(
-    "UPDATE mesas SET itens_atuais = $1 WHERE empresa_id = $2 AND id = $3 RETURNING *",
-    [JSON.stringify(itensAtuais), empresaId, mesaId]
-  );
-  return linhaParaMesa(atualizadas[0]);
+    const { rows: atualizadas } = await cliente.query(
+      "UPDATE mesas SET itens_atuais = $1 WHERE empresa_id = $2 AND id = $3 RETURNING *",
+      [JSON.stringify(itensAtuais), empresaId, mesaId]
+    );
+    await cliente.query("COMMIT");
+    return linhaParaMesa(atualizadas[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }
 
 // Fecha a mesa: baixa o estoque, cria um pedido de verdade (com origem
 // "mesa", aparecendo no mesmo painel de vendas que os pedidos do
-// WhatsApp), e libera a mesa pro próximo cliente.
-export async function fecharMesa(empresaId, mesaId, formaPagamento) {
-  const { rows } = await pool.query("SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2", [
-    empresaId,
-    mesaId,
-  ]);
-  if (rows.length === 0) throw new Error("Mesa não encontrada.");
+// WhatsApp), e libera a mesa pro próximo cliente — tudo dentro da MESMA
+// transação. Ou as três coisas acontecem juntas, ou nenhuma acontece —
+// isso evita um cenário ruim: mesa liberada mas pedido perdido, se algo
+// falhar no meio do caminho.
+// Também protegido com trava de linha (FOR UPDATE): evita fechar a mesma
+// mesa duas vezes ao mesmo tempo em dois aparelhos diferentes.
+export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNome) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
 
-  const mesa = rows[0];
-  const itens = mesa.itens_atuais || [];
-  if (itens.length === 0) throw new Error("Essa mesa não tem nenhum item lançado ainda.");
+    const { rows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, mesaId]
+    );
+    if (rows.length === 0) throw new Error("Mesa não encontrada.");
+    const mesa = rows[0];
 
-  const total = itens.reduce(
-    (soma, item) => soma + (item.preco_unitario + somaAdicionais(item)) * item.quantidade,
-    0
-  );
+    const itens = mesa.itens_atuais || [];
+    if (itens.length === 0) throw new Error("Essa mesa não tem nenhum item lançado ainda.");
+    if (mesa.status === "livre") throw new Error("Essa mesa já foi fechada (talvez em outro aparelho).");
 
-  await baixarEstoque(
-    empresaId,
-    itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade }))
-  );
+    const total = itens.reduce(
+      (soma, item) => soma + (item.preco_unitario + somaAdicionais(item)) * item.quantidade,
+      0
+    );
 
-  const pedido = await registrarPedido(empresaId, {
-    numeroCliente: `Mesa ${mesa.numero}`,
-    itens,
-    total: Math.round(total * 100) / 100,
-    origem: "mesa",
-    mesaNumero: mesa.numero,
-  });
+    for (const item of itens) {
+      await cliente.query(
+        "UPDATE produtos SET estoque = estoque - $1 WHERE empresa_id = $2 AND id = $3",
+        [item.quantidade, empresaId, item.produto_id]
+      );
+    }
 
-  await pool.query(
-    "UPDATE mesas SET status = 'livre', itens_atuais = '[]', aberta_em = NULL WHERE empresa_id = $1 AND id = $2",
-    [empresaId, mesaId]
-  );
+    const { rows: pedidoRows } = await cliente.query(
+      `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, origem, mesa_numero, atendente_nome)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        empresaId,
+        `Mesa ${mesa.numero}`,
+        JSON.stringify(itens),
+        Math.round(total * 100) / 100,
+        "mesa",
+        mesa.numero,
+        atendenteNome || null,
+      ]
+    );
 
-  return pedido;
+    await cliente.query(
+      "UPDATE mesas SET status = 'livre', itens_atuais = '[]', aberta_em = NULL WHERE empresa_id = $1 AND id = $2",
+      [empresaId, mesaId]
+    );
+
+    await cliente.query("COMMIT");
+    return linhaParaPedido(pedidoRows[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
 }

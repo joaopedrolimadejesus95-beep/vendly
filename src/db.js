@@ -60,13 +60,15 @@ export async function inicializarBancoDeDados() {
       impresso BOOLEAN DEFAULT false,
       data_hora TIMESTAMPTZ DEFAULT now(),
       origem TEXT DEFAULT 'whatsapp',
-      mesa_numero TEXT
+      mesa_numero TEXT,
+      atendente_nome TEXT
     );
 
     -- Adiciona as colunas novas em bancos que já tinham a tabela "pedidos"
     -- de antes do módulo de Mesas existir (sem apagar nenhum pedido).
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS origem TEXT DEFAULT 'whatsapp';
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mesa_numero TEXT;
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS atendente_nome TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON pedidos(empresa_id);
     CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON produtos(empresa_id);

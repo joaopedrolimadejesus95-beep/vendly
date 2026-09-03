@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getEmpresa, getEstoque, catalogoFormatado } from "./catalog.js";
+import { getEmpresa, getEstoque, catalogoFormatado, getCatalogo } from "./catalog.js";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -220,7 +220,7 @@ export async function interpretarMensagem(empresaId, historico, mensagemAtual) {
     };
   }
 
-  return await validarComEstoque(empresaId, corrigirTotalNoTexto(recalcularTotal(corrigirQuebrasDeLinha(blocoFerramenta.input))));
+  return await validarComEstoque(empresaId, corrigirTotalNoTexto(recalcularTotal(await validarPrecosComCatalogo(empresaId, corrigirQuebrasDeLinha(blocoFerramenta.input)))));
 }
 
 // Quarta camada de proteção: o número interno (pedido.total) já é
@@ -261,6 +261,39 @@ function corrigirTotalNoTexto(pedido) {
 function corrigirQuebrasDeLinha(pedido) {
   if (typeof pedido.resposta_cliente === "string") {
     pedido.resposta_cliente = pedido.resposta_cliente.replace(/\\n/g, "\n");
+  }
+  return pedido;
+}
+
+// Quinta camada de proteção: nunca confia no preço unitário que a IA
+// colocou no item — sempre substitui pelo preço REAL do catálogo (preço
+// inteiro ou de meia porção, conforme o que foi pedido), e o mesmo pros
+// adicionais. As camadas anteriores só pegavam erro de MATEMÁTICA (conta
+// errada em cima de um preço certo); esta pega preço errado desde o
+// início — importante porque sem isso, alguém poderia tentar (por
+// conversa) convencer a IA a "cobrar menos" por um item, e o sistema não
+// perceberia, já que a conta em cima do preço errado bateria certinho.
+async function validarPrecosComCatalogo(empresaId, pedido) {
+  const catalogo = await getCatalogo(empresaId);
+  const catalogoPorId = Object.fromEntries(catalogo.map((p) => [p.id, p]));
+
+  for (const item of pedido.itens || []) {
+    const produtoReal = catalogoPorId[item.produto_id];
+    if (!produtoReal) continue; // produto não existe mais — validado depois pelo estoque
+
+    item.preco_unitario =
+      item.porcao === "meia" && produtoReal.temMeiaPorcao && produtoReal.precoMeia
+        ? produtoReal.precoMeia
+        : produtoReal.preco;
+
+    if (item.adicionais && item.adicionais.length > 0) {
+      const adicionaisReais = Object.fromEntries(
+        (produtoReal.adicionais || []).map((a) => [a.nome, a.preco])
+      );
+      item.adicionais = item.adicionais
+        .filter((a) => adicionaisReais[a.nome] !== undefined) // remove adicional que não existe de verdade
+        .map((a) => ({ ...a, preco: adicionaisReais[a.nome] })); // sempre usa o preço real
+    }
   }
   return pedido;
 }
