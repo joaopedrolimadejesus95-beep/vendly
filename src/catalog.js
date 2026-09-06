@@ -10,6 +10,8 @@ function linhaParaProduto(linha) {
     temMeiaPorcao: linha.tem_meia_porcao,
     precoMeia: linha.preco_meia !== null ? Number(linha.preco_meia) : null,
     adicionais: linha.adicionais || [],
+    unidade: linha.unidade || "",
+    categoria: linha.categoria || "comida",
   };
 }
 
@@ -34,6 +36,8 @@ export async function getEmpresa(empresaId) {
     horarioFechamento: e.horario_fechamento,
     evolutionInstance: e.evolution_instance,
     plano: e.plano || "base",
+    separarBebidaComanda: e.separar_bebida_comanda || false,
+    impressoras: e.impressoras || {},
   };
 }
 
@@ -42,8 +46,9 @@ export async function salvarEmpresa(empresaId, novosDados) {
   const dados = { ...atual, ...novosDados };
   await pool.query(
     `UPDATE empresas SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
-     exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8
-     WHERE id = $9`,
+     exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8,
+     separar_bebida_comanda=$9, impressoras=$10
+     WHERE id = $11`,
     [
       dados.nome,
       dados.aceitaEntrega,
@@ -53,6 +58,8 @@ export async function salvarEmpresa(empresaId, novosDados) {
       JSON.stringify(dados.diasFuncionamento || []),
       dados.horarioAbertura || "",
       dados.horarioFechamento || "",
+      dados.separarBebidaComanda || false,
+      JSON.stringify(dados.impressoras || {}),
       empresaId,
     ]
   );
@@ -84,22 +91,32 @@ export async function getEstoque(empresaId) {
 
 export async function catalogoFormatado(empresaId) {
   const catalogo = await getCatalogo(empresaId);
-  return catalogo
-    .map((p) => {
-      let linha = `- ${p.nome} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
-      if (p.temMeiaPorcao && p.precoMeia) {
-        linha += ` / meia porção R$${p.precoMeia.toFixed(2)}`;
-      }
-      linha += ` — ingredientes: ${p.descricao}`;
-      if (p.adicionais && p.adicionais.length > 0) {
-        const adicionais = p.adicionais
-          .map((a) => `${a.nome} (id: ${a.id}, +R$${a.preco.toFixed(2)})`)
-          .join(", ");
-        linha += `\n  Adicionais disponíveis para este item: ${adicionais}`;
-      }
-      return linha;
-    })
-    .join("\n");
+
+  const nomesCategoria = { comida: "Comidas", salada: "Saladas", bebida: "Bebidas", sobremesa: "Sobremesas" };
+  const porCategoria = { comida: [], salada: [], bebida: [], sobremesa: [] };
+  for (const p of catalogo) {
+    (porCategoria[p.categoria] || porCategoria.comida).push(p);
+  }
+
+  const formatarItem = (p) => {
+    let linha = `- ${p.nome}${p.unidade ? ` (${p.unidade})` : ""} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
+    if (p.temMeiaPorcao && p.precoMeia) {
+      linha += ` / meia porção R$${p.precoMeia.toFixed(2)}`;
+    }
+    linha += ` — ingredientes: ${p.descricao}`;
+    if (p.adicionais && p.adicionais.length > 0) {
+      const adicionais = p.adicionais
+        .map((a) => `${a.nome} (id: ${a.id}, +R$${a.preco.toFixed(2)})`)
+        .join(", ");
+      linha += `\n  Adicionais disponíveis para este item: ${adicionais}`;
+    }
+    return linha;
+  };
+
+  return Object.entries(porCategoria)
+    .filter(([, itens]) => itens.length > 0)
+    .map(([categoria, itens]) => `${nomesCategoria[categoria]}:\n${itens.map(formatarItem).join("\n")}`)
+    .join("\n\n");
 }
 
 export async function baixarEstoque(empresaId, itens = []) {
@@ -123,10 +140,10 @@ export async function baixarEstoque(empresaId, itens = []) {
 
 export async function salvarProduto(empresaId, produto) {
   await pool.query(
-    `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE((SELECT estoque FROM produtos WHERE empresa_id=$2 AND id=$1), $10))
+    `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE((SELECT estoque FROM produtos WHERE empresa_id=$2 AND id=$1), $10), $11, $12)
      ON CONFLICT (empresa_id, id) DO UPDATE SET
-       nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9`,
+       nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12`,
     [
       produto.id,
       empresaId,
@@ -138,6 +155,8 @@ export async function salvarProduto(empresaId, produto) {
       produto.precoMeia || null,
       JSON.stringify(produto.adicionais || []),
       produto.estoqueInicial ?? 50,
+      produto.unidade || "",
+      produto.categoria || "comida",
     ]
   );
   return getCatalogoCompleto(empresaId);

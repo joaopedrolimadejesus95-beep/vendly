@@ -286,6 +286,12 @@ async function validarPrecosComCatalogo(empresaId, pedido) {
         ? produtoReal.precoMeia
         : produtoReal.preco;
 
+    // Guarda a categoria (comida/bebida/sobremesa) junto do item — é
+    // assim que o agente de impressão sabe depois, na hora de imprimir,
+    // se deve separar numa via diferente (sem precisar consultar o
+    // cardápio de novo).
+    item.categoria = produtoReal.categoria || "comida";
+
     if (item.adicionais && item.adicionais.length > 0) {
       const adicionaisReais = Object.fromEntries(
         (produtoReal.adicionais || []).map((a) => [a.nome, a.preco])

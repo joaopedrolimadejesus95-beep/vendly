@@ -95,6 +95,39 @@ export async function adicionarItemMesa(empresaId, mesaId, item) {
     );
     if (rows.length === 0) throw new Error("Mesa não encontrada.");
 
+    // Confere se tem estoque suficiente ANTES de adicionar. Não basta
+    // olhar só o estoque "oficial" da tabela — ele só é descontado quando
+    // a mesa FECHA, então precisa somar também o que já está reservado
+    // em carrinhos de OUTRAS mesas ainda abertas (senão duas mesas
+    // conseguiriam "pedir" o mesmo item que só existe uma vez).
+    const { rows: produtoRows } = await cliente.query(
+      "SELECT nome, estoque, categoria FROM produtos WHERE empresa_id = $1 AND id = $2",
+      [empresaId, item.produto_id]
+    );
+    if (produtoRows.length === 0) {
+      throw new Error("Esse produto não existe mais no cardápio.");
+    }
+
+    // Guarda a categoria junto do item — usada depois pelo agente de
+    // impressão pra separar bebida de comida na comanda, se a empresa
+    // tiver essa opção ativada.
+    item.categoria = produtoRows[0].categoria || "comida";
+
+    const { rows: reservadoRows } = await cliente.query(
+      `SELECT COALESCE(SUM((elem->>'quantidade')::int), 0) AS reservado
+       FROM mesas, jsonb_array_elements(itens_atuais) elem
+       WHERE empresa_id = $1 AND elem->>'produto_id' = $2`,
+      [empresaId, item.produto_id]
+    );
+    const jaReservado = Number(reservadoRows[0].reservado);
+    const disponivel = produtoRows[0].estoque - jaReservado;
+
+    if (disponivel < item.quantidade) {
+      throw new Error(
+        `Estoque insuficiente de "${produtoRows[0].nome}" — restam ${Math.max(disponivel, 0)} disponíveis (o resto já está em outras mesas), e o pedido é de ${item.quantidade}.`
+      );
+    }
+
     const mesa = rows[0];
     const itensAtuais = [...(mesa.itens_atuais || []), item];
     const jaEstavaAberta = mesa.status !== "livre";
@@ -203,4 +236,20 @@ export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNom
   } finally {
     cliente.release();
   }
+}
+
+// Quanto de cada produto já está "reservado" em mesas ainda abertas
+// (carrinho em andamento, ainda não fechado/descontado do estoque de
+// verdade). Usado pra mostrar o estoque DISPONÍVEL de verdade no painel
+// — sem isso, a pessoa veria "restam 2" mesmo que os 2 já estivessem
+// dentro de outra mesa esperando pra fechar.
+export async function getReservadoEmMesas(empresaId) {
+  const { rows } = await pool.query(
+    `SELECT elem->>'produto_id' AS produto_id, SUM((elem->>'quantidade')::int) AS reservado
+     FROM mesas, jsonb_array_elements(itens_atuais) elem
+     WHERE empresa_id = $1
+     GROUP BY elem->>'produto_id'`,
+    [empresaId]
+  );
+  return Object.fromEntries(rows.map((r) => [r.produto_id, Number(r.reservado)]));
 }

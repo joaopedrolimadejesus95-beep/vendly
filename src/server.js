@@ -3,7 +3,7 @@ import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
-import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem } from "./mesas.js";
+import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
@@ -258,9 +258,17 @@ app.post("/api/senha", async (req, res) => {
 });
 
 app.get("/api/produtos", async (req, res) => {
+  const estoque = await getEstoque(req.empresaId);
+  const reservado = await getReservadoEmMesas(req.empresaId);
+  // "disponivel" já desconta o que está em mesas abertas — é o número
+  // certo pra mostrar pra quem vai lançar um pedido novo.
+  const disponivel = Object.fromEntries(
+    Object.entries(estoque).map(([id, qtd]) => [id, qtd - (reservado[id] || 0)])
+  );
   res.json({
     produtos: await getCatalogoCompleto(req.empresaId),
-    estoque: await getEstoque(req.empresaId),
+    estoque,
+    disponivel,
   });
 });
 

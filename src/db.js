@@ -28,12 +28,16 @@ export async function inicializarBancoDeDados() {
       senha_hash TEXT NOT NULL,
       evolution_instance TEXT UNIQUE NOT NULL,
       plano TEXT DEFAULT 'base',
+      separar_bebida_comanda BOOLEAN DEFAULT false,
+      impressoras JSONB DEFAULT '{}',
       criado_em TIMESTAMPTZ DEFAULT now()
     );
 
     -- Garante o campo em bancos que já tinham "empresas" de antes do
     -- sistema de planos existir.
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plano TEXT DEFAULT 'base';
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS separar_bebida_comanda BOOLEAN DEFAULT false;
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS impressoras JSONB DEFAULT '{}';
 
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT NOT NULL,
@@ -46,8 +50,15 @@ export async function inicializarBancoDeDados() {
       preco_meia NUMERIC(10,2),
       adicionais JSONB DEFAULT '[]',
       estoque INTEGER DEFAULT 0,
+      unidade TEXT DEFAULT '',
+      categoria TEXT DEFAULT 'comida',
       PRIMARY KEY (empresa_id, id)
     );
+
+    -- Garante o campo em bancos que já tinham "produtos" de antes da
+    -- unidade existir.
+    ALTER TABLE produtos ADD COLUMN IF NOT EXISTS unidade TEXT DEFAULT '';
+    ALTER TABLE produtos ADD COLUMN IF NOT EXISTS categoria TEXT DEFAULT 'comida';
 
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,
