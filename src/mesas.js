@@ -112,6 +112,10 @@ export async function adicionarItemMesa(empresaId, mesaId, item) {
     // impressão pra separar bebida de comida na comanda, se a empresa
     // tiver essa opção ativada.
     item.categoria = produtoRows[0].categoria || "comida";
+    // Marca como "ainda não lançado pra cozinha" — vira true quando o
+    // atendente clicar em "Lançar pedido" (manda pra cozinha sem fechar
+    // a conta ainda).
+    item.lancado = false;
 
     const { rows: reservadoRows } = await cliente.query(
       `SELECT COALESCE(SUM((elem->>'quantidade')::int), 0) AS reservado
@@ -173,6 +177,53 @@ export async function removerItemMesa(empresaId, mesaId, indiceItem) {
   }
 }
 
+// Manda pra cozinha só os itens NOVOS (que ainda não foram lançados),
+// sem fechar a mesa/conta — a mesa continua aberta, pode vir mais gente
+// pedindo mais coisa depois. Isso cria um "aviso de cozinha" (não é uma
+// venda ainda) que o agente de impressão pega e imprime.
+export async function lancarPedidoMesa(empresaId, mesaId, atendenteNome) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const { rows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, mesaId]
+    );
+    if (rows.length === 0) throw new Error("Mesa não encontrada.");
+
+    const mesa = rows[0];
+    const itensAtuais = mesa.itens_atuais || [];
+    const itensNovos = itensAtuais.filter((item) => !item.lancado);
+
+    if (itensNovos.length === 0) {
+      throw new Error("Não tem item novo pra lançar — tudo que já foi adicionado já está na cozinha.");
+    }
+
+    await cliente.query(
+      `INSERT INTO lancamentos_mesa (empresa_id, mesa_numero, itens, atendente_nome)
+       VALUES ($1, $2, $3, $4)`,
+      [empresaId, mesa.numero, JSON.stringify(itensNovos), atendenteNome || null]
+    );
+
+    // Marca os itens que acabaram de ser lançados, sem mexer nos que já
+    // tinham sido lançados antes.
+    const itensAtualizados = itensAtuais.map((item) => (item.lancado ? item : { ...item, lancado: true }));
+    const { rows: atualizadas } = await cliente.query(
+      "UPDATE mesas SET itens_atuais = $1 WHERE empresa_id = $2 AND id = $3 RETURNING *",
+      [JSON.stringify(itensAtualizados), empresaId, mesaId]
+    );
+
+    await cliente.query("COMMIT");
+    return { mesa: linhaParaMesa(atualizadas[0]), itensLancados: itensNovos.length };
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+
 // Fecha a mesa: baixa o estoque, cria um pedido de verdade (com origem
 // "mesa", aparecendo no mesmo painel de vendas que os pedidos do
 // WhatsApp), e libera a mesa pro próximo cliente — tudo dentro da MESMA
@@ -194,13 +245,26 @@ export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNom
     const mesa = rows[0];
 
     const itens = mesa.itens_atuais || [];
-    if (itens.length === 0) throw new Error("Essa mesa não tem nenhum item lançado ainda.");
+    if (itens.length === 0) throw new Error("Essa mesa não tem nenhum item ainda.");
     if (mesa.status === "livre") throw new Error("Essa mesa já foi fechada (talvez em outro aparelho).");
 
     const total = itens.reduce(
       (soma, item) => soma + (item.preco_unitario + somaAdicionais(item)) * item.quantidade,
       0
     );
+
+    // Rede de segurança: se tinha item que ainda não passou pelo "Lançar
+    // pedido" (ex: o atendente adicionou e já fechou direto, sem lançar
+    // antes), manda esse restinho pra cozinha também, senão a comida
+    // nunca chegaria a ser preparada.
+    const itensNaoLancados = itens.filter((item) => !item.lancado);
+    if (itensNaoLancados.length > 0) {
+      await cliente.query(
+        `INSERT INTO lancamentos_mesa (empresa_id, mesa_numero, itens, atendente_nome)
+         VALUES ($1, $2, $3, $4)`,
+        [empresaId, mesa.numero, JSON.stringify(itensNaoLancados), atendenteNome || null]
+      );
+    }
 
     for (const item of itens) {
       await cliente.query(
@@ -252,4 +316,29 @@ export async function getReservadoEmMesas(empresaId) {
     [empresaId]
   );
   return Object.fromEntries(rows.map((r) => [r.produto_id, Number(r.reservado)]));
+}
+
+// Usadas pelo agente de impressão local — mesmo esquema de "fila de
+// impressão" já usado pros pedidos, só que pra esses avisos de cozinha
+// que não são venda ainda.
+export async function listarLancamentosPendentes(empresaId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM lancamentos_mesa WHERE empresa_id = $1 AND impresso = false ORDER BY criado_em ASC",
+    [empresaId]
+  );
+  return rows.map((linha) => ({
+    id: linha.id,
+    mesaNumero: linha.mesa_numero,
+    itens: linha.itens,
+    atendenteNome: linha.atendente_nome,
+    dataHora: linha.criado_em,
+  }));
+}
+
+export async function marcarLancamentoImpresso(empresaId, id) {
+  const { rowCount } = await pool.query(
+    "UPDATE lancamentos_mesa SET impresso = true WHERE empresa_id = $1 AND id = $2",
+    [empresaId, id]
+  );
+  return rowCount > 0;
 }

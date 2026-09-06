@@ -158,7 +158,7 @@
 
   /* Versão compacta — usada onde os botões são só ícone/palavra curta,
      sempre numa linha só (ex: filtro de categoria na busca de mesa). */
-  .segmentado-compacto .segmentado-opcao { flex: 1 1 0; min-width: 0; padding: 8px 2px; }
+  .segmentado-compacto .segmentado-opcao { flex: 1 1 0; min-width: 0; padding: 8px 1px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .categoria-titulo {
     font-family: var(--font-mono);
@@ -643,15 +643,17 @@
 
       <div id="modal-mesa-itens" style="margin-bottom:16px;"></div>
 
+      <button class="btn-principal" id="btn-lancar-pedido" style="width:100%; margin-bottom:18px; display:none;" onclick="lancarPedidoAtual(this)">🧾 Lançar pedido pra cozinha</button>
+
       <div class="card" style="margin-bottom:12px;">
         <label>Buscar produto</label>
         <input type="text" id="mesa-busca-produto" placeholder="Digite pra buscar..." oninput="filtrarProdutosMesa()" style="margin-bottom:8px;" />
         <div class="segmentado segmentado-compacto" id="mesa-categoria-filtro" style="margin-bottom:10px;">
           <button type="button" class="segmentado-opcao ativo" data-valor="todos" onclick="filtrarPorCategoriaMesa('todos')">Todos</button>
-          <button type="button" class="segmentado-opcao" data-valor="comida" onclick="filtrarPorCategoriaMesa('comida')">🍽️</button>
-          <button type="button" class="segmentado-opcao" data-valor="salada" onclick="filtrarPorCategoriaMesa('salada')">🥗</button>
-          <button type="button" class="segmentado-opcao" data-valor="bebida" onclick="filtrarPorCategoriaMesa('bebida')">🥤</button>
-          <button type="button" class="segmentado-opcao" data-valor="sobremesa" onclick="filtrarPorCategoriaMesa('sobremesa')">🍰</button>
+          <button type="button" class="segmentado-opcao" data-valor="comida" onclick="filtrarPorCategoriaMesa('comida')">Comida</button>
+          <button type="button" class="segmentado-opcao" data-valor="salada" onclick="filtrarPorCategoriaMesa('salada')">Salada</button>
+          <button type="button" class="segmentado-opcao" data-valor="bebida" onclick="filtrarPorCategoriaMesa('bebida')">Bebida</button>
+          <button type="button" class="segmentado-opcao" data-valor="sobremesa" onclick="filtrarPorCategoriaMesa('sobremesa')">Doces</button>
         </div>
         <div id="mesa-lista-produtos" style="max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
 
@@ -690,7 +692,7 @@
         <option value="cartão">Cartão</option>
       </select>
 
-      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual(this)">Fechar mesa e lançar pedido</button>
+      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual(this)">Fechar mesa e cobrar</button>
 
       <div style="border-top:1px dashed var(--line); margin-top:20px; padding-top:14px;">
         <button onclick="alternarHistoricoMesa()" class="btn-secundario" style="width:100%;" id="btn-toggle-historico-mesa">Ver histórico desta mesa</button>
@@ -707,10 +709,10 @@
       <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Adicionar / editar produto</strong>
       <label>Categoria</label>
       <div class="segmentado" id="produto-categoria-grupo">
-        <button type="button" class="segmentado-opcao ativo" data-valor="comida" onclick="selecionarCategoriaProduto('comida')">🍽️ Comida</button>
-        <button type="button" class="segmentado-opcao" data-valor="salada" onclick="selecionarCategoriaProduto('salada')">🥗 Salada</button>
-        <button type="button" class="segmentado-opcao" data-valor="bebida" onclick="selecionarCategoriaProduto('bebida')">🥤 Bebida</button>
-        <button type="button" class="segmentado-opcao" data-valor="sobremesa" onclick="selecionarCategoriaProduto('sobremesa')">🍰 Sobremesa</button>
+        <button type="button" class="segmentado-opcao ativo" data-valor="comida" onclick="selecionarCategoriaProduto('comida')">Comida</button>
+        <button type="button" class="segmentado-opcao" data-valor="salada" onclick="selecionarCategoriaProduto('salada')">Salada</button>
+        <button type="button" class="segmentado-opcao" data-valor="bebida" onclick="selecionarCategoriaProduto('bebida')">Bebida</button>
+        <button type="button" class="segmentado-opcao" data-valor="sobremesa" onclick="selecionarCategoriaProduto('sobremesa')">Sobremesa</button>
       </div>
 
       <label>Nome</label>
@@ -1508,13 +1510,14 @@ function ajustarQuantidadeMesa(delta) {
 function renderizarItensMesa(mesa) {
   const div = document.getElementById('modal-mesa-itens');
   if (mesa.itensAtuais.length === 0) {
-    div.innerHTML = vazioHtml('🧾', 'Nenhum item lançado ainda.');
+    div.innerHTML = vazioHtml('🧾', 'Nenhum item na mesa ainda.');
   } else {
     div.innerHTML = mesa.itensAtuais.map((item, i) => `
       <div class="pedido-item" style="align-items:center;">
         <span class="qtd">${item.quantidade}x</span>
         <span class="nome">
           ${item.nome}
+          ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
           ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
           ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
         </span>
@@ -1523,6 +1526,25 @@ function renderizarItensMesa(mesa) {
     `).join('');
   }
   document.getElementById('modal-mesa-total').textContent = formatarMoeda(mesa.total);
+
+  // O botão de "lançar pedido" só aparece se tiver item novo (ainda não
+  // mandado pra cozinha) — sem isso, clicar nele não faria nada.
+  const temItemNovo = mesa.itensAtuais.some((item) => !item.lancado);
+  document.getElementById('btn-lancar-pedido').style.display = temItemNovo ? 'block' : 'none';
+}
+
+async function lancarPedidoAtual(botao) {
+  await comBotaoDesabilitado(botao, 'Enviando...', async () => {
+    const resp = await apiFetch(`/api/mesas/${mesaAtualId}/lancar`, { method: 'POST' });
+    const dados = await resp.json();
+    if (!resp.ok) {
+      toast(dados.erro || 'Não foi possível lançar o pedido.', 'erro');
+      return;
+    }
+    renderizarItensMesa(dados.mesa);
+    toast(`${dados.itensLancados} item(ns) enviado(s) pra cozinha ✓`, 'sucesso');
+    carregarMesas();
+  });
 }
 
 async function adicionarItemNaMesa() {
@@ -1737,7 +1759,7 @@ function renderizarProdutos(produtos, estoque) {
   const lista = document.getElementById('lista-produtos');
   lista.innerHTML = '';
 
-  const nomesCategoria = { comida: '🍽️ Comidas', salada: '🥗 Saladas', bebida: '🥤 Bebidas', sobremesa: '🍰 Sobremesas' };
+  const nomesCategoria = { comida: 'Comidas', salada: 'Saladas', bebida: 'Bebidas', sobremesa: 'Sobremesas' };
   const ordem = ['comida', 'salada', 'bebida', 'sobremesa'];
   const porCategoria = { comida: [], salada: [], bebida: [], sobremesa: [] };
   produtos.forEach(p => {

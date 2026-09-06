@@ -114,5 +114,22 @@ export async function inicializarBancoDeDados() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_atendentes_empresa ON atendentes(empresa_id);
+
+    -- "Lançamentos" de mesa — quando o atendente clica em "Lançar pedido"
+    -- (manda os itens novos pra cozinha SEM fechar a mesa/conta). Isso é
+    -- diferente de um "pedido" de verdade: não é uma venda fechada, é só
+    -- um aviso pra cozinha começar a preparar. A venda de verdade só é
+    -- criada quando a mesa FECHA (tabela "pedidos").
+    CREATE TABLE IF NOT EXISTS lancamentos_mesa (
+      id SERIAL PRIMARY KEY,
+      empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+      mesa_numero TEXT NOT NULL,
+      itens JSONB NOT NULL,
+      atendente_nome TEXT,
+      impresso BOOLEAN DEFAULT false,
+      criado_em TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lancamentos_empresa ON lancamentos_mesa(empresa_id);
   `);
 }

@@ -3,7 +3,7 @@ import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
-import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas } from "./mesas.js";
+import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
@@ -73,6 +73,7 @@ const ROTAS_LIBERADAS_PARA_ATENDENTE = [
   { metodo: "GET", regex: /^\/mesas\/\d+\/historico$/ },
   { metodo: "POST", regex: /^\/mesas\/\d+\/item$/ },
   { metodo: "DELETE", regex: /^\/mesas\/\d+\/item\/\d+$/ },
+  { metodo: "POST", regex: /^\/mesas\/\d+\/lancar$/ },
   { metodo: "POST", regex: /^\/mesas\/\d+\/fechar$/ },
 ];
 
@@ -361,6 +362,18 @@ app.delete("/api/mesas/:id/item/:indice", async (req, res) => {
   }
 });
 
+// Manda os itens novos pra cozinha SEM fechar a mesa — a conta continua
+// aberta, pode vir mais pedido depois.
+app.post("/api/mesas/:id/lancar", async (req, res) => {
+  try {
+    const atendenteNome = req.tipoUsuario === "atendente" ? await getNomeAtendente(req.empresaId, req.atendenteId) : null;
+    const resultado = await lancarPedidoMesa(req.empresaId, Number(req.params.id), atendenteNome);
+    res.json({ ok: true, ...resultado });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
+});
+
 app.post("/api/mesas/:id/fechar", async (req, res) => {
   try {
     // Se quem fechou foi um atendente, guarda o nome dele pra imprimir na
@@ -435,6 +448,17 @@ app.get("/api/pedidos/pendentes-impressao", async (req, res) => {
 app.post("/api/pedidos/:id/marcar-impresso", async (req, res) => {
   const pedido = await marcarComoImpresso(req.empresaId, Number(req.params.id));
   res.json({ ok: !!pedido });
+});
+
+// Fila de "lançamentos" (avisos de cozinha que ainda não fecharam a
+// conta) — mesmo esquema de fila de impressão, pro agente local buscar.
+app.get("/api/lancamentos-mesa/pendentes-impressao", async (req, res) => {
+  res.json({ lancamentos: await listarLancamentosPendentes(req.empresaId) });
+});
+
+app.post("/api/lancamentos-mesa/:id/marcar-impresso", async (req, res) => {
+  const ok = await marcarLancamentoImpresso(req.empresaId, Number(req.params.id));
+  res.json({ ok });
 });
 
 app.get("/api/atendimentos", (req, res) => {
