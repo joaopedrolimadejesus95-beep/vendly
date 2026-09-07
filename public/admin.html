@@ -741,7 +741,8 @@
             <button type="button" class="mesa-stepper-btn" onclick="ajustarQuantidadeMesa(1)">+</button>
           </div>
 
-          <button class="btn-principal" style="width:100%; margin-top:14px; padding:14px;" onclick="adicionarItemNaMesa()">Adicionar à comanda</button>
+          <button class="btn-principal" id="btn-add-item-mesa" style="width:100%; margin-top:14px; padding:14px;" onclick="adicionarItemNaMesa()">Adicionar à comanda</button>
+          <button class="btn-secundario" id="btn-cancelar-edicao-item" style="width:100%; margin-top:8px; display:none;" onclick="cancelarEdicaoItemMesa()">Cancelar edição</button>
         </div>
       </div>
 
@@ -1622,7 +1623,10 @@ async function abrirModalMesa(mesaId) {
     btn.classList.toggle('ativo', btn.dataset.valor === 'todos');
   });
   mesaProdutoSelecionado = null;
+  mesaItemEmEdicao = null;
   document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
   filtrarProdutosMesa();
 
   document.getElementById('modal-mesa').style.display = 'flex';
@@ -1668,6 +1672,12 @@ function filtrarProdutosMesa() {
 function selecionarProdutoMesa(produtoId) {
   mesaProdutoSelecionado = mesaProdutosDisponiveis.find(p => p.id === produtoId);
   if (!mesaProdutoSelecionado) return;
+
+  // Escolher um produto novo cancela qualquer edição de item que estivesse
+  // em curso — o bloco volta a ser "adicionar".
+  mesaItemEmEdicao = null;
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
 
   filtrarProdutosMesa(); // re-renderiza pra destacar o selecionado
 
@@ -1726,11 +1736,18 @@ function linhaItemMesa(item, indiceOriginal) {
         ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
         ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
       </span>
-      <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${indiceOriginal})">remover</button>
+      <span style="display:flex; gap:4px; flex-shrink:0;">
+        ${item.lancado ? '' : `<button class="btn-secundario" style="padding:4px 8px;font-size:11px;" onclick="editarItemMesaUI(${indiceOriginal})">editar</button>`}
+        <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${indiceOriginal})">remover</button>
+      </span>
     </div>`;
 }
 
+let mesaModalAtual = null;     // última mesa renderizada no modal (pra re-render sem refetch)
+let mesaItemEmEdicao = null;   // índice do item da comanda em edição, ou null
+
 function renderizarItensMesa(mesa) {
+  mesaModalAtual = mesa;
   const div = document.getElementById('modal-mesa-itens');
   const itens = mesa.itensAtuais || [];
 
@@ -1802,19 +1819,110 @@ async function lancarPedidoAtual(botao) {
   });
 }
 
+// Abre o bloco "Adicionar item" já preenchido com um item que JÁ está na
+// comanda, pra editar (quantidade, observação, quem pediu, adicionais).
+// Só aparece pra item que ainda não foi lançado pra cozinha.
+function editarItemMesaUI(indice) {
+  const item = (mesaModalAtual?.itensAtuais || [])[indice];
+  if (!item) return;
+  mesaItemEmEdicao = indice;
+
+  // Acha o produto real no cardápio carregado; se foi apagado do cardápio,
+  // monta um mínimo só pra conseguir editar quantidade/observação/pessoa.
+  let prod = mesaProdutosDisponiveis.find(p => p.id === item.produto_id);
+  if (!prod) {
+    prod = { id: item.produto_id, nome: item.nome, preco: item.preco_unitario, unidade: '', adicionais: [], estoqueAtual: 9999 };
+  }
+  mesaProdutoSelecionado = prod;
+  // Quanto dá pra subir a quantidade: o disponível de agora + o que este
+  // item já ocupava (a edição "devolve" a quantidade atual antes de checar).
+  const maxEdicao = (prod.estoqueAtual ?? 9999) + item.quantidade;
+
+  const bloco = document.getElementById('mesa-item-selecionado-bloco');
+  bloco.style.display = 'block';
+  requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+
+  document.getElementById('mesa-item-selecionado-nome').textContent =
+    `Editando: ${prod.nome}${prod.unidade ? ` (${prod.unidade})` : ''} — ${formatarMoeda(prod.preco)}`;
+  document.getElementById('mesa-estoque-disponivel').textContent = `Máximo: ${maxEdicao}`;
+  document.getElementById('mesa-item-observacao').value = item.observacao || '';
+  document.getElementById('mesa-item-pessoa').value = item.pessoa || '';
+  const qtdInput = document.getElementById('mesa-item-quantidade');
+  qtdInput.value = item.quantidade;
+  qtdInput.max = maxEdicao;
+
+  const adicionaisDiv = document.getElementById('mesa-adicionais-lista');
+  const disponiveis = prod.adicionais || [];
+  const escolhidos = new Set((item.adicionais || []).map(a => a.id || a.nome));
+  const dicaLote = document.getElementById('mesa-dica-lote');
+  if (disponiveis.length === 0) {
+    adicionaisDiv.innerHTML = '';
+    dicaLote.style.display = 'none';
+  } else {
+    adicionaisDiv.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Adicionais</div>` +
+      disponiveis.map(a => `
+        <label class="mesa-adicional-linha">
+          <input type="checkbox" class="mesa-adicional-checkbox" value="${esc(a.id)}" data-nome="${esc(a.nome)}" data-preco="${esc(a.preco)}" ${escolhidos.has(a.id) || escolhidos.has(a.nome) ? 'checked' : ''} />
+          ${esc(a.nome)} (+${formatarMoeda(a.preco)})
+        </label>
+      `).join('');
+    dicaLote.style.display = 'block';
+  }
+
+  document.getElementById('btn-add-item-mesa').textContent = 'Salvar alterações';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'block';
+}
+
+function cancelarEdicaoItemMesa() {
+  mesaItemEmEdicao = null;
+  resetBlocoItemMesa();
+}
+
+// Volta o bloco "Adicionar item" pro estado neutro (sem edição em curso).
+function resetBlocoItemMesa() {
+  mesaProdutoSelecionado = null;
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('mesa-busca-produto').value = '';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+  filtrarProdutosMesa();
+}
+
 async function adicionarItemNaMesa() {
   if (!mesaProdutoSelecionado) return;
 
   const quantidade = parseInt(document.getElementById('mesa-item-quantidade').value || '1', 10);
   const observacao = document.getElementById('mesa-item-observacao').value.trim();
+  const pessoa = document.getElementById('mesa-item-pessoa').value.trim();
   const adicionais = Array.from(document.querySelectorAll('.mesa-adicional-checkbox:checked')).map(el => ({
     id: el.value,
     nome: el.dataset.nome,
     preco: parseFloat(el.dataset.preco),
   }));
 
-  const pessoa = document.getElementById('mesa-item-pessoa').value.trim();
+  let resp, mesa;
 
+  if (mesaItemEmEdicao != null) {
+    // --- Editando um item que já está na comanda ---
+    resp = await apiFetch(`/api/mesas/${mesaAtualId}/item/${mesaItemEmEdicao}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantidade, observacao, pessoa, adicionais }),
+    });
+    mesa = await resp.json();
+    if (!resp.ok) {
+      toast(mesa.erro || 'Não foi possível salvar a alteração.', 'erro');
+      return;
+    }
+    mesaItemEmEdicao = null;
+    renderizarItensMesa(mesa);
+    toast('Item atualizado ✓', 'sucesso');
+    resetBlocoItemMesa();
+    carregarMesas();
+    return;
+  }
+
+  // --- Adicionando um item novo ---
   const item = {
     produto_id: mesaProdutoSelecionado.id,
     nome: mesaProdutoSelecionado.nome,
@@ -1825,12 +1933,12 @@ async function adicionarItemNaMesa() {
     pessoa: pessoa || undefined,
   };
 
-  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
+  resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(item),
   });
-  const mesa = await resp.json();
+  mesa = await resp.json();
 
   if (!resp.ok) {
     toast(mesa.erro || 'Não foi possível adicionar esse item.', 'erro');
@@ -1842,10 +1950,7 @@ async function adicionarItemNaMesa() {
 
   // Limpa só a seleção de produto — mantém "quem pediu" preenchido pra
   // adicionar vários itens da mesma pessoa sem redigitar.
-  mesaProdutoSelecionado = null;
-  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
-  document.getElementById('mesa-busca-produto').value = '';
-  filtrarProdutosMesa();
+  resetBlocoItemMesa();
   carregarMesas();
 }
 
@@ -1884,8 +1989,13 @@ function fecharModalMesa() {
   document.getElementById('modal-mesa').style.display = 'none';
   mesaAtualId = null;
   mesaProdutoSelecionado = null;
+  mesaItemEmEdicao = null;
+  mesaModalAtual = null;
   document.getElementById('mesa-item-pessoa').value = '';
   document.getElementById('mesa-pessoas-chips').innerHTML = '';
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
   // Reseta o histórico pra não ficar "grudado" quando abrir outra mesa.
   document.getElementById('historico-mesa-lista').style.display = 'none';
   document.getElementById('historico-mesa-lista').innerHTML = '';
@@ -2061,11 +2171,12 @@ function renderizarProdutos(produtos, estoque) {
     itens.forEach(p => {
       const qtdEstoque = estoque[p.id] ?? 0;
       const div = document.createElement('div');
-      div.className = 'produto' + (p.disponivel === false ? ' produto-indisponivel' : '');
+      const pausado = p.disponivel === false;
+      div.className = 'produto' + (pausado ? ' produto-indisponivel' : '');
       div.innerHTML = `
         <div class="produto-info">
           <div class="produto-linha-nome">
-            <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}</span>
+            <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${pausado ? ' <span class="badge-origem" style="background:#f9e4dc;color:var(--flame);">pausado</span>' : ''}</span>
             <span class="produto-leader"></span>
             <span class="produto-preco">${formatarMoeda(p.preco)}</span>
           </div>
@@ -2074,6 +2185,7 @@ function renderizarProdutos(produtos, estoque) {
           <div class="produto-estoque ${qtdEstoque < 10 ? 'baixo' : ''}">estoque: ${qtdEstoque}</div>
         </div>
         <div class="botoes-produto">
+          <button class="btn-secundario" onclick="alternarDisponibilidadeProduto('${esc(p.id)}', ${pausado})" title="${pausado ? 'Voltar a vender' : 'Some do cardápio da IA e das mesas, sem apagar'}">${pausado ? 'reativar' : 'pausar'}</button>
           <button class="btn-secundario" onclick="editarProduto('${esc(p.id)}')">editar</button>
           <button class="btn-remover" onclick="removerProduto('${esc(p.id)}')">remover</button>
         </div>
@@ -2210,6 +2322,24 @@ async function removerProduto(id) {
   if (!(await confirmarAcao('Remover esse produto do cardápio? Ele não aparecerá mais pros clientes.'))) return;
   await apiFetch(`/api/produtos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
+  carregarTudo();
+}
+
+// Pausar/reativar um produto sem apagar: pausado some do cardápio da IA e
+// da busca de itens nas mesas, mas continua cadastrado (preço, estoque,
+// adicionais) pra reativar depois.
+async function alternarDisponibilidadeProduto(id, pausadoAtual) {
+  const novoDisponivel = pausadoAtual === true; // se estava pausado, reativa
+  const resp = await apiFetch(`/api/produtos/${encodeURIComponent(id)}/disponivel`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disponivel: novoDisponivel }),
+  });
+  if (!resp.ok) {
+    toast('Não foi possível mudar o produto.', 'erro');
+    return;
+  }
+  toast(novoDisponivel ? 'Produto reativado ✓' : 'Produto pausado — não aparece mais pros clientes', 'sucesso');
   carregarTudo();
 }
 

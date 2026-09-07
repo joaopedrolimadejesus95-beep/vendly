@@ -167,6 +167,17 @@ export async function removerProduto(empresaId, id) {
   return getCatalogoCompleto(empresaId);
 }
 
+// Pausa/reativa um produto sem apagar. Pausado (disponivel = false) some do
+// catálogo que a IA usa e da busca de itens nas mesas, mas continua no
+// banco com preço, estoque e adicionais pra reativar quando voltar.
+export async function setDisponibilidadeProduto(empresaId, id, disponivel) {
+  await pool.query(
+    "UPDATE produtos SET disponivel = $1 WHERE empresa_id = $2 AND id = $3",
+    [Boolean(disponivel), empresaId, id]
+  );
+  return getCatalogoCompleto(empresaId);
+}
+
 export async function atualizarEstoqueManual(empresaId, id, quantidade) {
   // Nunca deixa o estoque virar NaN/negativo por um valor esquisito no corpo
   // da requisição — arredonda pra inteiro e trava o piso em 0.

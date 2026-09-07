@@ -198,6 +198,83 @@ export async function removerItemMesa(empresaId, mesaId, indiceItem) {
   }
 }
 
+// Edita um item que ainda está na comanda (não fechada). Permite mudar
+// quantidade, observação, "quem pediu" e adicionais. Só funciona em item
+// que ainda NÃO foi lançado pra cozinha — se já foi, a cozinha já recebeu
+// o pedido antigo, então o certo é remover e adicionar de novo.
+// Mesma trava de linha (FOR UPDATE) do resto.
+export async function editarItemMesa(empresaId, mesaId, indiceItem, alteracoes = {}) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const { rows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, mesaId]
+    );
+    if (rows.length === 0) throw new Error("Mesa não encontrada.");
+
+    const itens = rows[0].itens_atuais || [];
+    const alvo = itens[indiceItem];
+    if (!alvo) throw new Error("Item não encontrado.");
+    if (alvo.lancado) {
+      throw new Error("Esse item já foi pra cozinha. Pra mudar, remova e adicione de novo.");
+    }
+
+    const novaQtd = alteracoes.quantidade != null
+      ? Math.max(1, Math.trunc(Number(alteracoes.quantidade) || 1))
+      : alvo.quantidade;
+
+    // Só confere estoque se AUMENTOU a quantidade. "reservado" soma todos os
+    // itens desse produto em mesas abertas — tira a quantidade que ESTE item
+    // já ocupava pra não contar duas vezes.
+    if (novaQtd > alvo.quantidade) {
+      const { rows: prodRows } = await cliente.query(
+        "SELECT nome, estoque FROM produtos WHERE empresa_id = $1 AND id = $2",
+        [empresaId, alvo.produto_id]
+      );
+      if (prodRows.length === 0) throw new Error("Esse produto não existe mais no cardápio.");
+      const { rows: resRows } = await cliente.query(
+        `SELECT COALESCE(SUM((elem->>'quantidade')::int), 0) AS reservado
+         FROM mesas, jsonb_array_elements(itens_atuais) elem
+         WHERE empresa_id = $1 AND elem->>'produto_id' = $2`,
+        [empresaId, alvo.produto_id]
+      );
+      const disponivel = prodRows[0].estoque - (Number(resRows[0].reservado) - alvo.quantidade);
+      if (novaQtd > disponivel) {
+        throw new Error(
+          `Estoque insuficiente de "${prodRows[0].nome}" — dá pra no máximo ${Math.max(disponivel, 0)}.`
+        );
+      }
+    }
+
+    const atualizado = { ...alvo, quantidade: novaQtd };
+    if (alteracoes.observacao !== undefined) {
+      atualizado.observacao = typeof alteracoes.observacao === "string" ? alteracoes.observacao.trim().slice(0, 200) : "";
+    }
+    if (alteracoes.pessoa !== undefined) {
+      atualizado.pessoa = typeof alteracoes.pessoa === "string" ? alteracoes.pessoa.trim().slice(0, 40) : "";
+    }
+    if (Array.isArray(alteracoes.adicionais)) {
+      atualizado.adicionais = alteracoes.adicionais
+        .filter((a) => a && typeof a.nome === "string")
+        .map((a) => ({ id: a.id, nome: a.nome, preco: Number(a.preco) || 0 }));
+    }
+
+    const novaLista = itens.map((it, i) => (i === indiceItem ? atualizado : it));
+    const { rows: atualizadas } = await cliente.query(
+      "UPDATE mesas SET itens_atuais = $1 WHERE empresa_id = $2 AND id = $3 RETURNING *",
+      [JSON.stringify(novaLista), empresaId, mesaId]
+    );
+    await cliente.query("COMMIT");
+    return linhaParaMesa(atualizadas[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 // Manda pra cozinha só os itens NOVOS (que ainda não foram lançados),
 // sem fechar a mesa/conta — a mesa continua aberta, pode vir mais gente
 // pedindo mais coisa depois. Isso cria um "aviso de cozinha" (não é uma

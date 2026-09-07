@@ -4,7 +4,7 @@ import { timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
-import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
+import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
@@ -25,6 +25,7 @@ import {
   getCatalogoCompleto,
   salvarProduto,
   removerProduto,
+  setDisponibilidadeProduto,
   getEstoque,
   atualizarEstoqueManual,
   getEmpresaPorInstancia,
@@ -103,6 +104,7 @@ const ROTAS_LIBERADAS_PARA_ATENDENTE = [
   { metodo: "GET", regex: /^\/mesas\/busca$/ },
   { metodo: "GET", regex: /^\/mesas\/\d+\/historico$/ },
   { metodo: "POST", regex: /^\/mesas\/\d+\/item$/ },
+  { metodo: "PUT", regex: /^\/mesas\/\d+\/item\/\d+$/ },
   { metodo: "DELETE", regex: /^\/mesas\/\d+\/item\/\d+$/ },
   { metodo: "POST", regex: /^\/mesas\/\d+\/lancar$/ },
   { metodo: "POST", regex: /^\/mesas\/\d+\/fechar$/ },
@@ -385,6 +387,11 @@ app.delete("/api/produtos/:id", async (req, res) => {
   res.json(await removerProduto(req.empresaId, req.params.id));
 });
 
+// Pausar/reativar produto (não apaga — só tira do cardápio da IA e das mesas).
+app.put("/api/produtos/:id/disponivel", async (req, res) => {
+  res.json(await setDisponibilidadeProduto(req.empresaId, req.params.id, req.body.disponivel));
+});
+
 app.put("/api/estoque/:id", async (req, res) => {
   res.json(await atualizarEstoqueManual(req.empresaId, req.params.id, req.body.quantidade));
 });
@@ -454,6 +461,15 @@ app.delete("/api/mesas/:id", async (req, res) => {
 app.post("/api/mesas/:id/item", async (req, res) => {
   try {
     const mesa = await adicionarItemMesa(req.empresaId, Number(req.params.id), req.body);
+    res.json(mesa);
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
+});
+
+app.put("/api/mesas/:id/item/:indice", async (req, res) => {
+  try {
+    const mesa = await editarItemMesa(req.empresaId, Number(req.params.id), Number(req.params.indice), req.body);
     res.json(mesa);
   } catch (erro) {
     res.status(400).json({ erro: erro.message });
@@ -530,11 +546,20 @@ app.post("/api/atendentes", async (req, res) => {
     if (!nome || !login || !senha) {
       return res.status(400).json({ erro: "Preencha nome, login e senha." });
     }
+    if (senha.length < 4) {
+      return res.status(400).json({ erro: "A senha do atendente precisa ter pelo menos 4 caracteres." });
+    }
     const id = await criarAtendente({ empresaId: req.empresaId, nome, login, senha });
     res.json({ id, nome, login });
   } catch (erro) {
-    // Login duplicado cai aqui (a coluna é UNIQUE no banco).
-    res.status(400).json({ erro: "Esse login já está em uso. Escolha outro." });
+    // 23505 = violação de UNIQUE no Postgres — aí sim é login duplicado.
+    // Qualquer outro erro é problema nosso: loga de verdade em vez de
+    // mascarar como "login em uso".
+    if (erro.code === "23505") {
+      return res.status(400).json({ erro: "Esse login já está em uso. Escolha outro." });
+    }
+    console.error("[ERRO POST /api/atendentes]", erro);
+    res.status(500).json({ erro: "Não foi possível criar o atendente. Tente de novo." });
   }
 });
 
