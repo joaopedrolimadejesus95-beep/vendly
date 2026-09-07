@@ -15,6 +15,7 @@
     --mustard: #e0a733;
     --herb: #4a7c59;
     --line: #ded5c2;
+    --muted: #8a8073;
     --font-display: 'Oswald', sans-serif;
     --font-body: 'Work Sans', sans-serif;
     --font-mono: 'Space Mono', monospace;
@@ -1137,6 +1138,19 @@ function formatarMoeda(valor) {
   return 'R$' + Number(valor || 0).toFixed(2).replace('.', ',');
 }
 
+// Escapa texto antes de jogar dentro de innerHTML. Vários campos aqui vêm
+// de fora (mensagem do cliente no WhatsApp, endereço, observação de item,
+// nome de produto/mesa/atendente) — sem escapar, um cliente conseguiria
+// injetar HTML/script no painel do restaurante (XSS armazenado).
+function esc(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function carregarTudo() {
   const [empresaResp, produtosResp, pedidosResp, atendimentosResp] = await Promise.all([
     apiFetch('/api/empresa').then(r => r.json()),
@@ -1197,7 +1211,7 @@ async function carregarOperacaoAgora() {
     return `
     <div class="pedido-ticket" style="cursor:pointer;" onclick="mudarAba('mesas'); setTimeout(() => abrirModalMesa(${m.id}), 100);">
       <div class="pedido-cabecalho">
-        <span>Mesa ${m.numero}<span class="badge-origem mesa">Ocupada</span></span>
+        <span>Mesa ${esc(m.numero)}<span class="badge-origem mesa">Ocupada</span></span>
         <span>${minutos !== null ? `há ${minutos} min` : ''}</span>
       </div>
       <div class="pedido-total">
@@ -1218,7 +1232,7 @@ async function carregarAtendentes() {
   }
   lista.innerHTML = atendentes.map(a => `
     <div class="pedido-item" style="align-items:center;">
-      <span class="nome">${a.nome} <span style="color:var(--muted);font-size:12px;">(${a.login})</span></span>
+      <span class="nome">${esc(a.nome)} <span style="color:var(--muted);font-size:12px;">(${esc(a.login)})</span></span>
       <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerAtendenteExistente(${a.id})">remover</button>
     </div>
   `).join('');
@@ -1321,10 +1335,10 @@ function renderizarAtendimentos(pendentes) {
   }
   lista.innerHTML = pendentes.map(a => `
     <div class="atendimento-card">
-      <div class="atendimento-numero">${a.numero.replace('@s.whatsapp.net', '')}</div>
+      <div class="atendimento-numero">${esc(a.numero.replace('@s.whatsapp.net', ''))}</div>
       <div class="atendimento-horario">${new Date(a.horario).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
-      <div class="atendimento-mensagem">"${a.ultimaMensagem}"</div>
-      <button class="btn-secundario" onclick="devolverParaIA('${a.numero}')">Já respondi — devolver pra IA</button>
+      <div class="atendimento-mensagem">"${esc(a.ultimaMensagem)}"</div>
+      <button class="btn-secundario" onclick="devolverParaIA('${esc(a.numero)}')">Já respondi — devolver pra IA</button>
     </div>
   `).join('');
 }
@@ -1353,8 +1367,8 @@ async function carregarMesas() {
     return;
   }
   lista.innerHTML = mesas.map(m => `
-    <div class="mesa-card ${m.status}" data-numero="${m.numero.toLowerCase()}" onclick="abrirModalMesa(${m.id})">
-      <div class="mesa-numero">${m.numero}</div>
+    <div class="mesa-card ${m.status}" data-numero="${esc(m.numero.toLowerCase())}" onclick="abrirModalMesa(${m.id})">
+      <div class="mesa-numero">${esc(m.numero)}</div>
       <div class="mesa-status">${m.status === 'ocupada' ? 'Ocupada' : 'Livre'}</div>
       ${m.status === 'ocupada' ? `<div class="mesa-total">${formatarMoeda(m.total)}</div>` : ''}
     </div>
@@ -1392,13 +1406,13 @@ async function buscarPedidosPorItem() {
     html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">MESAS ABERTAS COM ESSE ITEM</div>`;
     html += abertas.map(m => `
       <div class="pedido-item" style="align-items:center;cursor:pointer;" onclick="abrirModalMesa(${m.id})">
-        <span class="nome">Mesa ${m.numero}</span>
+        <span class="nome">Mesa ${esc(m.numero)}</span>
         <span style="color:var(--flame);font-size:12px;">Ver mesa →</span>
       </div>
     `).join('');
   }
 
-  html += `<button class="btn-secundario" style="width:100%;margin-top:12px;" onclick="mostrarPedidosFechadosPorItem('${termo.replace(/'/g, "\\'")}')">Ver também pedidos já fechados</button>`;
+  html += `<button class="btn-secundario" style="width:100%;margin-top:12px;" onclick="mostrarPedidosFechadosPorItem('${esc(termo).replace(/'/g, "\\'")}')">Ver também pedidos já fechados</button>`;
   html += `<div id="mesa-busca-item-fechados"></div>`;
 
   resultado.innerHTML = html;
@@ -1417,7 +1431,7 @@ async function mostrarPedidosFechadosPorItem(termo) {
   div.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:10px 0 6px;">PEDIDOS JÁ FECHADOS</div>` +
     fechadas.map(p => `
       <div class="pedido-item" style="align-items:center;">
-        <span class="nome">Mesa ${p.mesaNumero} — Pedido #${p.id}</span>
+        <span class="nome">Mesa ${esc(p.mesaNumero)} — Pedido #${p.id}</span>
         <span style="font-size:12px;color:var(--muted);">${new Date(p.dataHora).toLocaleDateString('pt-BR')}</span>
       </div>
     `).join('');
@@ -1559,8 +1573,8 @@ function filtrarProdutosMesa() {
   lista.innerHTML = encontrados.map(p => {
     const esgotado = p.estoqueAtual <= 0;
     return `
-    <div class="mesa-produto-item ${mesaProdutoSelecionado?.id === p.id ? 'selecionado' : ''} ${esgotado ? 'esgotado' : ''}" onclick="${esgotado ? '' : `selecionarProdutoMesa('${p.id}')`}">
-      <span>${p.nome}${p.unidade ? ` <span style="color:var(--muted);font-size:12px;">(${p.unidade})</span>` : ''}${esgotado ? ' <span style="color:var(--flame);font-size:11px;">— ESGOTADO</span>' : ''}</span>
+    <div class="mesa-produto-item ${mesaProdutoSelecionado?.id === p.id ? 'selecionado' : ''} ${esgotado ? 'esgotado' : ''}" onclick="${esgotado ? '' : `selecionarProdutoMesa('${esc(p.id)}')`}">
+      <span>${esc(p.nome)}${p.unidade ? ` <span style="color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${esgotado ? ' <span style="color:var(--flame);font-size:11px;">— ESGOTADO</span>' : ''}</span>
       <span>${formatarMoeda(p.preco)}</span>
     </div>
   `;
@@ -1591,8 +1605,8 @@ function selecionarProdutoMesa(produtoId) {
     adicionaisDiv.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Adicionais</div>` +
       adicionais.map(a => `
         <label class="mesa-adicional-linha">
-          <input type="checkbox" class="mesa-adicional-checkbox" value="${a.id}" data-nome="${a.nome}" data-preco="${a.preco}" />
-          ${a.nome} (+${formatarMoeda(a.preco)})
+          <input type="checkbox" class="mesa-adicional-checkbox" value="${esc(a.id)}" data-nome="${esc(a.nome)}" data-preco="${esc(a.preco)}" />
+          ${esc(a.nome)} (+${formatarMoeda(a.preco)})
         </label>
       `).join('');
     dicaLote.style.display = 'block';
@@ -1615,10 +1629,10 @@ function renderizarItensMesa(mesa) {
       <div class="pedido-item" style="align-items:center;">
         <span class="qtd">${item.quantidade}x</span>
         <span class="nome">
-          ${item.nome}
+          ${esc(item.nome)}
           ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
-          ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
-          ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
+          ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
+          ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
         </span>
         <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${i})">remover</button>
       </div>
@@ -1842,18 +1856,18 @@ function renderizarListaPedidos(pedidos) {
     lista.innerHTML = pedidos.slice(0, 15).map(p => `
       <div class="pedido-ticket">
         <div class="pedido-cabecalho">
-          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${p.mesaNumero || ''}</span>` : `<span class="badge-origem">WhatsApp</span>`}</span>
+          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${esc(p.mesaNumero || '')}</span>` : `<span class="badge-origem">WhatsApp</span>`}</span>
           <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
-        ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + p.endereco : ''}</div>` : ''}
-        ${p.atendenteNome ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">👤 ${p.atendenteNome}</div>` : ''}
+        ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + esc(p.endereco) : ''}</div>` : ''}
+        ${p.atendenteNome ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">👤 ${esc(p.atendenteNome)}</div>` : ''}
         ${p.itens.map(item => `
           <div class="pedido-item">
             <span class="qtd">${item.quantidade}x</span>
             <span class="nome">
-              ${item.nome}${item.porcao === 'meia' ? ' (meia)' : ''}
-              ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${item.adicionais.map(a => a.nome).join(', ')}</span>` : ''}
-              ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${item.observacao}</span>` : ''}
+              ${esc(item.nome)}${item.porcao === 'meia' ? ' (meia)' : ''}
+              ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
+              ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
             </span>
           </div>
         `).join('')}
@@ -1896,17 +1910,17 @@ function renderizarProdutos(produtos, estoque) {
       div.innerHTML = `
         <div class="produto-info">
           <div class="produto-linha-nome">
-            <span class="produto-nome">${p.nome}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${p.unidade})</span>` : ''}</span>
+            <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}</span>
             <span class="produto-leader"></span>
             <span class="produto-preco">${formatarMoeda(p.preco)}</span>
           </div>
-          <div class="produto-descricao">${p.descricao || ''}</div>
-          ${(p.adicionais && p.adicionais.length > 0) ? `<div class="produto-adicionais">+ ${p.adicionais.map(a => `${a.nome} (${formatarMoeda(a.preco)})`).join(' · ')}</div>` : ''}
+          <div class="produto-descricao">${esc(p.descricao || '')}</div>
+          ${(p.adicionais && p.adicionais.length > 0) ? `<div class="produto-adicionais">+ ${p.adicionais.map(a => `${esc(a.nome)} (${formatarMoeda(a.preco)})`).join(' · ')}</div>` : ''}
           <div class="produto-estoque ${qtdEstoque < 10 ? 'baixo' : ''}">estoque: ${qtdEstoque}</div>
         </div>
         <div class="botoes-produto">
-          <button class="btn-secundario" onclick="editarProduto('${p.id}')">editar</button>
-          <button class="btn-remover" onclick="removerProduto('${p.id}')">remover</button>
+          <button class="btn-secundario" onclick="editarProduto('${esc(p.id)}')">editar</button>
+          <button class="btn-remover" onclick="removerProduto('${esc(p.id)}')">remover</button>
         </div>
       `;
       card.appendChild(div);
@@ -1932,7 +1946,10 @@ function adicionarAdicionalNaLista() {
     toast('Preencha o nome e o preço do adicional.', 'erro');
     return;
   }
-  const id = 'add-' + nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  // Sufixo aleatorio garante id unico mesmo quando o nome nao tem letra/numero
+  // (ex: so emoji) ou quando dois adicionais "colapsam" pro mesmo slug.
+  const id = 'add-' + (slug || 'item') + '-' + Math.random().toString(36).slice(2, 7);
   adicionaisFormAtual.push({ id, nome, preco });
   document.getElementById('adicional-nome').value = '';
   document.getElementById('adicional-preco').value = '';
@@ -1976,7 +1993,13 @@ async function salvarProduto() {
   const nome = document.getElementById('produto-nome').value.trim();
   const unidade = document.getElementById('produto-unidade').value.trim();
   const preco = parseFloat(document.getElementById('produto-preco').value);
-  const estoqueInicial = parseInt(document.getElementById('produto-estoque').value || '0', 10);
+  // Estoque em branco: produto NOVO começa com 50 (bate com o placeholder do
+  // campo e o padrão do backend). Antes virava 0 e o produto já nascia
+  // "ESGOTADO", sem poder ser lançado numa mesa.
+  const estoqueRaw = document.getElementById('produto-estoque').value.trim();
+  const estoqueInicial = estoqueRaw === ''
+    ? (produtoEmEdicao ? 0 : 50)
+    : (parseInt(estoqueRaw, 10) || 0);
   const descricao = document.getElementById('produto-descricao').value.trim();
   const temMeiaPorcao = document.getElementById('produto-tem-meia').checked;
   const precoMeia = temMeiaPorcao ? parseFloat(document.getElementById('produto-preco-meia').value) : null;
@@ -1990,7 +2013,12 @@ async function salvarProduto() {
     return;
   }
 
-  const id = produtoEmEdicao || nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  // Id de produto novo: slug do nome + sufixo aleatorio. O sufixo evita dois
+  // bugs reais: nome so com emoji/acento virava id vazio, e dois produtos de
+  // nome parecido ("Coca-Cola" / "Coca Cola") colidiam e um sobrescrevia o
+  // outro via ON CONFLICT. Ao editar, mantem o id que ja existe.
+  const slugProduto = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const id = produtoEmEdicao || (slugProduto || 'item') + '-' + Math.random().toString(36).slice(2, 7);
 
   await apiFetch('/api/produtos', {
     method: 'POST',

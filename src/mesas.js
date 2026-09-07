@@ -72,6 +72,16 @@ export async function criarMesasEmLote(empresaId, de, ate) {
 }
 
 export async function removerMesa(empresaId, mesaId) {
+  // Não deixa apagar uma mesa que ainda tem conta aberta — senão o pedido
+  // em andamento (com cliente sentado na mesa) sumiria sem aviso nenhum.
+  const { rows } = await pool.query(
+    "SELECT status, itens_atuais FROM mesas WHERE empresa_id = $1 AND id = $2",
+    [empresaId, mesaId]
+  );
+  if (rows.length === 0) return false;
+  if ((rows[0].itens_atuais || []).length > 0) {
+    throw new Error("Essa mesa tem uma conta aberta. Feche a mesa antes de removê-la.");
+  }
   const { rowCount } = await pool.query("DELETE FROM mesas WHERE empresa_id = $1 AND id = $2", [
     empresaId,
     mesaId,
@@ -163,8 +173,15 @@ export async function removerItemMesa(empresaId, mesaId, indiceItem) {
 
     const itensAtuais = (rows[0].itens_atuais || []).filter((_, i) => i !== indiceItem);
 
+    // Se tirou o último item, a mesa volta a ficar livre — senão ela ficava
+    // "Ocupada / R$0,00" pra sempre: não dava pra fechar (sem item) nem pra
+    // remover (conta "aberta").
+    const ficouVazia = itensAtuais.length === 0;
     const { rows: atualizadas } = await cliente.query(
-      "UPDATE mesas SET itens_atuais = $1 WHERE empresa_id = $2 AND id = $3 RETURNING *",
+      `UPDATE mesas SET itens_atuais = $1,
+         status = ${ficouVazia ? "'livre'" : "status"},
+         aberta_em = ${ficouVazia ? "NULL" : "aberta_em"}
+       WHERE empresa_id = $2 AND id = $3 RETURNING *`,
       [JSON.stringify(itensAtuais), empresaId, mesaId]
     );
     await cliente.query("COMMIT");

@@ -69,6 +69,14 @@ export async function desconectar(instanceName) {
 }
 
 export async function configurarWebhook(instanceName, webhookUrl) {
+  // Se tiver WEBHOOK_TOKEN, pede pra Evolution mandar esse header em toda
+  // chamada do webhook — é assim que o server.js confirma que a chamada
+  // veio mesmo da Evolution, e não de um estranho que descobriu a URL.
+  const headers = {};
+  if (process.env.WEBHOOK_TOKEN) {
+    headers["x-webhook-token"] = process.env.WEBHOOK_TOKEN;
+  }
+
   const resposta = await fetch(`${EVOLUTION_URL}/webhook/set/${instanceName}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: EVOLUTION_KEY },
@@ -77,6 +85,7 @@ export async function configurarWebhook(instanceName, webhookUrl) {
         url: webhookUrl,
         enabled: true,
         events: ["MESSAGES_UPSERT"],
+        headers,
       },
     }),
   });

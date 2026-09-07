@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
@@ -31,7 +32,37 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+// Confia em 1 hop de proxy reverso (o Caddy/Nginx recomendado no DEPLOY.md),
+// pra que req.ip seja o IP real do cliente e não o do proxy — importante pro
+// limite de tentativas de login não trancar todo mundo de uma vez.
+app.set("trust proxy", 1);
+
+// O Express 4 NÃO encaminha erro de rota "async" pro handler de erro — uma
+// promise rejeitada dentro de uma rota vira "unhandledRejection" e o Node
+// derruba o processo INTEIRO (todos os restaurantes caem juntos). Isso
+// embrulha cada handler async pra que o erro vá pro middleware de erro lá
+// embaixo, respondendo 500 em vez de matar o servidor.
+for (const metodo of ["use", "get", "post", "put", "delete", "patch"]) {
+  const original = app[metodo].bind(app);
+  app[metodo] = (...args) =>
+    original(
+      ...args.map((arg) =>
+        typeof arg === "function" && arg.length < 4
+          ? function (req, res, next) {
+              return Promise.resolve(arg(req, res, next)).catch(next);
+            }
+          : arg
+      )
+    );
+}
+
 app.use(express.json());
+
+// Rede de segurança final: se ainda assim escapar um erro não tratado,
+// registra e mantém o servidor de pé em vez de derrubar tudo.
+process.on("unhandledRejection", (erro) => console.error("[unhandledRejection]", erro));
+process.on("uncaughtException", (erro) => console.error("[uncaughtException]", erro));
 
 // Todas as rotas de API (exceto login e webhook) exigem um token válido.
 // O token identifica QUAL empresa está fazendo a requisição — isso é o
@@ -112,19 +143,63 @@ function getConversa(empresaId, numero) {
   return conversas[chave];
 }
 
+// ---- Limite de tentativas de login ----
+// Em memória, sem biblioteca externa (mesmo espírito do resto do código).
+// Janela deslizante por IP: passou de LOGIN_MAX_TENTATIVAS numa janela de
+// LOGIN_JANELA_MS, recusa com 429 até a janela virar. Um login que dá certo
+// zera o contador daquele IP.
+const LOGIN_JANELA_MS = 15 * 60 * 1000;
+const LOGIN_MAX_TENTATIVAS = 10;
+const tentativasLogin = new Map(); // ip -> { count, primeiraEm }
+
+function ipDoRequest(req) {
+  return req.ip || req.socket?.remoteAddress || "desconhecido";
+}
+
+function limitarLogin(req, res, next) {
+  const ip = ipDoRequest(req);
+  const agora = Date.now();
+  const registro = tentativasLogin.get(ip);
+
+  if (!registro || agora - registro.primeiraEm > LOGIN_JANELA_MS) {
+    tentativasLogin.set(ip, { count: 1, primeiraEm: agora });
+    return next();
+  }
+
+  registro.count++;
+  if (registro.count > LOGIN_MAX_TENTATIVAS) {
+    const faltaMin = Math.max(1, Math.ceil((LOGIN_JANELA_MS - (agora - registro.primeiraEm)) / 60000));
+    return res.status(429).json({
+      erro: `Muitas tentativas de login. Espere ${faltaMin} min e tente de novo.`,
+    });
+  }
+  next();
+}
+
+// Limpeza periódica pra o Map não crescer pra sempre.
+setInterval(() => {
+  const agora = Date.now();
+  for (const [ip, r] of tentativasLogin) {
+    if (agora - r.primeiraEm > LOGIN_JANELA_MS) tentativasLogin.delete(ip);
+  }
+}, LOGIN_JANELA_MS).unref();
+
 // ---- Login ----
 
-app.post("/api/login", async (req, res) => {
-  const { login, senha } = req.body;
+app.post("/api/login", limitarLogin, async (req, res) => {
+  const { login, senha } = req.body || {};
+  const ip = ipDoRequest(req);
 
   const empresaId = await autenticar(login, senha);
   if (empresaId) {
+    tentativasLogin.delete(ip);
     return res.json({ token: gerarToken(empresaId) });
   }
 
   // Não é dono — tenta como atendente antes de recusar de vez.
   const resultadoAtendente = await autenticarAtendente(login, senha);
   if (resultadoAtendente) {
+    tentativasLogin.delete(ip);
     return res.json({ token: gerarTokenAtendente(resultadoAtendente.atendenteId, resultadoAtendente.empresaId) });
   }
 
@@ -141,7 +216,35 @@ app.get("/api/me", async (req, res) => {
 // mensagem chega, o evento traz o nome dessa instância — é assim que
 // descobrimos de QUAL restaurante é a mensagem, sem precisar de login.
 
-app.post("/webhook/mensagem", async (req, res) => {
+// Autenticação do webhook: o whatsapp.js configura a Evolution pra mandar
+// o header "x-webhook-token" em toda chamada. Sem WEBHOOK_TOKEN no .env o
+// check é pulado (compatível com quem ainda não configurou) — mas aí
+// qualquer um que descubra a URL consegue injetar pedido falso e gastar
+// crédito de IA. Depois de definir o token, reconecte cada instância
+// (aba WhatsApp → Conectar) pra a Evolution começar a mandar o header.
+let jaAvisouWebhookSemToken = false;
+function autenticarWebhook(req, res, next) {
+  const esperado = process.env.WEBHOOK_TOKEN;
+  if (!esperado) {
+    if (!jaAvisouWebhookSemToken) {
+      console.warn(
+        "[WEBHOOK] Sem WEBHOOK_TOKEN no .env — /webhook/mensagem está ABERTO. " +
+        "Defina WEBHOOK_TOKEN e reconecte cada instância na aba WhatsApp."
+      );
+      jaAvisouWebhookSemToken = true;
+    }
+    return next();
+  }
+  const recebido = Buffer.from(req.get("x-webhook-token") || "");
+  const alvo = Buffer.from(esperado);
+  if (recebido.length !== alvo.length || !timingSafeEqual(recebido, alvo)) {
+    console.warn("[WEBHOOK] Rejeitado: token ausente ou incorreto.");
+    return res.sendStatus(401);
+  }
+  next();
+}
+
+app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
   try {
     const evento = req.body;
     const nomeInstancia = evento?.instance;
@@ -341,7 +444,11 @@ app.post("/api/mesas/lote", async (req, res) => {
 });
 
 app.delete("/api/mesas/:id", async (req, res) => {
-  res.json({ ok: await removerMesa(req.empresaId, Number(req.params.id)) });
+  try {
+    res.json({ ok: await removerMesa(req.empresaId, Number(req.params.id)) });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
 });
 
 app.post("/api/mesas/:id/item", async (req, res) => {
@@ -543,6 +650,26 @@ app.post("/api/whatsapp/desconectar", async (req, res) => {
 // pelo express.static a partir de public/index.html).
 app.get("/health", (req, res) => {
   res.send("Vendly bot rodando. Acesse /admin.html para gerenciar o cardápio.");
+});
+
+// Handler de erro do Express — recebe o que os wrappers async encaminharem.
+// Responde 500 com JSON (nunca uma página de stack trace) e mantém o
+// servidor no ar.
+app.use((erro, req, res, next) => {
+  // JSON malformado no corpo (express.json) e afins já vêm com status < 500 —
+  // é erro do cliente, uma linha basta. Erro 500 é problema nosso: loga tudo.
+  const status = erro.status || erro.statusCode || 500;
+  if (status >= 500) {
+    console.error(`[ERRO ${req.method} ${req.originalUrl}]`, erro);
+  } else {
+    console.warn(`[${status} ${req.method} ${req.originalUrl}] ${erro.message}`);
+  }
+  if (res.headersSent) return next(erro);
+  res.status(status).json({
+    erro: status >= 500
+      ? "Erro interno no servidor. Tente de novo em alguns instantes."
+      : "Requisição inválida.",
+  });
 });
 
 const PORTA = process.env.PORT || 3000;

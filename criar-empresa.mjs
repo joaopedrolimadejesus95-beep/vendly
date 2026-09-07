@@ -13,8 +13,9 @@ import { criarEmpresa } from "./src/auth.js";
 // da conexão de WhatsApp dela na Evolution API. Sugestão: "vendly-" + algo
 // que identifique o restaurante, sem espaço nem acento.
 //
-// O "plano" é opcional (padrão: base). Valores válidos: base, pro, premium.
-// Só o plano Pro (ou Premium) dá acesso ao módulo de Mesas.
+// O "plano" é opcional (padrão: base). Valores válidos: mesas, base, pro.
+// O módulo de Mesas é liberado nos planos "mesas" e "pro"; o WhatsApp/IA
+// nos planos "base" e "pro".
 
 const [, , nome, login, senha, evolutionInstance, plano = "base"] = process.argv;
 

@@ -168,8 +168,11 @@ export async function removerProduto(empresaId, id) {
 }
 
 export async function atualizarEstoqueManual(empresaId, id, quantidade) {
+  // Nunca deixa o estoque virar NaN/negativo por um valor esquisito no corpo
+  // da requisição — arredonda pra inteiro e trava o piso em 0.
+  const qtd = Math.max(0, Math.trunc(Number(quantidade) || 0));
   await pool.query("UPDATE produtos SET estoque = $1 WHERE empresa_id = $2 AND id = $3", [
-    quantidade,
+    qtd,
     empresaId,
     id,
   ]);
