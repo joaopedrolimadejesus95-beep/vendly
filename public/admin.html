@@ -552,14 +552,15 @@
     </div>
   </div>
   <div class="abas">
-    <div class="aba ativa" data-aba="vendas" onclick="mudarAba('vendas')">Vendas</div>
+    <div class="aba ativa" data-aba="vendas" onclick="mudarAba('vendas')">Visão geral</div>
+    <div class="aba" data-aba="mesas" onclick="mudarAba('mesas')">Mesas</div>
     <div class="aba" data-aba="atendimentos" onclick="mudarAba('atendimentos')">
       Atendimentos <span class="badge-contagem" id="badge-atendimentos"></span>
     </div>
-    <div class="aba" data-aba="mesas" onclick="mudarAba('mesas')">Mesas</div>
     <div class="aba" data-aba="cardapio" onclick="mudarAba('cardapio')">Cardápio</div>
-    <div class="aba" data-aba="regras" onclick="mudarAba('regras')">Regras</div>
+    <div class="aba" data-aba="equipe" onclick="mudarAba('equipe')">Equipe</div>
     <div class="aba" data-aba="whatsapp" onclick="mudarAba('whatsapp')">WhatsApp</div>
+    <div class="aba" data-aba="regras" onclick="mudarAba('regras')">Configurações</div>
   </div>
 </div>
 
@@ -584,12 +585,26 @@
         <div class="stat-label">📦 Total de pedidos</div>
         <div class="stat-valor herb" id="stat-total-pedidos">0</div>
       </div>
+      <div class="stat" id="stat-mesas-card" style="display:none;">
+        <div class="stat-label">🪑 Mesas ocupadas</div>
+        <div class="stat-valor herb" id="stat-mesas-ocupadas">0/0</div>
+      </div>
+    </div>
+
+    <div id="secao-operacao-agora" style="display:none;">
+      <h2>Operação agora</h2>
+      <div id="lista-operacao-agora"></div>
     </div>
 
     <h2>Mais vendidos</h2>
     <div class="card" id="lista-ranking"></div>
 
     <h2>Pedidos recentes</h2>
+    <div class="segmentado segmentado-compacto" id="pedidos-filtro-origem" style="margin-bottom:12px;">
+      <button type="button" class="segmentado-opcao ativo" data-valor="todos" onclick="filtrarPedidosRecentes('todos')">Todos</button>
+      <button type="button" class="segmentado-opcao" data-valor="whatsapp" onclick="filtrarPedidosRecentes('whatsapp')">WhatsApp</button>
+      <button type="button" class="segmentado-opcao" data-valor="mesa" onclick="filtrarPedidosRecentes('mesa')">Mesas</button>
+    </div>
     <div id="lista-pedidos"></div>
   </section>
 
@@ -757,29 +772,17 @@
   </section>
 
   <section class="painel" id="painel-regras">
-    <h2>Regras da empresa</h2>
+    <h2>Empresa</h2>
     <div class="card">
       <label>Nome do estabelecimento</label>
       <input type="text" id="empresa-nome" />
 
-      <div class="toggle-linha">
-        <span>Fazer entrega?</span>
-        <input type="checkbox" id="empresa-entrega" />
-      </div>
-
       <label>Endereço do restaurante (mostrado para retirada)</label>
       <input type="text" id="empresa-endereco" placeholder="Ex: Rua das Flores, 123 - Centro" />
+    </div>
 
-      <div class="toggle-linha">
-        <span>Exigir pagamento antes de confirmar?</span>
-        <input type="checkbox" id="empresa-pagamento-antecipado" />
-      </div>
-
-      <label>Formas de pagamento aceitas</label>
-      <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
-      <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
-      <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
-
+    <h2>Funcionamento</h2>
+    <div class="card">
       <label>Dias que funciona</label>
       <div class="toggle-linha"><span>Domingo</span><input type="checkbox" class="dia-funcionamento" value="domingo" /></div>
       <div class="toggle-linha"><span>Segunda</span><input type="checkbox" class="dia-funcionamento" value="segunda" /></div>
@@ -800,11 +803,28 @@
           <input type="text" id="empresa-horario-fechamento" placeholder="23:30" />
         </div>
       </div>
-
-      <button class="btn-principal" style="margin-top:14px" onclick="salvarEmpresa()">Salvar regras</button>
     </div>
 
-    <h2>Senha do painel</h2>
+    <h2>Pedidos e pagamento</h2>
+    <div class="card">
+      <div class="toggle-linha">
+        <span>Fazer entrega?</span>
+        <input type="checkbox" id="empresa-entrega" />
+      </div>
+      <div class="toggle-linha">
+        <span>Exigir pagamento antes de confirmar?</span>
+        <input type="checkbox" id="empresa-pagamento-antecipado" />
+      </div>
+
+      <label>Formas de pagamento aceitas</label>
+      <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
+      <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
+      <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
+
+      <button class="btn-principal" style="margin-top:14px; width:100%;" onclick="salvarEmpresa()">Salvar configurações</button>
+    </div>
+
+    <h2>Segurança</h2>
     <div class="card">
       <div style="font-size:13px;color:#8a8073;margin-bottom:10px;">Pra trocar sua senha, informe a atual e a nova.</div>
 
@@ -818,7 +838,7 @@
       <div id="senha-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
     </div>
 
-    <h2>Comanda</h2>
+    <h2>Impressão</h2>
     <div class="card">
       <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
         <span>Imprimir bebida separada da comida
@@ -830,19 +850,35 @@
       <div id="secao-ips-impressora" style="display:none; border-top:1px dashed var(--line); margin-top:16px; padding-top:14px;">
         <div style="font-size:12px; color:var(--muted); margin-bottom:12px;">Se cada estação tem uma impressora diferente (uma na cozinha, outra no bar), informa o IP de cada uma aqui. Se deixar em branco, usa a impressora principal configurada no agente de impressão.</div>
 
-        <label>IP da impressora — Cozinha</label>
+        <label>IP da impressora — Cozinha (configuração avançada)</label>
         <input type="text" id="ip-impressora-cozinha" placeholder="Ex: 192.168.1.50 (deixe vazio para usar a principal)" />
 
-        <label>IP da impressora — Saladas</label>
+        <label>IP da impressora — Saladas (configuração avançada)</label>
         <input type="text" id="ip-impressora-salada" placeholder="Ex: 192.168.1.51 (deixe vazio para usar a principal)" />
 
-        <label>IP da impressora — Bar</label>
+        <label>IP da impressora — Bar (configuração avançada)</label>
         <input type="text" id="ip-impressora-bar" placeholder="Ex: 192.168.1.52 (deixe vazio para usar a principal)" />
       </div>
     </div>
 
-    <div id="secao-atendentes" style="display:none;">
-      <h2>Atendentes</h2>
+    <h2>Plano</h2>
+    <div class="card">
+      <div id="plano-info"></div>
+    </div>
+
+    <h2>Cancelar</h2>
+
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se você está pensando em cancelar, adoraríamos saber o motivo — isso nos ajuda a melhorar.</div>
+      <label>O que podemos melhorar? (opcional)</label>
+      <input type="text" id="feedback-cancelamento" placeholder="Conta pra gente o que aconteceu..." />
+      <button onclick="cancelarComFeedback()" class="btn-remover" style="width:100%;margin-top:14px;padding:13px;">Quero cancelar</button>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-equipe">
+    <h2>Equipe</h2>
+    <div id="equipe-conteudo">
       <div class="card">
         <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Contas de funcionário (garçom, caixa) — só conseguem usar a aba de Mesas, sem acesso ao resto do painel.</div>
         <div id="lista-atendentes" style="margin-bottom:16px;"></div>
@@ -857,13 +893,13 @@
         <div id="atendente-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
       </div>
     </div>
-
-    <h2>Cancelar</h2>
-    <div class="card">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se você está pensando em cancelar, adoraríamos saber o motivo — isso nos ajuda a melhorar.</div>
-      <label>O que podemos melhorar? (opcional)</label>
-      <input type="text" id="feedback-cancelamento" placeholder="Conta pra gente o que aconteceu..." />
-      <button onclick="cancelarComFeedback()" class="btn-remover" style="width:100%;margin-top:14px;padding:13px;">Quero cancelar</button>
+    <div id="equipe-bloqueio" style="display:none;">
+      <div class="card" style="text-align:center; padding:36px 20px;">
+        <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+        <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">Equipe</div>
+        <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Contas de atendente são exclusivas dos planos Mesas e Pro.</div>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20contas%20de%20atendente" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com Mesas</a>
+      </div>
     </div>
   </section>
 
@@ -918,6 +954,7 @@
 <script>
 let produtoEmEdicao = null;
 let planoAtual = 'base';
+let pedidosRecentesAtuais = [];
 let adicionaisFormAtual = [];
 let contagemAtendimentosAnterior = 0;
 let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
@@ -1026,6 +1063,26 @@ function temFuncionalidade(funcionalidade) {
   return Boolean(MATRIZ_PLANOS[planoAtual]?.[funcionalidade]);
 }
 
+// Informação real do plano — nada inventado, reflete exatamente a matriz
+// de funcionalidades que o backend também usa pra travar cada rota.
+const INFO_PLANOS = {
+  mesas: { nome: 'Vendly Mesas', preco: 'R$79/mês', recursos: ['Módulo de Mesas', 'Pedidos presenciais/balcão', 'Impressão automática de comanda', 'Painel de vendas'] },
+  base: { nome: 'Vendly Base', preco: 'R$150/mês', recursos: ['Atendimento por IA no WhatsApp', 'Cardápio, adicionais e meia porção', 'Controle de estoque', 'Painel de vendas'] },
+  pro: { nome: 'Vendly Pro', preco: 'R$199/mês', recursos: ['Tudo do plano Base', 'Tudo do plano Mesas', 'Um único painel pra tudo'] },
+};
+
+function renderizarInfoPlano() {
+  const info = INFO_PLANOS[planoAtual] || INFO_PLANOS.base;
+  document.getElementById('plano-info').innerHTML = `
+    <div style="font-family:var(--font-display); font-size:19px; text-transform:uppercase; margin-bottom:2px;">${info.nome}</div>
+    <div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--flame); margin-bottom:14px;">${info.preco}</div>
+    <ul style="list-style:none; padding:0; margin:0;">
+      ${info.recursos.map(r => `<li style="padding:6px 0; border-bottom:1px dotted var(--line); font-size:14px;">✓ ${r}</li>`).join('')}
+    </ul>
+    <div style="margin-top:14px; font-size:12px; color:var(--muted);">Quer mudar de plano? Chama no <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20sobre%20meu%20plano%20Vendly" target="_blank" style="color:var(--flame);">WhatsApp de suporte</a>.</div>
+  `;
+}
+
 function mudarAba(nome) {
   document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === nome));
   document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativa'));
@@ -1047,6 +1104,17 @@ function mudarAba(nome) {
       carregarMesas();
     } else {
       mostrarBloqueioMesas();
+    }
+  }
+
+  if (nome === 'equipe') {
+    if (temFuncionalidade('mesas')) {
+      document.getElementById('equipe-conteudo').style.display = 'block';
+      document.getElementById('equipe-bloqueio').style.display = 'none';
+      carregarAtendentes();
+    } else {
+      document.getElementById('equipe-conteudo').style.display = 'none';
+      document.getElementById('equipe-bloqueio').style.display = 'block';
     }
   }
 }
@@ -1079,6 +1147,7 @@ async function carregarTudo() {
 
   document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
   planoAtual = empresaResp.plano || 'base';
+  renderizarInfoPlano();
   document.getElementById('empresa-nome').value = empresaResp.nome || '';
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
@@ -1097,17 +1166,47 @@ async function carregarTudo() {
   document.getElementById('empresa-horario-abertura').value = empresaResp.horarioAbertura || '';
   document.getElementById('empresa-horario-fechamento').value = empresaResp.horarioFechamento || '';
 
-  // A seção de atendentes só faz sentido pra quem tem o módulo de Mesas.
-  const secaoAtendentes = document.getElementById('secao-atendentes');
-  if (temFuncionalidade('mesas')) {
-    secaoAtendentes.style.display = 'block';
-    carregarAtendentes();
-  } else {
-    secaoAtendentes.style.display = 'none';
-  }
-
   renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
   processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+
+  // "Operação agora" (mesas ocupadas com tempo) só faz sentido pra quem
+  // tem o módulo de Mesas — reaproveita os mesmos dados de sempre.
+  if (temFuncionalidade('mesas')) {
+    document.getElementById('stat-mesas-card').style.display = 'block';
+    document.getElementById('secao-operacao-agora').style.display = 'block';
+    carregarOperacaoAgora();
+  } else {
+    document.getElementById('stat-mesas-card').style.display = 'none';
+    document.getElementById('secao-operacao-agora').style.display = 'none';
+  }
+}
+
+async function carregarOperacaoAgora() {
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const ocupadas = mesas.filter(m => m.status === 'ocupada');
+
+  document.getElementById('stat-mesas-ocupadas').textContent = `${ocupadas.length}/${mesas.length}`;
+
+  const lista = document.getElementById('lista-operacao-agora');
+  if (ocupadas.length === 0) {
+    lista.innerHTML = vazioHtml('🪑', 'Nenhuma mesa ocupada no momento.');
+    return;
+  }
+  lista.innerHTML = ocupadas.map(m => {
+    const minutos = m.abertaEm ? Math.max(0, Math.round((Date.now() - new Date(m.abertaEm).getTime()) / 60000)) : null;
+    return `
+    <div class="pedido-ticket" style="cursor:pointer;" onclick="mudarAba('mesas'); setTimeout(() => abrirModalMesa(${m.id}), 100);">
+      <div class="pedido-cabecalho">
+        <span>Mesa ${m.numero}<span class="badge-origem mesa">Ocupada</span></span>
+        <span>${minutos !== null ? `há ${minutos} min` : ''}</span>
+      </div>
+      <div class="pedido-total">
+        <span>${m.itensAtuais.length} ${m.itensAtuais.length === 1 ? 'item' : 'itens'}</span>
+        <span>${formatarMoeda(m.total)}</span>
+      </div>
+    </div>
+  `;
+  }).join('');
 }
 
 async function carregarAtendentes() {
@@ -1718,6 +1817,19 @@ function renderizarVendas(pedidos, stats) {
     `).join('');
   }
 
+  pedidosRecentesAtuais = pedidos;
+  renderizarListaPedidos(pedidos);
+}
+
+function filtrarPedidosRecentes(origem) {
+  document.querySelectorAll('#pedidos-filtro-origem .segmentado-opcao').forEach(btn => {
+    btn.classList.toggle('ativo', btn.dataset.valor === origem);
+  });
+  const filtrados = origem === 'todos' ? pedidosRecentesAtuais : pedidosRecentesAtuais.filter(p => (p.origem || 'whatsapp') === origem);
+  renderizarListaPedidos(filtrados);
+}
+
+function renderizarListaPedidos(pedidos) {
   const lista = document.getElementById('lista-pedidos');
   if (pedidos.length === 0) {
     const mensagemVazia = temFuncionalidade('whatsapp') && temFuncionalidade('mesas')
@@ -2040,7 +2152,7 @@ async function iniciarApp() {
 // Esconde tudo que não seja a aba de Mesas — um atendente não tem
 // permissão pra mais nada, então nem faz sentido mostrar essas abas.
 function ajustarMenuParaAtendente() {
-  ['vendas', 'atendimentos', 'cardapio', 'regras', 'whatsapp'].forEach((aba) => {
+  ['vendas', 'atendimentos', 'cardapio', 'regras', 'whatsapp', 'equipe'].forEach((aba) => {
     const botaoAba = document.querySelector(`.aba[data-aba="${aba}"]`);
     if (botaoAba) botaoAba.style.display = 'none';
   });

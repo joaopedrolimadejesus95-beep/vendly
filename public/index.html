@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Vendly — Sua empresa vende. A Vendly cuida do resto.</title>
+<title>Vendly — Seu restaurante vende. A Vendly organiza o resto.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -344,6 +344,69 @@
     font-size: 13px;
     text-align: center;
   }
+
+  /* ---- PROVA / PAINEL REAL ---- */
+  .prova-linha { text-align: center; font-family: var(--font-mono); font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 40px; }
+  .mockup-painel {
+    background: var(--ink);
+    max-width: 720px;
+    margin: 0 auto;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .mockup-topo { background: #0e0d0c; padding: 14px 18px; color: var(--paper); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .mockup-corpo { background: var(--paper); padding: 20px; }
+  .mockup-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .mockup-stat { background: var(--paper-dim); border: 1px solid var(--line); padding: 12px 10px; }
+  .mockup-stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; font-family: var(--font-mono); }
+  .mockup-stat .val { font-family: var(--font-mono); font-weight: 700; font-size: 16px; margin-top: 4px; }
+  .mockup-linha-pedido { display: flex; justify-content: space-between; align-items: center; background: var(--paper-dim); border: 1px solid var(--line); padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+  .mockup-badge { font-family: var(--font-mono); font-size: 10px; padding: 2px 7px; border-radius: 20px; background: #fdecdf; color: var(--flame); text-transform: uppercase; }
+  .mockup-badge.mesa { background: #e6f0e9; color: var(--herb); }
+
+  /* ---- O PROBLEMA ---- */
+  .problema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  @media (max-width: 880px) { .problema-grid { grid-template-columns: 1fr; } }
+  .dor-lista { list-style: none; }
+  .dor-lista li { padding: 10px 0 10px 28px; position: relative; color: var(--muted); font-size: 15px; border-bottom: 1px dotted var(--line); }
+  .dor-lista li::before { content: "✕"; position: absolute; left: 0; color: var(--flame); font-weight: 700; }
+  .fluxo-solucao { list-style: none; }
+  .fluxo-solucao li { padding: 12px 16px; background: var(--paper); border-left: 3px solid var(--herb); margin-bottom: 10px; font-size: 14.5px; }
+  .fluxo-solucao li b { color: var(--herb); }
+
+  /* ---- WHATSAPP + MESAS ---- */
+  .canais-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: rgba(250,246,239,0.12); border: 1px solid rgba(250,246,239,0.12); margin-bottom: 32px; }
+  @media (max-width: 880px) { .canais-grid { grid-template-columns: repeat(2, 1fr); } }
+  .canal-item { background: var(--ink); padding: 22px 16px; }
+  .canal-item .icone { font-size: 22px; margin-bottom: 10px; }
+  .canal-item h3 { font-size: 14px; margin-bottom: 6px; text-transform: uppercase; }
+  .canal-item p { font-size: 12.5px; color: rgba(250,246,239,0.6); }
+  .frase-grande { text-align: center; font-family: var(--font-display); font-size: clamp(20px, 3vw, 28px); max-width: 640px; margin: 0 auto; }
+
+  /* ---- BENEFÍCIOS (4 grandes) ---- */
+  .beneficios-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 880px) { .beneficios-grid { grid-template-columns: 1fr; } }
+  .beneficio { background: var(--paper); border: 1px solid var(--line); padding: 30px 26px; }
+  .beneficio .icone { font-size: 28px; margin-bottom: 14px; }
+  .beneficio h3 { font-size: 19px; margin-bottom: 8px; }
+  .beneficio p { color: var(--muted); font-size: 14.5px; }
+
+  /* ---- TESTE GRÁTIS ---- */
+  .teste-gratis-box { background: var(--ink); color: var(--paper); text-align: center; padding: 56px 32px; max-width: 620px; margin: 0 auto; }
+  .teste-gratis-box h2 { font-size: clamp(24px, 3vw, 32px); margin-bottom: 12px; }
+  .teste-gratis-box p { color: rgba(250,246,239,0.7); margin-bottom: 26px; max-width: 460px; margin-inline: auto; }
+
+  /* ---- FAQ ---- */
+  .faq-lista { max-width: 720px; margin: 0 auto; }
+  .faq-item { border-bottom: 1px solid var(--line); padding: 20px 0; }
+  .faq-item h3 { font-size: 16px; margin-bottom: 8px; }
+  .faq-item p { color: var(--muted); font-size: 14.5px; }
+
+  /* ---- CUSTO DE FAZER MANUAL ---- */
+  .fluxo-dor { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 36px; }
+  .fluxo-dor .item { background: var(--paper); border: 1px solid var(--line); padding: 10px 20px; font-size: 14px; color: var(--muted); }
+  .fluxo-dor .seta { color: var(--flame); font-size: 18px; }
+  .fluxo-solucao-final { text-align: center; font-family: var(--font-display); font-size: clamp(20px, 3vw, 26px); }
 </style>
 </head>
 <body>
@@ -353,24 +416,26 @@
     <div class="logo">Vendly</div>
     <div class="nav-links">
       <a href="#como-funciona">Como funciona</a>
-      <a href="#demo">Demonstração</a>
-      <a href="#preco">Preço</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#preco">Planos</a>
+      <a href="#faq">FAQ</a>
       <a href="/admin.html">Já sou cliente</a>
     </div>
-    <a href="#preco" class="nav-cta">Começar agora</a>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="nav-cta">Testar grátis</a>
   </div>
 </nav>
 
 <section class="hero">
   <div class="wrap">
     <div>
-      <span class="eyebrow">Atendimento automático via WhatsApp</span>
-      <h1>Sua empresa vende. <em>A Vendly</em> cuida do resto.</h1>
-      <p class="lede">Uma IA entende o pedido do seu cliente pelo WhatsApp, confere o cardápio e o estoque de verdade, e entrega a comanda pronta — sem inventar preço, sem errar conta.</p>
+      <span class="eyebrow">Atendimento automático via WhatsApp + Mesas</span>
+      <h1>Seu restaurante vende. <em>A Vendly</em> organiza o resto.</h1>
+      <p class="lede">Atenda pedidos no WhatsApp, gerencie suas mesas e acompanhe tudo em um só lugar. Sem planilhas. Sem pedidos perdidos. Sem ficar respondendo as mesmas perguntas o dia inteiro.</p>
       <div class="hero-ctas">
-        <a href="#preco" class="btn-primary">Começar agora</a>
-        <a href="#demo" class="btn-ghost">Ver como funciona</a>
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
+        <a href="#como-funciona" class="btn-ghost">Ver como funciona ↓</a>
       </div>
+      <div style="margin-top:18px; font-size:12.5px; color:rgba(250,246,239,0.55); font-family:var(--font-mono);">Sem fidelidade • Configuração acompanhada • Cancele quando quiser</div>
     </div>
     <div class="demo-stage">
       <div class="phone">
@@ -392,29 +457,78 @@
   </div>
 </section>
 
+<section style="padding-bottom:0;">
+  <div class="wrap">
+    <div class="prova-linha">Feito para a rotina real de restaurantes — WhatsApp + Mesas + Pedidos + Estoque + Impressão, tudo conectado em um único sistema.</div>
+    <div class="mockup-painel">
+      <div class="mockup-topo"><span>Vendly</span><span style="font-size:11px; opacity:0.6;">Painel do restaurante</span></div>
+      <div class="mockup-corpo">
+        <div class="mockup-stats">
+          <div class="mockup-stat"><div class="lbl">Faturamento hoje</div><div class="val" style="color:var(--flame);">R$534,80</div></div>
+          <div class="mockup-stat"><div class="lbl">Pedidos hoje</div><div class="val">18</div></div>
+          <div class="mockup-stat"><div class="lbl">Mesas ocupadas</div><div class="val" style="color:var(--herb);">7/12</div></div>
+        </div>
+        <div class="mockup-linha-pedido"><span>Pedido #152 <span class="mockup-badge mesa">Mesa 04</span></span><span>R$70,80</span></div>
+        <div class="mockup-linha-pedido"><span>Pedido #153 <span class="mockup-badge">WhatsApp</span></span><span>R$34,90</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
 <section id="como-funciona">
   <div class="wrap">
     <div class="section-head">
+      <span class="eyebrow">O problema</span>
+      <h2>Seu restaurante não deveria depender da correria.</h2>
+    </div>
+    <div class="problema-grid">
+      <div>
+        <ul class="dor-lista">
+          <li>Pedidos chegando no WhatsApp</li>
+          <li>Garçom anotando pedido no papel</li>
+          <li>Cozinha tentando entender a comanda</li>
+          <li>Estoque sendo controlado de cabeça</li>
+          <li>No final do dia, ninguém sabe exatamente quanto vendeu</li>
+        </ul>
+      </div>
+      <div>
+        <ul class="fluxo-solucao">
+          <li><b>WhatsApp → Pedido automático.</b> A IA entende o cliente e transforma a conversa em pedido.</li>
+          <li><b>Mesa → Pedido organizado.</b> O garçom lança o pedido direto pelo celular ou tablet.</li>
+          <li><b>Pedido → Cozinha.</b> A comanda pode ser enviada automaticamente pra impressão.</li>
+          <li><b>Venda → Estoque.</b> O estoque acompanha os pedidos, sem controle manual.</li>
+          <li><b>Tudo → Dashboard.</b> Você acompanha a operação inteira num único lugar.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
       <span class="eyebrow">O fluxo</span>
-      <h2>Da mensagem até a cozinha, em três passos</h2>
+      <h2>Comece em poucos minutos</h2>
     </div>
     <div class="steps">
       <div class="step">
         <div class="num">01</div>
-        <h3>Configure sua empresa</h3>
-        <p>Cadastra o cardápio, preços, ingredientes e regras de pagamento direto no painel — sem precisar de ninguém técnico.</p>
+        <h3>Cadastre seu restaurante</h3>
+        <p>Adiciona seu cardápio, preços e configurações direto no painel — sem precisar de ninguém técnico.</p>
       </div>
       <div class="step">
         <div class="num">02</div>
-        <h3>A IA atende seus clientes</h3>
-        <p>Entende pedidos em português natural, confere estoque real, e nunca inventa produto ou preço que não existe.</p>
+        <h3>Conecte seu WhatsApp</h3>
+        <p>A Vendly começa a atender seus clientes automaticamente, sem trocar de número.</p>
       </div>
       <div class="step">
         <div class="num">03</div>
-        <h3>Você acompanha tudo</h3>
-        <p>Vendas, estoque e atendimentos num painel só — e a comanda pode sair direto na impressora da cozinha.</p>
+        <h3>Comece a receber pedidos</h3>
+        <p>Os pedidos chegam organizados no painel e podem seguir direto pra cozinha.</p>
       </div>
     </div>
+    <p style="text-align:center; color:var(--muted); margin-top:28px; font-size:14px;">Você não precisa ser técnico pra usar o Vendly.</p>
   </div>
 </section>
 
@@ -422,7 +536,8 @@
   <div class="wrap">
     <div class="section-head">
       <span class="eyebrow">Na prática</span>
-      <h2>A conversa vira pedido. O pedido vira comanda.</h2>
+      <h2>Veja o Vendly trabalhando por você</h2>
+      <p style="color:rgba(250,246,239,0.65); margin-top:10px;">Seu cliente manda uma mensagem normalmente. A Vendly entende, consulta seu cardápio e transforma a conversa em um pedido.</p>
     </div>
     <div class="demo-grid">
       <div class="chat-static">
@@ -442,45 +557,73 @@
         <div class="r-status">Confirmado</div>
       </div>
     </div>
+    <p style="text-align:center; margin-top:32px; color:rgba(250,246,239,0.6); font-size:14.5px;">E você não precisa ficar olhando o WhatsApp.</p>
   </div>
 </section>
 
-<section>
+<section style="background: var(--ink); color: var(--paper);">
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center; max-width:600px;">
+      <span class="eyebrow" style="color:var(--mustard);">Dois canais, um painel</span>
+      <h2>Do WhatsApp ao salão. Tudo conectado.</h2>
+    </div>
+    <div class="canais-grid">
+      <div class="canal-item">
+        <div class="icone">💬</div>
+        <h3>WhatsApp</h3>
+        <p>Seu cliente faz o pedido conversando normalmente.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone">🪑</div>
+        <h3>Mesas</h3>
+        <p>Seu garçom registra pedidos direto na mesa.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone">🧾</div>
+        <h3>Pedidos</h3>
+        <p>Tudo chega ao mesmo painel.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone">📦</div>
+        <h3>Estoque</h3>
+        <p>Os pedidos usam o mesmo estoque.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone">📊</div>
+        <h3>Vendas</h3>
+        <p>Você acompanha tudo em tempo real.</p>
+      </div>
+    </div>
+    <div class="frase-grande">Não importa de onde veio o pedido. Você vê tudo no mesmo lugar.</div>
+  </div>
+</section>
+
+<section id="recursos">
   <div class="wrap">
     <div class="section-head">
-      <span class="eyebrow">O que já vem pronto</span>
-      <h2>Feito pra quem vende comida de verdade</h2>
+      <span class="eyebrow">Por que o Vendly?</span>
+      <h2>Menos trabalho. Mais controle.</h2>
     </div>
-    <div class="features">
-      <div class="feature">
-        <div class="icon">🍔</div>
-        <h3>Cardápio real</h3>
-        <p>Adicionais, meia porção, observações do cliente — a IA nunca inventa o que não está cadastrado.</p>
+    <div class="beneficios-grid">
+      <div class="beneficio">
+        <div class="icone">🤖</div>
+        <h3>Atendimento automático</h3>
+        <p>A IA atende seus clientes pelo WhatsApp e entende pedidos em português natural — sem inventar produto ou preço fora do cardápio.</p>
       </div>
-      <div class="feature">
-        <div class="icon">📦</div>
-        <h3>Estoque de verdade</h3>
-        <p>Baixa automática a cada pedido confirmado, e avisa quando algo está em falta.</p>
+      <div class="beneficio">
+        <div class="icone">🪑</div>
+        <h3>Salão organizado</h3>
+        <p>Garçons lançam pedidos direto nas mesas, pelo celular ou tablet, sem depender de papel.</p>
       </div>
-      <div class="feature">
-        <div class="icon">🧾</div>
-        <h3>Comanda na cozinha</h3>
-        <p>Impressão automática — uma via pra cozinha, outra pra entrega — direto na impressora do restaurante.</p>
+      <div class="beneficio">
+        <div class="icone">📦</div>
+        <h3>Estoque conectado</h3>
+        <p>Cada pedido — do WhatsApp ou da mesa — reflete no mesmo estoque automaticamente.</p>
       </div>
-      <div class="feature">
-        <div class="icon">🙋</div>
-        <h3>Transferência pra humano</h3>
-        <p>Reclamação, pedido de desconto ou dúvida fora do escopo? A IA chama um atendente na hora.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">📊</div>
-        <h3>Painel de vendas</h3>
-        <p>Faturamento, ticket médio e produtos mais vendidos, atualizados em tempo real.</p>
-      </div>
-      <div class="feature">
-        <div class="icon">🔒</div>
-        <h3>Seguro por padrão</h3>
-        <p>Total e troco sempre recalculados pelo sistema — nunca confiando cegamente na IA.</p>
+      <div class="beneficio">
+        <div class="icone">📊</div>
+        <h3>Tudo em um painel</h3>
+        <p>Pedidos, mesas, vendas e atendimento, tudo num único lugar — sem sistemas separados.</p>
       </div>
     </div>
   </div>
@@ -528,13 +671,13 @@
   <div class="wrap">
     <div class="section-head" style="margin-inline:auto; text-align:center;">
       <span class="eyebrow">Assinatura</span>
-      <h2>Escolha o plano do seu jeito</h2>
+      <h2>Escolha o Vendly ideal pro seu restaurante</h2>
       <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">Testado com restaurante real, em uso todos os dias.</p>
     </div>
     <div class="pricing-wrap">
       <div class="price-card">
         <h3>Vendly Mesas</h3>
-        <p class="price-desc">Atendimento presencial, sem depender do WhatsApp.</p>
+        <p class="price-desc">Para restaurantes que querem organizar o atendimento presencial.</p>
         <div class="price-value">R$79<span>/mês</span></div>
         <ul class="price-list">
           <li>Módulo de Mesas</li>
@@ -543,12 +686,26 @@
           <li>Histórico completo por mesa</li>
           <li>Painel de vendas em tempo real</li>
         </ul>
-        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Mesas" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero o Mesas</a>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20testar%20o%20plano%20Mesas" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero testar</a>
+      </div>
+
+      <div class="price-card destaque">
+        <span class="price-badge">⭐ Mais escolhido</span>
+        <h3>Vendly Pro</h3>
+        <p class="price-desc">Leve WhatsApp + Mesas juntos por R$199/mês, em vez de R$229 separados.</p>
+        <div class="price-value">R$199<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Tudo do plano Base</li>
+          <li>Tudo do plano Mesas</li>
+          <li>WhatsApp com IA + atendimento presencial</li>
+          <li>Um único painel pra tudo</li>
+        </ul>
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20Pro%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
       </div>
 
       <div class="price-card">
         <h3>Vendly Base</h3>
-        <p class="price-desc">Tudo pra automatizar o atendimento do WhatsApp.</p>
+        <p class="price-desc">Para quem quer automatizar o atendimento pelo WhatsApp.</p>
         <div class="price-value">R$150<span>/mês</span></div>
         <ul class="price-list">
           <li>Atendimento por IA ilimitado</li>
@@ -557,31 +714,100 @@
           <li>Painel de vendas em tempo real</li>
           <li>Transferência pra atendente humano</li>
         </ul>
-        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Base" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero o Base</a>
-      </div>
-
-      <div class="price-card destaque">
-        <span class="price-badge">Mais completo</span>
-        <h3>Vendly Pro</h3>
-        <p class="price-desc">WhatsApp e Mesas juntos, no mesmo painel.</p>
-        <div class="price-value">R$199<span>/mês</span></div>
-        <ul class="price-list">
-          <li>Tudo do plano Base</li>
-          <li>Tudo do plano Mesas</li>
-          <li>Um único painel pra tudo</li>
-        </ul>
-        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20com%20o%20plano%20Pro" class="btn-primary">Quero o Pro</a>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20testar%20o%20plano%20Base" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero testar</a>
       </div>
     </div>
     <div class="price-note">Sem fidelidade. Cancele quando quiser.</div>
   </div>
 </section>
 
+<section style="background: var(--paper-dim);">
+  <div class="wrap">
+    <div class="teste-gratis-box">
+      <span class="eyebrow" style="color:var(--mustard);">Teste sem compromisso</span>
+      <h2>Teste o Vendly por 7 dias</h2>
+      <p>Veja na prática como funciona no seu restaurante antes de decidir.</p>
+      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Quero testar grátis</a>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="background: var(--paper);">
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center;">
+      <span class="eyebrow">Dúvidas</span>
+      <h2>Perguntas frequentes</h2>
+    </div>
+    <div class="faq-lista">
+      <div class="faq-item">
+        <h3>O Vendly funciona pelo WhatsApp?</h3>
+        <p>Sim. Nos planos Base e Pro, a Vendly usa IA pra atender clientes pelo WhatsApp e transformar conversas em pedidos.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Preciso ficar respondendo os clientes?</h3>
+        <p>Não. A IA cuida dos pedidos dentro das regras configuradas no sistema, e encaminha pra você as situações que precisam de atendimento humano.</p>
+      </div>
+      <div class="faq-item">
+        <h3>A IA pode inventar produtos ou preços?</h3>
+        <p>Não. O sistema usa o cardápio que você cadastrou pra responder. Totais e cálculos importantes são conferidos pelo sistema, não confiados só à IA.</p>
+      </div>
+      <div class="faq-item">
+        <h3>O Vendly também funciona pra atendimento presencial?</h3>
+        <p>Sim. O plano Mesas organiza pedidos presenciais e mesas, mesmo sem usar WhatsApp.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso usar WhatsApp e Mesas juntos?</h3>
+        <p>Sim. O plano Pro reúne os dois módulos num único painel.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Preciso instalar algum programa?</h3>
+        <p>Depende da configuração do seu restaurante (ex: impressora). A configuração é acompanhada, pra deixar tudo funcionando certinho.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso cancelar quando quiser?</h3>
+        <p>Sim, não existe fidelidade.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso testar antes de contratar?</h3>
+        <p>Sim. Você pode testar o Vendly gratuitamente por 7 dias.</p>
+      </div>
+      <div class="faq-item">
+        <h3>E se eu precisar de ajuda?</h3>
+        <p>Você fala direto com a gente pelo WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center;">
+      <span class="eyebrow">Antes de decidir</span>
+      <h2>Quanto custa continuar fazendo tudo manualmente?</h2>
+    </div>
+    <div class="fluxo-dor">
+      <div class="item">Pedidos perdidos</div>
+      <div class="seta">↓</div>
+      <div class="item">Clientes esperando</div>
+      <div class="seta">↓</div>
+      <div class="item">Funcionário respondendo WhatsApp o dia todo</div>
+      <div class="seta">↓</div>
+      <div class="item">Erros de pedido</div>
+      <div class="seta">↓</div>
+      <div class="item">Estoque desatualizado</div>
+      <div class="seta">↓</div>
+      <div class="item">Dono tentando controlar tudo sozinho</div>
+    </div>
+    <div class="fluxo-solucao-final">O Vendly coloca tudo em um só lugar.</div>
+  </div>
+</section>
+
 <section class="cta-final">
   <div class="wrap">
-    <h2>Pronto pra deixar seu WhatsApp mais inteligente?</h2>
-    <p>Configura seu cardápio em minutos e deixa a Vendly cuidar do atendimento.</p>
-    <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20come%C3%A7ar%20a%20usar%20a%20Vendly" class="btn-primary">Falar agora no WhatsApp</a>
+    <h2>Seu restaurante pode começar a operar melhor hoje.</h2>
+    <p>Configure seu cardápio, conecte seus canais de atendimento, e veja o Vendly funcionando na prática.</p>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
+    <div style="margin-top:16px;"><a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20com%20algu%C3%A9m%20antes%20de%20come%C3%A7ar" style="font-size:13px; color:rgba(250,246,239,0.8); text-decoration:underline;">Falar com alguém antes de começar</a></div>
   </div>
 </section>
 
