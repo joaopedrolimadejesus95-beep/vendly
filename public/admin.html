@@ -207,6 +207,49 @@
     font-size: 13.5px;
   }
 
+  /* Divisórias das 3 partes do modal de mesa: Comanda / Adicionar item /
+     Fechar conta — deixa claro onde termina uma e começa a outra. */
+  .mesa-secao-titulo {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .mesa-secao-titulo:first-of-type { margin-top: 0; }
+
+  /* Cabeçalho de cada pessoa/lugar na comanda, com o subtotal dela. */
+  .mesa-grupo-pessoa {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--paper-dim);
+    padding: 5px 8px;
+    margin: 12px 0 4px;
+    border-radius: 2px;
+  }
+  .mesa-grupo-pessoa:first-child { margin-top: 0; }
+
+  /* Chips de "quem pediu" — toque rápido pra reusar um lugar já criado. */
+  .mesa-pessoa-chip {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .mesa-pessoa-chip.ativo { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
   .grade-mesas {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -429,7 +472,7 @@
   .btn-remover { background: #f9e4dc; color: var(--flame); }
 
   label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #8a8073; margin: 12px 0 5px; }
-  input[type="text"], input[type="number"] {
+  input[type="text"], input[type="number"], input[type="password"] {
     width: 100%;
     padding: 10px;
     border: 1px solid var(--line);
@@ -650,18 +693,24 @@
     </div>
   </section>
 
-  <div id="modal-mesa" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
-    <div style="background:var(--paper); max-width:420px; width:100%; max-height:85vh; overflow-y:auto; padding:24px; border-radius:2px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+  <div id="modal-mesa" onclick="if(event.target===this) fecharModalMesa()" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); max-width:440px; width:100%; max-height:88vh; overflow-y:auto; padding:22px; border-radius:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <h2 id="modal-mesa-titulo" style="margin:0;">Mesa</h2>
-        <button onclick="fecharModalMesa()" class="btn-secundario" style="padding:4px 10px;">✕</button>
+        <button onclick="fecharModalMesa()" class="btn-secundario" style="width:40px; height:40px; padding:0; font-size:18px; line-height:1; flex-shrink:0;">✕</button>
       </div>
 
-      <div id="modal-mesa-itens" style="margin-bottom:16px;"></div>
+      <div class="mesa-secao-titulo">Comanda</div>
+      <div id="modal-mesa-itens" style="margin-bottom:14px;"></div>
 
-      <button class="btn-principal" id="btn-lancar-pedido" style="width:100%; margin-bottom:18px; display:none;" onclick="lancarPedidoAtual(this)">🧾 Lançar pedido pra cozinha</button>
+      <button class="btn-principal" id="btn-lancar-pedido" style="width:100%; margin-bottom:6px; display:none;" onclick="lancarPedidoAtual(this)">🧾 Lançar pedido pra cozinha</button>
 
+      <div class="mesa-secao-titulo">Adicionar item</div>
       <div class="card" style="margin-bottom:12px;">
+        <label>Quem pediu? <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(opcional — pra separar por pessoa e dividir a conta)</span></label>
+        <input type="text" id="mesa-item-pessoa" placeholder="Ex: Lugar 1, João, Aniversariante..." maxlength="40" style="margin-bottom:6px;" />
+        <div id="mesa-pessoas-chips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+
         <label>Buscar produto</label>
         <input type="text" id="mesa-busca-produto" placeholder="Digite pra buscar..." oninput="filtrarProdutosMesa()" style="margin-bottom:8px;" />
         <div class="segmentado segmentado-compacto" id="mesa-categoria-filtro" style="margin-bottom:10px;">
@@ -673,13 +722,13 @@
         </div>
         <div id="mesa-lista-produtos" style="max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
 
-        <div id="mesa-item-selecionado-bloco" style="display:none; border-top:1px dashed var(--line); padding-top:12px; margin-top:4px;">
+        <div id="mesa-item-selecionado-bloco" style="display:none; background:var(--paper-dim); border:1px solid var(--line); border-radius:2px; padding:12px; margin-top:8px;">
           <div id="mesa-item-selecionado-nome" style="font-weight:600; font-size:16px; margin-bottom:2px;"></div>
           <div id="mesa-estoque-disponivel" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></div>
 
           <div id="mesa-adicionais-lista" style="margin-bottom:10px;"></div>
-          <div id="mesa-dica-lote" style="display:none; font-size:12px; color:var(--muted); background:var(--paper-dim); padding:8px 10px; border-radius:2px; margin-bottom:10px;">
-            💡 Se só PARTE da quantidade leva esse adicional, lança em duas vezes: primeiro os que levam, depois os que não levam.
+          <div id="mesa-dica-lote" style="display:none; font-size:12px; color:var(--muted); margin-bottom:10px;">
+            💡 Se só parte da quantidade leva o adicional, adicione em duas vezes.
           </div>
 
           <label>Observação (opcional)</label>
@@ -692,11 +741,12 @@
             <button type="button" class="mesa-stepper-btn" onclick="ajustarQuantidadeMesa(1)">+</button>
           </div>
 
-          <button class="btn-principal" style="width:100%; margin-top:14px; padding:14px;" onclick="adicionarItemNaMesa()">Adicionar à mesa</button>
+          <button class="btn-principal" style="width:100%; margin-top:14px; padding:14px;" onclick="adicionarItemNaMesa()">Adicionar à comanda</button>
         </div>
       </div>
 
-      <div style="display:flex; justify-content:space-between; font-weight:700; font-size:16px; margin-bottom:16px;">
+      <div class="mesa-secao-titulo">Fechar conta</div>
+      <div style="display:flex; justify-content:space-between; font-weight:700; font-size:17px; margin:6px 0 12px;">
         <span>Total</span>
         <span id="modal-mesa-total">R$0,00</span>
       </div>
@@ -841,24 +891,42 @@
 
     <h2>Impressão</h2>
     <div class="card">
-      <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-        <span>Imprimir bebida separada da comida
-          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Quando o pedido misturar tipos diferentes, sai uma via pra cada estação: cozinha (comida/sobremesa), saladas e bar (bebida) — só as que tiverem item de verdade.</div>
-        </span>
-        <input type="checkbox" id="empresa-separar-bebida" style="flex-shrink:0; margin-left:12px; width:20px; height:20px;" onchange="document.getElementById('secao-ips-impressora').style.display = this.checked ? 'block' : 'none';" />
-      </label>
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Impressora principal</strong>
+      <div style="font-size:12px; color:var(--muted); margin:4px 0 8px;">É a impressora que recebe todas as comandas do restaurante. Preencha o IP dela na rede (o programa de impressão precisa desses dados).</div>
 
-      <div id="secao-ips-impressora" style="display:none; border-top:1px dashed var(--line); margin-top:16px; padding-top:14px;">
-        <div style="font-size:12px; color:var(--muted); margin-bottom:12px;">Se cada estação tem uma impressora diferente (uma na cozinha, outra no bar), informa o IP de cada uma aqui. Se deixar em branco, usa a impressora principal configurada no agente de impressão.</div>
+      <label>Nome (opcional)</label>
+      <input type="text" id="impressora-nome" placeholder="Ex: Caixa, Cozinha, Balcão" />
 
-        <label>IP da impressora — Cozinha (configuração avançada)</label>
-        <input type="text" id="ip-impressora-cozinha" placeholder="Ex: 192.168.1.50 (deixe vazio para usar a principal)" />
+      <div class="linha">
+        <div>
+          <label>IP na rede</label>
+          <input type="text" id="impressora-ip" placeholder="Ex: 192.168.1.50" inputmode="decimal" />
+        </div>
+        <div style="flex:0 0 110px;">
+          <label>Porta</label>
+          <input type="number" id="impressora-porta" placeholder="9100" />
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">A maioria das impressoras térmicas usa a porta <b>9100</b> — se não sabe, deixe assim.</div>
 
-        <label>IP da impressora — Saladas (configuração avançada)</label>
-        <input type="text" id="ip-impressora-salada" placeholder="Ex: 192.168.1.51 (deixe vazio para usar a principal)" />
+      <div style="border-top:1px dashed var(--line); margin-top:18px; padding-top:14px;">
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-top:0;">
+          <span>Separar por estação (avançado)
+            <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Se o restaurante tem impressoras diferentes por setor, o pedido sai numa via pra cada uma: cozinha (comida/sobremesa), saladas e bar (bebida) — só as que tiverem item.</div>
+          </span>
+          <input type="checkbox" id="empresa-separar-bebida" style="flex-shrink:0; margin-left:12px; width:20px; height:20px;" onchange="document.getElementById('secao-ips-impressora').style.display = this.checked ? 'block' : 'none';" />
+        </label>
 
-        <label>IP da impressora — Bar (configuração avançada)</label>
-        <input type="text" id="ip-impressora-bar" placeholder="Ex: 192.168.1.52 (deixe vazio para usar a principal)" />
+        <div id="secao-ips-impressora" style="display:none; margin-top:14px;">
+          <label>IP — impressora da Cozinha</label>
+          <input type="text" id="ip-impressora-cozinha" placeholder="Vazio = usa a principal" inputmode="decimal" />
+
+          <label>IP — impressora das Saladas</label>
+          <input type="text" id="ip-impressora-salada" placeholder="Vazio = usa a principal" inputmode="decimal" />
+
+          <label>IP — impressora do Bar</label>
+          <input type="text" id="ip-impressora-bar" placeholder="Vazio = usa a principal" inputmode="decimal" />
+        </div>
       </div>
     </div>
 
@@ -942,11 +1010,21 @@
   <div style="background:var(--paper); max-width:420px; width:100%; max-height:80vh; overflow-y:auto; padding:24px; border-radius:2px;">
     <h2 style="margin-bottom:16px;">Como usar o Vendly</h2>
     <div style="font-size:14px; line-height:1.7;">
-      <p style="margin-bottom:12px;"><b>Vendas</b> — acompanhe faturamento, ticket médio e o histórico de pedidos confirmados pelo WhatsApp.</p>
-      <p style="margin-bottom:12px;"><b>Atendimentos</b> — clientes que a IA transferiu pra você (reclamação, pedido de desconto, etc). Responda pelo WhatsApp normal e depois clica em "devolver pra IA".</p>
+      <div style="background:var(--paper-dim); border:1px solid var(--line); border-radius:2px; padding:12px 14px; margin-bottom:16px;">
+        <b>Primeiros passos:</b>
+        <ol style="margin:6px 0 0; padding-left:20px;">
+          <li>Monte o <b>Cardápio</b> (com descrição bem detalhada).</li>
+          <li>Em <b>Configurações</b>, preencha endereço, horário e formas de pagamento.</li>
+          <li>Crie suas <b>Mesas</b> e/ou conecte o <b>WhatsApp</b>.</li>
+        </ol>
+      </div>
+      <p style="margin-bottom:12px;"><b>Visão geral</b> — faturamento, ticket médio, mesas ocupadas agora e o histórico de pedidos (WhatsApp e mesas).</p>
+      <p style="margin-bottom:12px;"><b>Mesas</b> — abra uma mesa, adicione os itens, mande pra cozinha em "Lançar pedido" e feche a conta no fim. Dá pra criar as mesas em lote (ex: da 1 até 50).</p>
+      <p style="margin-bottom:12px;"><b>Atendimentos</b> — clientes que a IA transferiu pra você (reclamação, pedido de desconto, etc). Responda pelo WhatsApp normal e depois clique em "devolver pra IA".</p>
       <p style="margin-bottom:12px;"><b>Cardápio</b> — cadastre, edite ou remova produtos. Quanto mais detalhe na descrição (tipo de carne, tipo de queijo), melhor a IA responde os clientes.</p>
-      <p style="margin-bottom:12px;"><b>Regras</b> — nome do restaurante, endereço, horário de funcionamento, formas de pagamento, e a senha do painel.</p>
+      <p style="margin-bottom:12px;"><b>Equipe</b> — contas de garçom/caixa: só enxergam a aba Mesas, sem acesso ao resto do painel.</p>
       <p style="margin-bottom:12px;"><b>WhatsApp</b> — conecte o número do restaurante escaneando o QR code.</p>
+      <p style="margin-bottom:12px;"><b>Configurações</b> — nome do restaurante, endereço, horário de funcionamento, formas de pagamento, impressão e a senha do painel.</p>
     </div>
     <button onclick="document.getElementById('modal-tutorial').style.display='none'" class="btn-principal" style="width:100%; margin-top:12px;">Entendi</button>
   </div>
@@ -1168,9 +1246,14 @@ async function carregarTudo() {
   document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
   document.getElementById('empresa-separar-bebida').checked = !!empresaResp.separarBebidaComanda;
   document.getElementById('secao-ips-impressora').style.display = empresaResp.separarBebidaComanda ? 'block' : 'none';
-  document.getElementById('ip-impressora-cozinha').value = empresaResp.impressoras?.cozinha || '';
-  document.getElementById('ip-impressora-salada').value = empresaResp.impressoras?.salada || '';
-  document.getElementById('ip-impressora-bar').value = empresaResp.impressoras?.bar || '';
+  const impr = empresaResp.impressoras || {};
+  const imprPrincipal = impr.principal || {};
+  document.getElementById('impressora-nome').value = imprPrincipal.nome || '';
+  document.getElementById('impressora-ip').value = imprPrincipal.ip || '';
+  document.getElementById('impressora-porta').value = imprPrincipal.porta || '';
+  document.getElementById('ip-impressora-cozinha').value = impr.cozinha || '';
+  document.getElementById('ip-impressora-salada').value = impr.salada || '';
+  document.getElementById('ip-impressora-bar').value = impr.bar || '';
   document.getElementById('pag-pix').checked = (empresaResp.formasPagamento || []).includes('pix');
   document.getElementById('pag-dinheiro').checked = (empresaResp.formasPagamento || []).includes('dinheiro');
   document.getElementById('pag-cartao').checked = (empresaResp.formasPagamento || []).includes('cartão');
@@ -1533,6 +1616,7 @@ async function abrirModalMesa(mesaId) {
     .filter(p => p.disponivel !== false)
     .map(p => ({ ...p, estoqueAtual: disponivel[p.id] ?? 0 }));
   document.getElementById('mesa-busca-produto').value = '';
+  document.getElementById('mesa-item-pessoa').value = '';
   categoriaFiltroMesa = 'todos';
   document.querySelectorAll('#mesa-categoria-filtro .segmentado-opcao').forEach(btn => {
     btn.classList.toggle('ativo', btn.dataset.valor === 'todos');
@@ -1587,7 +1671,11 @@ function selecionarProdutoMesa(produtoId) {
 
   filtrarProdutosMesa(); // re-renderiza pra destacar o selecionado
 
-  document.getElementById('mesa-item-selecionado-bloco').style.display = 'block';
+  const bloco = document.getElementById('mesa-item-selecionado-bloco');
+  bloco.style.display = 'block';
+  // Traz o bloco de configuração pra vista — antes ele aparecia embaixo da
+  // lista e a pessoa precisava rolar pra achar.
+  requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
   document.getElementById('mesa-item-selecionado-nome').textContent =
     `${mesaProdutoSelecionado.nome}${mesaProdutoSelecionado.unidade ? ` (${mesaProdutoSelecionado.unidade})` : ''} — ${formatarMoeda(mesaProdutoSelecionado.preco)}`;
   document.getElementById('mesa-item-observacao').value = '';
@@ -1620,30 +1708,84 @@ function ajustarQuantidadeMesa(delta) {
   input.value = novoValor;
 }
 
+function subtotalItemMesa(item) {
+  const add = (item.adicionais || []).reduce((s, a) => s + (a.preco || 0), 0);
+  return ((item.preco_unitario || 0) + add) * (item.quantidade || 0);
+}
+
+// Uma linha de item da comanda. O índice é o da posição ORIGINAL no array
+// da mesa — é o que "remover" precisa, mesmo quando os itens aparecem
+// reagrupados por pessoa.
+function linhaItemMesa(item, indiceOriginal) {
+  return `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="qtd">${item.quantidade}x</span>
+      <span class="nome">
+        ${esc(item.nome)}
+        ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
+        ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
+        ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
+      </span>
+      <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${indiceOriginal})">remover</button>
+    </div>`;
+}
+
 function renderizarItensMesa(mesa) {
   const div = document.getElementById('modal-mesa-itens');
-  if (mesa.itensAtuais.length === 0) {
-    div.innerHTML = vazioHtml('🧾', 'Nenhum item na mesa ainda.');
+  const itens = mesa.itensAtuais || [];
+
+  if (itens.length === 0) {
+    div.innerHTML = vazioHtml('🧾', 'Nenhum item na comanda ainda.');
+  } else if (!itens.some(it => (it.pessoa || '').trim() !== '')) {
+    // Ninguém marcou "quem pediu" — mostra a lista simples de sempre.
+    div.innerHTML = itens.map((item, i) => linhaItemMesa(item, i)).join('');
   } else {
-    div.innerHTML = mesa.itensAtuais.map((item, i) => `
-      <div class="pedido-item" style="align-items:center;">
-        <span class="qtd">${item.quantidade}x</span>
-        <span class="nome">
-          ${esc(item.nome)}
-          ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
-          ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
-          ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
-        </span>
-        <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${i})">remover</button>
-      </div>
-    `).join('');
+    // Tem pelo menos um item com pessoa — agrupa por pessoa, com subtotal
+    // de cada uma (é o que serve pra dividir a conta na hora de fechar).
+    const grupos = new Map();
+    itens.forEach((item, i) => {
+      const chave = (item.pessoa || '').trim() || '__sem__';
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push({ item, i });
+    });
+    const partes = [];
+    for (const [chave, lista] of grupos) {
+      const nome = chave === '__sem__' ? 'Sem lugar definido' : chave;
+      const subtotal = lista.reduce((s, x) => s + subtotalItemMesa(x.item), 0);
+      partes.push(`<div class="mesa-grupo-pessoa"><span>${esc(nome)}</span><span>${formatarMoeda(subtotal)}</span></div>`);
+      partes.push(lista.map(x => linhaItemMesa(x.item, x.i)).join(''));
+    }
+    div.innerHTML = partes.join('');
   }
+
   document.getElementById('modal-mesa-total').textContent = formatarMoeda(mesa.total);
 
   // O botão de "lançar pedido" só aparece se tiver item novo (ainda não
   // mandado pra cozinha) — sem isso, clicar nele não faria nada.
-  const temItemNovo = mesa.itensAtuais.some((item) => !item.lancado);
+  const temItemNovo = itens.some((item) => !item.lancado);
   document.getElementById('btn-lancar-pedido').style.display = temItemNovo ? 'block' : 'none';
+
+  renderizarPessoasChipsMesa(itens);
+}
+
+// Chips das pessoas/lugares já usados nesta comanda — um toque preenche o
+// campo "quem pediu" pra adicionar mais itens pra mesma pessoa sem digitar
+// de novo.
+function renderizarPessoasChipsMesa(itens) {
+  const wrap = document.getElementById('mesa-pessoas-chips');
+  if (!wrap) return;
+  const pessoas = [...new Set((itens || []).map(it => (it.pessoa || '').trim()).filter(Boolean))];
+  const atual = (document.getElementById('mesa-item-pessoa').value || '').trim();
+  wrap.innerHTML = pessoas.map(p =>
+    `<button type="button" class="mesa-pessoa-chip ${p === atual ? 'ativo' : ''}" onclick="selecionarPessoaMesa('${esc(p).replace(/'/g, "\\'")}')">${esc(p)}</button>`
+  ).join('');
+}
+
+function selecionarPessoaMesa(nome) {
+  document.getElementById('mesa-item-pessoa').value = nome;
+  document.querySelectorAll('#mesa-pessoas-chips .mesa-pessoa-chip').forEach(b => {
+    b.classList.toggle('ativo', b.textContent === nome);
+  });
 }
 
 async function lancarPedidoAtual(botao) {
@@ -1671,6 +1813,8 @@ async function adicionarItemNaMesa() {
     preco: parseFloat(el.dataset.preco),
   }));
 
+  const pessoa = document.getElementById('mesa-item-pessoa').value.trim();
+
   const item = {
     produto_id: mesaProdutoSelecionado.id,
     nome: mesaProdutoSelecionado.nome,
@@ -1678,6 +1822,7 @@ async function adicionarItemNaMesa() {
     preco_unitario: mesaProdutoSelecionado.preco,
     adicionais,
     observacao: observacao || undefined,
+    pessoa: pessoa || undefined,
   };
 
   const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
@@ -1693,8 +1838,10 @@ async function adicionarItemNaMesa() {
   }
 
   renderizarItensMesa(mesa);
+  toast('Item adicionado à comanda ✓', 'sucesso');
 
-  // Limpa a seleção pra pessoa buscar o próximo item do zero.
+  // Limpa só a seleção de produto — mantém "quem pediu" preenchido pra
+  // adicionar vários itens da mesma pessoa sem redigitar.
   mesaProdutoSelecionado = null;
   document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
   document.getElementById('mesa-busca-produto').value = '';
@@ -1737,6 +1884,8 @@ function fecharModalMesa() {
   document.getElementById('modal-mesa').style.display = 'none';
   mesaAtualId = null;
   mesaProdutoSelecionado = null;
+  document.getElementById('mesa-item-pessoa').value = '';
+  document.getElementById('mesa-pessoas-chips').innerHTML = '';
   // Reseta o histórico pra não ficar "grudado" quando abrir outra mesa.
   document.getElementById('historico-mesa-lista').style.display = 'none';
   document.getElementById('historico-mesa-lista').innerHTML = '';
@@ -1866,6 +2015,7 @@ function renderizarListaPedidos(pedidos) {
             <span class="qtd">${item.quantidade}x</span>
             <span class="nome">
               ${esc(item.nome)}${item.porcao === 'meia' ? ' (meia)' : ''}
+              ${item.pessoa ? `<span class="badge-origem" style="margin-left:6px;">${esc(item.pessoa)}</span>` : ''}
               ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
               ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
             </span>
@@ -1884,6 +2034,11 @@ function renderizarListaPedidos(pedidos) {
 function renderizarProdutos(produtos, estoque) {
   const lista = document.getElementById('lista-produtos');
   lista.innerHTML = '';
+
+  if (!produtos || produtos.length === 0) {
+    lista.innerHTML = vazioHtml('🍽️', 'Nenhum produto no cardápio ainda. Cadastre o primeiro no formulário abaixo 👇');
+    return;
+  }
 
   const nomesCategoria = { comida: 'Comidas', salada: 'Saladas', bebida: 'Bebidas', sobremesa: 'Sobremesas' };
   const ordem = ['comida', 'salada', 'bebida', 'sobremesa'];
@@ -2078,6 +2233,11 @@ async function salvarEmpresa() {
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
       separarBebidaComanda: document.getElementById('empresa-separar-bebida').checked,
       impressoras: {
+        principal: {
+          nome: document.getElementById('impressora-nome').value.trim(),
+          ip: document.getElementById('impressora-ip').value.trim(),
+          porta: parseInt(document.getElementById('impressora-porta').value, 10) || 9100,
+        },
         cozinha: document.getElementById('ip-impressora-cozinha').value.trim(),
         salada: document.getElementById('ip-impressora-salada').value.trim(),
         bar: document.getElementById('ip-impressora-bar').value.trim(),

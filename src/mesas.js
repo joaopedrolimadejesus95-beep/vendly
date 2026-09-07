@@ -126,6 +126,10 @@ export async function adicionarItemMesa(empresaId, mesaId, item) {
     // atendente clicar em "Lançar pedido" (manda pra cozinha sem fechar
     // a conta ainda).
     item.lancado = false;
+    // Rótulo opcional de quem pediu (ex: "Lugar 1", "João") — usado pra
+    // agrupar a comanda por pessoa e mostrar o subtotal de cada uma.
+    // Sanitiza: string, sem espaço nas pontas, no máximo 40 caracteres.
+    item.pessoa = typeof item.pessoa === "string" ? item.pessoa.trim().slice(0, 40) : "";
 
     const { rows: reservadoRows } = await cliente.query(
       `SELECT COALESCE(SUM((elem->>'quantidade')::int), 0) AS reservado
