@@ -2091,14 +2091,27 @@ function renderizarVendas(pedidos, stats) {
   }
 
   pedidosRecentesAtuais = pedidos;
-  renderizarListaPedidos(pedidos);
+  // Reaplica o filtro que a pessoa escolheu — sem isso, a atualização
+  // automática a cada 5s "voltava" a lista pra Todos, mesmo com o botão
+  // WhatsApp (ou Mesas) ainda marcado.
+  aplicarFiltroPedidosRecentes();
 }
 
+let filtroOrigemPedidos = 'todos';
+
 function filtrarPedidosRecentes(origem) {
+  filtroOrigemPedidos = origem;
+  aplicarFiltroPedidosRecentes();
+}
+
+function aplicarFiltroPedidosRecentes() {
+  const origem = filtroOrigemPedidos;
   document.querySelectorAll('#pedidos-filtro-origem .segmentado-opcao').forEach(btn => {
     btn.classList.toggle('ativo', btn.dataset.valor === origem);
   });
-  const filtrados = origem === 'todos' ? pedidosRecentesAtuais : pedidosRecentesAtuais.filter(p => (p.origem || 'whatsapp') === origem);
+  const filtrados = origem === 'todos'
+    ? pedidosRecentesAtuais
+    : pedidosRecentesAtuais.filter(p => (p.origem || 'whatsapp') === origem);
   renderizarListaPedidos(filtrados);
 }
 
