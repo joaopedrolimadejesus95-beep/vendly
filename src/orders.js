@@ -16,6 +16,16 @@ function inicioDoDiaEmSaoPaulo() {
   return new Date(`${dataFormatada}T00:00:00-03:00`);
 }
 
+// Primeiro dia do mês atual, meia-noite, no fuso do Brasil.
+function inicioDoMesEmSaoPaulo() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date()); // "AAAA-MM"
+  return new Date(`${partes}-01T00:00:00-03:00`);
+}
+
 export function linhaParaPedido(linha) {
   return {
     id: linha.id,
@@ -29,6 +39,10 @@ export function linhaParaPedido(linha) {
     origem: linha.origem || "whatsapp",
     mesaNumero: linha.mesa_numero,
     atendenteNome: linha.atendente_nome,
+    subtotal: linha.subtotal != null ? Number(linha.subtotal) : null,
+    taxaServico: linha.taxa_servico != null ? Number(linha.taxa_servico) : 0,
+    desconto: linha.desconto != null ? Number(linha.desconto) : 0,
+    descontoMotivo: linha.desconto_motivo || null,
   };
 }
 
@@ -119,15 +133,26 @@ export async function buscarPedidosMesaPorItem(empresaId, termo) {
 
 export async function getEstatisticas(empresaId) {
   const hojeInicio = inicioDoDiaEmSaoPaulo();
+  const semanaInicio = new Date(hojeInicio.getTime() - 6 * 24 * 60 * 60 * 1000); // hoje + 6 dias antes
+  const mesInicio = inicioDoMesEmSaoPaulo();
 
   const { rows: totalRows } = await pool.query(
     "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1",
     [empresaId]
   );
-  const { rows: hojeRows } = await pool.query(
-    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1 AND data_hora >= $2",
-    [empresaId, hojeInicio.toISOString()]
+  // Hoje / 7 dias / mês numa consulta só, com FILTER.
+  const { rows: janelasRows } = await pool.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE data_hora >= $2)::int AS pedidos_hoje,
+       COALESCE(SUM(total) FILTER (WHERE data_hora >= $2), 0)::float AS fat_hoje,
+       COUNT(*) FILTER (WHERE data_hora >= $3)::int AS pedidos_semana,
+       COALESCE(SUM(total) FILTER (WHERE data_hora >= $3), 0)::float AS fat_semana,
+       COUNT(*) FILTER (WHERE data_hora >= $4)::int AS pedidos_mes,
+       COALESCE(SUM(total) FILTER (WHERE data_hora >= $4), 0)::float AS fat_mes
+     FROM pedidos WHERE empresa_id = $1`,
+    [empresaId, hojeInicio.toISOString(), semanaInicio.toISOString(), mesInicio.toISOString()]
   );
+  const j = janelasRows[0];
   const { rows: itensRows } = await pool.query("SELECT itens FROM pedidos WHERE empresa_id = $1", [
     empresaId,
   ]);
@@ -148,8 +173,12 @@ export async function getEstatisticas(empresaId) {
 
   return {
     totalPedidos,
-    pedidosHoje: hojeRows[0].total,
-    faturamentoHoje: hojeRows[0].faturamento,
+    pedidosHoje: j.pedidos_hoje,
+    faturamentoHoje: j.fat_hoje,
+    pedidosSemana: j.pedidos_semana,
+    faturamentoSemana: j.fat_semana,
+    pedidosMes: j.pedidos_mes,
+    faturamentoMes: j.fat_mes,
     faturamentoTotal,
     ticketMedio: totalPedidos > 0 ? faturamentoTotal / totalPedidos : 0,
     maisVendidos,

@@ -38,6 +38,8 @@ export async function inicializarBancoDeDados() {
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plano TEXT DEFAULT 'base';
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS separar_bebida_comanda BOOLEAN DEFAULT false;
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS impressoras JSONB DEFAULT '{}';
+    -- Taxa de serviço (%) aplicada ao fechar mesa. 0 = desligada.
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS taxa_servico_percent NUMERIC(5,2) DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT NOT NULL,
@@ -80,6 +82,12 @@ export async function inicializarBancoDeDados() {
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS origem TEXT DEFAULT 'whatsapp';
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mesa_numero TEXT;
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS atendente_nome TEXT;
+    -- Detalhamento financeiro do fechamento (mesa). "total" continua sendo
+    -- o valor final cobrado; estes explicam como chegou nele.
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10,2);
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS taxa_servico NUMERIC(10,2) DEFAULT 0;
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS desconto NUMERIC(10,2) DEFAULT 0;
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS desconto_motivo TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON pedidos(empresa_id);
     CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON produtos(empresa_id);

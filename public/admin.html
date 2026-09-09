@@ -611,18 +611,22 @@
 <main>
 
   <section class="painel ativa" id="painel-vendas">
-    <h2>Hoje</h2>
+    <div class="segmentado segmentado-compacto" id="periodo-stats" style="margin-bottom:12px;">
+      <button type="button" class="segmentado-opcao ativo" data-valor="hoje" onclick="mudarPeriodoStats('hoje')">Hoje</button>
+      <button type="button" class="segmentado-opcao" data-valor="semana" onclick="mudarPeriodoStats('semana')">7 dias</button>
+      <button type="button" class="segmentado-opcao" data-valor="mes" onclick="mudarPeriodoStats('mes')">Este mês</button>
+    </div>
     <div class="grade-stats">
       <div class="stat">
-        <div class="stat-label">💰 Faturamento hoje</div>
-        <div class="stat-valor flame" id="stat-faturamento-hoje">R$0,00</div>
+        <div class="stat-label" id="stat-label-faturamento">💰 Faturamento hoje</div>
+        <div class="stat-valor flame" id="stat-faturamento-periodo">R$0,00</div>
       </div>
       <div class="stat">
-        <div class="stat-label">🧾 Pedidos hoje</div>
-        <div class="stat-valor" id="stat-pedidos-hoje">0</div>
+        <div class="stat-label" id="stat-label-pedidos">🧾 Pedidos hoje</div>
+        <div class="stat-valor" id="stat-pedidos-periodo">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">📊 Ticket médio</div>
+        <div class="stat-label">📊 Ticket médio (geral)</div>
         <div class="stat-valor" id="stat-ticket-medio">R$0,00</div>
       </div>
       <div class="stat">
@@ -747,9 +751,27 @@
       </div>
 
       <div class="mesa-secao-titulo">Fechar conta</div>
-      <div style="display:flex; justify-content:space-between; font-weight:700; font-size:17px; margin:6px 0 12px;">
-        <span>Total</span>
-        <span id="modal-mesa-total">R$0,00</span>
+      <div style="font-family:var(--font-mono); font-size:14px; margin:6px 0 14px;">
+        <div style="display:flex; justify-content:space-between; padding:3px 0;">
+          <span>Subtotal</span>
+          <span id="mesa-fech-subtotal">R$0,00</span>
+        </div>
+        <div id="mesa-fech-taxa-linha" style="display:none; justify-content:space-between; align-items:center; padding:3px 0;">
+          <label style="display:flex; align-items:center; gap:6px; margin:0; text-transform:none; letter-spacing:0; font-weight:400; color:var(--ink); font-size:14px;">
+            <input type="checkbox" id="mesa-fech-taxa-on" checked onchange="recalcularFechamentoMesa()" style="width:18px; height:18px;" />
+            Taxa de serviço (<span id="mesa-fech-taxa-pct">10</span>%)
+          </label>
+          <span id="mesa-fech-taxa-valor">R$0,00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 0;">
+          <span style="white-space:nowrap;">Desconto (R$)</span>
+          <input type="number" id="mesa-fech-desconto" value="0" min="0" step="0.01" inputmode="decimal" oninput="recalcularFechamentoMesa()" style="max-width:110px; text-align:right; padding:6px;" />
+        </div>
+        <input type="text" id="mesa-fech-desconto-motivo" placeholder="Motivo do desconto (opcional)" maxlength="200" style="margin-top:4px; display:none;" />
+        <div style="display:flex; justify-content:space-between; font-weight:700; font-size:17px; border-top:1px solid var(--line); margin-top:8px; padding-top:8px;">
+          <span>Total</span>
+          <span id="mesa-fech-total">R$0,00</span>
+        </div>
       </div>
 
       <label>Forma de pagamento</label>
@@ -872,6 +894,17 @@
       <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
       <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
       <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
+
+      <div class="toggle-linha">
+        <span>Cobrar taxa de serviço nas mesas?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Some ao fechar a mesa. Dá pra tirar ou ajustar na hora do fechamento.</div>
+        </span>
+        <input type="checkbox" id="empresa-taxa-servico-on" onchange="document.getElementById('linha-taxa-servico').style.display = this.checked ? 'block' : 'none';" />
+      </div>
+      <div id="linha-taxa-servico" style="display:none;">
+        <label>Percentual da taxa (%)</label>
+        <input type="number" id="empresa-taxa-servico-percent" step="0.5" min="0" max="100" placeholder="10" />
+      </div>
 
       <button class="btn-principal" style="margin-top:14px; width:100%;" onclick="salvarEmpresa()">Salvar configurações</button>
     </div>
@@ -1034,6 +1067,7 @@
 <script>
 let produtoEmEdicao = null;
 let planoAtual = 'base';
+let empresaTaxaServicoPercent = 0;
 let pedidosRecentesAtuais = [];
 let adicionaisFormAtual = [];
 let contagemAtendimentosAnterior = 0;
@@ -1245,6 +1279,10 @@ async function carregarTudo() {
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
   document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
+  empresaTaxaServicoPercent = Number(empresaResp.taxaServicoPercent) || 0;
+  document.getElementById('empresa-taxa-servico-on').checked = empresaTaxaServicoPercent > 0;
+  document.getElementById('linha-taxa-servico').style.display = empresaTaxaServicoPercent > 0 ? 'block' : 'none';
+  document.getElementById('empresa-taxa-servico-percent').value = empresaTaxaServicoPercent > 0 ? empresaTaxaServicoPercent : '';
   document.getElementById('empresa-separar-bebida').checked = !!empresaResp.separarBebidaComanda;
   document.getElementById('secao-ips-impressora').style.display = empresaResp.separarBebidaComanda ? 'block' : 'none';
   const impr = empresaResp.impressoras || {};
@@ -1627,6 +1665,10 @@ async function abrirModalMesa(mesaId) {
   document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
   document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
   document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+  // Fechamento zerado a cada abertura de mesa.
+  document.getElementById('mesa-fech-taxa-on').checked = true;
+  document.getElementById('mesa-fech-desconto').value = '0';
+  document.getElementById('mesa-fech-desconto-motivo').value = '';
   filtrarProdutosMesa();
 
   document.getElementById('modal-mesa').style.display = 'flex';
@@ -1775,7 +1817,7 @@ function renderizarItensMesa(mesa) {
     div.innerHTML = partes.join('');
   }
 
-  document.getElementById('modal-mesa-total').textContent = formatarMoeda(mesa.total);
+  recalcularFechamentoMesa();
 
   // O botão de "lançar pedido" só aparece se tiver item novo (ainda não
   // mandado pra cozinha) — sem isso, clicar nele não faria nada.
@@ -1783,6 +1825,30 @@ function renderizarItensMesa(mesa) {
   document.getElementById('btn-lancar-pedido').style.display = temItemNovo ? 'block' : 'none';
 
   renderizarPessoasChipsMesa(itens);
+}
+
+// Recalcula o resumo do fechamento (subtotal → taxa → desconto → total).
+// Roda toda vez que a comanda muda e a cada mexida nos campos de taxa/desconto.
+function recalcularFechamentoMesa() {
+  const subtotal = mesaModalAtual ? Number(mesaModalAtual.total) || 0 : 0;
+
+  const taxaLinha = document.getElementById('mesa-fech-taxa-linha');
+  const temTaxa = empresaTaxaServicoPercent > 0;
+  taxaLinha.style.display = temTaxa ? 'flex' : 'none';
+  document.getElementById('mesa-fech-taxa-pct').textContent = empresaTaxaServicoPercent;
+
+  const aplicarTaxa = temTaxa && document.getElementById('mesa-fech-taxa-on').checked;
+  const taxaValor = aplicarTaxa ? Math.round(subtotal * empresaTaxaServicoPercent) / 100 : 0;
+
+  let desconto = parseFloat(document.getElementById('mesa-fech-desconto').value) || 0;
+  desconto = Math.min(subtotal + taxaValor, Math.max(0, Math.round(desconto * 100) / 100));
+
+  const total = Math.round((subtotal + taxaValor - desconto) * 100) / 100;
+
+  document.getElementById('mesa-fech-subtotal').textContent = formatarMoeda(subtotal);
+  document.getElementById('mesa-fech-taxa-valor').textContent = formatarMoeda(taxaValor);
+  document.getElementById('mesa-fech-total').textContent = formatarMoeda(total);
+  document.getElementById('mesa-fech-desconto-motivo').style.display = desconto > 0 ? 'block' : 'none';
 }
 
 // Chips das pessoas/lugares já usados nesta comanda — um toque preenche o
@@ -1963,11 +2029,14 @@ async function removerItemDaMesa(indice) {
 
 async function fecharMesaAtual(botao) {
   const formaPagamento = document.getElementById('mesa-forma-pagamento').value;
+  const aplicarTaxa = empresaTaxaServicoPercent > 0 && document.getElementById('mesa-fech-taxa-on').checked;
+  const desconto = parseFloat(document.getElementById('mesa-fech-desconto').value) || 0;
+  const descontoMotivo = document.getElementById('mesa-fech-desconto-motivo').value.trim();
   await comBotaoDesabilitado(botao, 'Fechando...', async () => {
     const resp = await apiFetch(`/api/mesas/${mesaAtualId}/fechar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formaPagamento }),
+      body: JSON.stringify({ formaPagamento, aplicarTaxa, desconto, descontoMotivo }),
     });
     if (!resp.ok) {
       const dados = await resp.json();
@@ -2071,9 +2140,34 @@ async function desconectarWhatsapp() {
   verificarStatusWhatsapp();
 }
 
+let statsAtuais = null;
+let periodoStats = 'hoje';
+
+function mudarPeriodoStats(periodo) {
+  periodoStats = periodo;
+  document.querySelectorAll('#periodo-stats .segmentado-opcao').forEach(btn => {
+    btn.classList.toggle('ativo', btn.dataset.valor === periodo);
+  });
+  aplicarPeriodoStats();
+}
+
+function aplicarPeriodoStats() {
+  if (!statsAtuais) return;
+  const mapa = {
+    hoje:   { fat: statsAtuais.faturamentoHoje,   ped: statsAtuais.pedidosHoje,   rotulo: 'hoje' },
+    semana: { fat: statsAtuais.faturamentoSemana, ped: statsAtuais.pedidosSemana, rotulo: 'nos 7 dias' },
+    mes:    { fat: statsAtuais.faturamentoMes,    ped: statsAtuais.pedidosMes,    rotulo: 'no mês' },
+  };
+  const d = mapa[periodoStats] || mapa.hoje;
+  document.getElementById('stat-faturamento-periodo').textContent = formatarMoeda(d.fat);
+  document.getElementById('stat-pedidos-periodo').textContent = d.ped;
+  document.getElementById('stat-label-faturamento').textContent = `💰 Faturamento ${d.rotulo}`;
+  document.getElementById('stat-label-pedidos').textContent = `🧾 Pedidos ${d.rotulo}`;
+}
+
 function renderizarVendas(pedidos, stats) {
-  document.getElementById('stat-faturamento-hoje').textContent = formatarMoeda(stats.faturamentoHoje);
-  document.getElementById('stat-pedidos-hoje').textContent = stats.pedidosHoje;
+  statsAtuais = stats;
+  aplicarPeriodoStats();
   document.getElementById('stat-ticket-medio').textContent = formatarMoeda(stats.ticketMedio);
   document.getElementById('stat-total-pedidos').textContent = stats.totalPedidos;
 
@@ -2144,14 +2238,35 @@ function renderizarListaPedidos(pedidos) {
             </span>
           </div>
         `).join('')}
+        ${(p.taxaServico > 0 || p.desconto > 0) ? `
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;">
+            <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${formatarMoeda(p.subtotal != null ? p.subtotal : p.total)}</span></div>
+            ${p.taxaServico > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Taxa de serviço</span><span>+ ${formatarMoeda(p.taxaServico)}</span></div>` : ''}
+            ${p.desconto > 0 ? `<div style="display:flex;justify-content:space-between;color:var(--herb);"><span>Desconto${p.descontoMotivo ? ' (' + esc(p.descontoMotivo) + ')' : ''}</span><span>− ${formatarMoeda(p.desconto)}</span></div>` : ''}
+          </div>` : ''}
         <div class="pedido-total">
           <span>Total</span>
           <span>${formatarMoeda(p.total)}</span>
         </div>
-        <button class="btn-remover" style="width:100%;margin-top:10px;" onclick="excluirPedido(${p.id})">Excluir pedido</button>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          ${p.origem === 'mesa' ? `<button class="btn-secundario" style="flex:1;" onclick="reabrirMesaDePedido(${p.id})">Reabrir mesa</button>` : ''}
+          <button class="btn-remover" style="flex:1;" onclick="excluirPedido(${p.id})">Excluir pedido</button>
+        </div>
       </div>
     `).join('');
   }
+}
+
+async function reabrirMesaDePedido(pedidoId) {
+  if (!(await confirmarAcao('Reabrir a mesa desse pedido? O pedido some da lista de vendas, os itens voltam pra mesa e o estoque é estornado. Use só se fechou por engano.'))) return;
+  const resp = await apiFetch(`/api/pedidos/${pedidoId}/reabrir-mesa`, { method: 'POST' });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível reabrir a mesa.', 'erro');
+    return;
+  }
+  toast('Mesa reaberta ✓', 'sucesso');
+  carregarTudo();
 }
 
 function renderizarProdutos(produtos, estoque) {
@@ -2374,6 +2489,9 @@ async function salvarEmpresa() {
       endereco: document.getElementById('empresa-endereco').value,
       aceitaEntrega: document.getElementById('empresa-entrega').checked,
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
+      taxaServicoPercent: document.getElementById('empresa-taxa-servico-on').checked
+        ? (parseFloat(document.getElementById('empresa-taxa-servico-percent').value) || 0)
+        : 0,
       separarBebidaComanda: document.getElementById('empresa-separar-bebida').checked,
       impressoras: {
         principal: {
@@ -2471,6 +2589,7 @@ async function iniciarApp() {
     const empresaResp = await apiFetch('/api/empresa').then(r => r.json());
     document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
     planoAtual = empresaResp.plano || 'base';
+    empresaTaxaServicoPercent = Number(empresaResp.taxaServicoPercent) || 0;
     ajustarMenuParaAtendente();
     mudarAba('mesas');
     setInterval(carregarMesas, 5000);

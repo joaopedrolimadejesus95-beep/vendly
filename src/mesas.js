@@ -330,7 +330,8 @@ export async function lancarPedidoMesa(empresaId, mesaId, atendenteNome) {
 // falhar no meio do caminho.
 // Também protegido com trava de linha (FOR UPDATE): evita fechar a mesma
 // mesa duas vezes ao mesmo tempo em dois aparelhos diferentes.
-export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNome) {
+export async function fecharMesa(empresaId, mesaId, opcoes = {}) {
+  const { formaPagamento, atendenteNome } = opcoes;
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
@@ -346,10 +347,31 @@ export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNom
     if (itens.length === 0) throw new Error("Essa mesa não tem nenhum item ainda.");
     if (mesa.status === "livre") throw new Error("Essa mesa já foi fechada (talvez em outro aparelho).");
 
-    const total = itens.reduce(
+    const r2 = (n) => Math.round(n * 100) / 100;
+
+    const subtotal = r2(itens.reduce(
       (soma, item) => soma + (item.preco_unitario + somaAdicionais(item)) * item.quantidade,
       0
+    ));
+
+    // Taxa de serviço: usa o % configurado na empresa, a não ser que o
+    // fechamento peça pra não aplicar (aplicarTaxa === false).
+    const { rows: empresaRows } = await cliente.query(
+      "SELECT taxa_servico_percent FROM empresas WHERE id = $1",
+      [empresaId]
     );
+    const taxaPercent = opcoes.aplicarTaxa === false
+      ? 0
+      : Number(empresaRows[0]?.taxa_servico_percent) || 0;
+    const taxaServico = r2(subtotal * taxaPercent / 100);
+
+    // Desconto em reais, travado entre 0 e (subtotal + taxa).
+    const desconto = Math.min(subtotal + taxaServico, Math.max(0, r2(Number(opcoes.desconto) || 0)));
+    const descontoMotivo = desconto > 0 && typeof opcoes.descontoMotivo === "string"
+      ? opcoes.descontoMotivo.trim().slice(0, 200) || null
+      : null;
+
+    const total = r2(subtotal + taxaServico - desconto);
 
     // Rede de segurança: se tinha item que ainda não passou pelo "Lançar
     // pedido" (ex: o atendente adicionou e já fechou direto, sem lançar
@@ -372,16 +394,21 @@ export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNom
     }
 
     const { rows: pedidoRows } = await cliente.query(
-      `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, origem, mesa_numero, atendente_nome)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, origem, mesa_numero, atendente_nome,
+                            subtotal, taxa_servico, desconto, desconto_motivo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [
         empresaId,
         `Mesa ${mesa.numero}`,
         JSON.stringify(itens),
-        Math.round(total * 100) / 100,
+        total,
         "mesa",
         mesa.numero,
         atendenteNome || null,
+        subtotal,
+        taxaServico,
+        desconto,
+        descontoMotivo,
       ]
     );
 
@@ -392,6 +419,70 @@ export async function fecharMesa(empresaId, mesaId, formaPagamento, atendenteNom
 
     await cliente.query("COMMIT");
     return linhaParaPedido(pedidoRows[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
+// Reabre uma mesa fechada por engano: devolve os itens pra mesa (já
+// marcados como "na cozinha", porque foram preparados), estorna o estoque
+// que tinha sido baixado, e APAGA o pedido — tudo numa transação.
+// Só funciona se a mesa estiver livre agora (senão sobrescreveria uma
+// conta nova) e se o fechamento foi recente (24h).
+export async function reabrirMesaDoPedido(empresaId, pedidoId) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+
+    const { rows: pedidoRows } = await cliente.query(
+      "SELECT * FROM pedidos WHERE empresa_id = $1 AND id = $2 AND origem = 'mesa' FOR UPDATE",
+      [empresaId, pedidoId]
+    );
+    if (pedidoRows.length === 0) throw new Error("Pedido de mesa não encontrado.");
+    const pedido = pedidoRows[0];
+
+    const horas = (Date.now() - new Date(pedido.data_hora).getTime()) / 3600000;
+    if (horas > 24) {
+      throw new Error("Só dá pra reabrir mesas fechadas nas últimas 24 horas.");
+    }
+
+    const { rows: mesaRows } = await cliente.query(
+      "SELECT * FROM mesas WHERE empresa_id = $1 AND numero = $2 FOR UPDATE",
+      [empresaId, pedido.mesa_numero]
+    );
+    if (mesaRows.length === 0) {
+      throw new Error(`A mesa "${pedido.mesa_numero}" não existe mais — recrie ela antes de reabrir.`);
+    }
+    const mesa = mesaRows[0];
+    if (mesa.status !== "livre" || (mesa.itens_atuais || []).length > 0) {
+      throw new Error(`A mesa "${pedido.mesa_numero}" já tem outra conta aberta. Feche ela antes.`);
+    }
+
+    const itens = pedido.itens || [];
+    for (const item of itens) {
+      await cliente.query(
+        "UPDATE produtos SET estoque = estoque + $1 WHERE empresa_id = $2 AND id = $3",
+        [item.quantidade, empresaId, item.produto_id]
+      );
+    }
+
+    // Os itens voltam já marcados como lançados (foram preparados) — não
+    // reenviar pra cozinha. Se o dono adicionar item novo depois, esse sim
+    // vai como "novo".
+    const itensReabertos = itens.map((it) => ({ ...it, lancado: true }));
+    const { rows: mesaAtualizada } = await cliente.query(
+      `UPDATE mesas SET itens_atuais = $1, status = 'ocupada', aberta_em = now()
+       WHERE empresa_id = $2 AND id = $3 RETURNING *`,
+      [JSON.stringify(itensReabertos), empresaId, mesa.id]
+    );
+
+    await cliente.query("DELETE FROM pedidos WHERE empresa_id = $1 AND id = $2", [empresaId, pedidoId]);
+
+    await cliente.query("COMMIT");
+    return { mesa: linhaParaMesa(mesaAtualizada[0]), pedidoRemovido: pedidoId };
   } catch (erro) {
     await cliente.query("ROLLBACK");
     throw erro;

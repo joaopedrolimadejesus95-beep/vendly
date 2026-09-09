@@ -38,17 +38,21 @@ export async function getEmpresa(empresaId) {
     plano: e.plano || "base",
     separarBebidaComanda: e.separar_bebida_comanda || false,
     impressoras: e.impressoras || {},
+    taxaServicoPercent: e.taxa_servico_percent != null ? Number(e.taxa_servico_percent) : 0,
   };
 }
 
 export async function salvarEmpresa(empresaId, novosDados) {
   const atual = await getEmpresa(empresaId);
   const dados = { ...atual, ...novosDados };
+  // Taxa de serviço: número entre 0 e 100, arredondado a 2 casas. 0 = desligada.
+  const taxa = Math.min(100, Math.max(0, Math.round((Number(dados.taxaServicoPercent) || 0) * 100) / 100));
+
   await pool.query(
     `UPDATE empresas SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
      exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8,
-     separar_bebida_comanda=$9, impressoras=$10
-     WHERE id = $11`,
+     separar_bebida_comanda=$9, impressoras=$10, taxa_servico_percent=$11
+     WHERE id = $12`,
     [
       dados.nome,
       dados.aceitaEntrega,
@@ -60,6 +64,7 @@ export async function salvarEmpresa(empresaId, novosDados) {
       dados.horarioFechamento || "",
       dados.separarBebidaComanda || false,
       JSON.stringify(dados.impressoras || {}),
+      taxa,
       empresaId,
     ]
   );

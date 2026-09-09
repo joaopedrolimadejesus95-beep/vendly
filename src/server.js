@@ -4,7 +4,7 @@ import { timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
-import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
+import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
@@ -502,7 +502,13 @@ app.post("/api/mesas/:id/fechar", async (req, res) => {
     // Se quem fechou foi um atendente, guarda o nome dele pra imprimir na
     // comanda — se foi o próprio dono, não precisa (só existe um dono).
     const atendenteNome = req.tipoUsuario === "atendente" ? await getNomeAtendente(req.empresaId, req.atendenteId) : null;
-    const pedido = await fecharMesa(req.empresaId, Number(req.params.id), req.body.formaPagamento, atendenteNome);
+    const pedido = await fecharMesa(req.empresaId, Number(req.params.id), {
+      formaPagamento: req.body.formaPagamento,
+      atendenteNome,
+      aplicarTaxa: req.body.aplicarTaxa,
+      desconto: req.body.desconto,
+      descontoMotivo: req.body.descontoMotivo,
+    });
     res.json({ ok: true, pedido });
   } catch (erro) {
     res.status(400).json({ erro: erro.message });
@@ -570,6 +576,17 @@ app.delete("/api/atendentes/:id", async (req, res) => {
 app.delete("/api/pedidos/:id", async (req, res) => {
   const removido = await removerPedido(req.empresaId, Number(req.params.id));
   res.json({ ok: removido });
+});
+
+// Reabrir uma mesa fechada por engano: devolve os itens pra mesa, estorna
+// o estoque e apaga o pedido. Só o dono (é uma correção de conta).
+app.post("/api/pedidos/:id/reabrir-mesa", exigirPlanoMesas, async (req, res) => {
+  try {
+    const resultado = await reabrirMesaDoPedido(req.empresaId, Number(req.params.id));
+    res.json({ ok: true, ...resultado });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
 });
 
 // Usadas pelo agente de impressão local (roda dentro do restaurante).
