@@ -154,7 +154,7 @@
   /* Selo de "a gente cadastra seu cardápio pra você" — mata a preguiça do
      onboarding, que é o maior gargalo de SaaS pra restaurante. */
   .oferta-badge {
-    display: inline-flex;
+    display: flex;
     align-items: flex-start;
     gap: 9px;
     background: rgba(74,124,89,0.16);
@@ -165,7 +165,8 @@
     line-height: 1.45;
     padding: 10px 14px;
     border-radius: 4px;
-    max-width: 420px;
+    max-width: 440px;
+    width: fit-content;
     text-align: left;
   }
   .oferta-badge .selo-emoji { font-size: 15px; flex-shrink: 0; }
@@ -801,9 +802,9 @@
       <span class="eyebrow" style="color:var(--mustard);">Teste sem compromisso</span>
       <h2>Teste o Vendly por 7 dias</h2>
       <p>Veja na prática como funciona no seu restaurante antes de decidir.</p>
-      <div class="oferta-badge" style="margin:0 auto 22px;">
+      <div class="oferta-badge" style="margin:0 auto 24px;">
         <span class="selo-emoji">🎁</span>
-        <span>Você não precisa digitar cardápio nenhum: <b>manda a foto do seu cardápio e a gente cadastra pra você</b> no começo do teste.</span>
+        <span>Manda a foto do seu cardápio e <b>a gente cadastra pra você</b> — você não digita nada.</span>
       </div>
       <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante.%20Posso%20mandar%20a%20foto%20do%20meu%20card%C3%A1pio%3F" class="btn-primary">Quero testar grátis</a>
     </div>
