@@ -210,8 +210,10 @@
   /* A sequência só anima quando .demo-stage tem .playing — o JS remove e
      recoloca essa classe a cada ~13s pra a demo rodar em loop, feito um GIF. */
   .demo-stage.playing .bubble { animation: bubbleIn 0.5s ease forwards; }
-  .bubble.in { background: #fff; align-self: flex-start; border-bottom-left-radius: 2px; }
-  .bubble.out { background: #d9f2c4; align-self: flex-end; border-bottom-right-radius: 2px; }
+  /* Texto ESCURO nas bolhas — sem isso elas herdavam o creme claro do hero
+     e ficavam ilegíveis (creme sobre branco / creme sobre verde claro). */
+  .bubble.in { background: #fff; color: #1a1816; align-self: flex-start; border-bottom-left-radius: 2px; }
+  .bubble.out { background: #d9f2c4; color: #17331a; align-self: flex-end; border-bottom-right-radius: 2px; }
   @keyframes bubbleIn { to { opacity: 1; transform: translateY(0); } }
   .b1 { animation-delay: 0.4s; }
   .b2 { animation-delay: 1.6s; }
@@ -253,7 +255,7 @@
     text-align: center;
     font-family: var(--font-mono);
     font-size: 10.5px;
-    color: rgba(250,246,239,0.4);
+    color: rgba(250,246,239,0.6);
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
