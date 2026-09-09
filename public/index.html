@@ -151,6 +151,28 @@
   }
   .btn-ghost:hover { border-color: var(--paper); }
 
+  /* Selo de "a gente cadastra seu cardápio pra você" — mata a preguiça do
+     onboarding, que é o maior gargalo de SaaS pra restaurante. */
+  .oferta-badge {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 9px;
+    background: rgba(74,124,89,0.16);
+    border: 1px solid var(--herb);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 10px 14px;
+    border-radius: 4px;
+    max-width: 420px;
+    text-align: left;
+  }
+  .oferta-badge .selo-emoji { font-size: 15px; flex-shrink: 0; }
+  .oferta-badge b { color: var(--mustard); font-weight: 700; }
+  .oferta-badge.escura { background: rgba(26,24,22,0.14); border-color: rgba(26,24,22,0.35); color: var(--ink); }
+  .oferta-badge.escura b { color: var(--flame-dark); }
+
   /* ---- HERO DEMO (signature element: WhatsApp -> ticket) ---- */
   .demo-stage {
     position: relative;
@@ -182,15 +204,17 @@
     font-family: var(--font-body);
     opacity: 0;
     transform: translateY(8px);
-    animation: bubbleIn 0.5s ease forwards;
   }
+  /* A sequência só anima quando .demo-stage tem .playing — o JS remove e
+     recoloca essa classe a cada ~13s pra a demo rodar em loop, feito um GIF. */
+  .demo-stage.playing .bubble { animation: bubbleIn 0.5s ease forwards; }
   .bubble.in { background: #fff; align-self: flex-start; border-bottom-left-radius: 2px; }
   .bubble.out { background: #d9f2c4; align-self: flex-end; border-bottom-right-radius: 2px; }
   @keyframes bubbleIn { to { opacity: 1; transform: translateY(0); } }
-  .b1 { animation-delay: 0.3s; }
-  .b2 { animation-delay: 1.3s; }
-  .b3 { animation-delay: 2.3s; }
-  .b4 { animation-delay: 3.1s; }
+  .b1 { animation-delay: 0.4s; }
+  .b2 { animation-delay: 1.6s; }
+  .b3 { animation-delay: 2.9s; }
+  .b4 { animation-delay: 3.8s; }
 
   .ticket-pop {
     position: absolute;
@@ -205,15 +229,34 @@
     box-shadow: 0 20px 40px rgba(0,0,0,0.4);
     opacity: 0;
     transform: translateY(20px) rotate(3deg);
-    animation: ticketIn 0.6s ease forwards;
-    animation-delay: 3.8s;
   }
+  .demo-stage.playing .ticket-pop { animation: ticketIn 0.6s ease forwards; animation-delay: 4.7s; }
   @keyframes ticketIn { to { opacity: 1; transform: translateY(0) rotate(3deg); } }
   .ticket-pop .t-head { text-align: center; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.03em; }
   .ticket-pop .t-line { border-top: 1px dashed #c9bfab; margin: 6px 0; }
   .ticket-pop .t-total { text-align: right; font-weight: 700; margin-top: 6px; }
+  .ticket-pop .t-stamp {
+    margin-top: 8px;
+    text-align: center;
+    background: var(--herb);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 3px 0;
+    opacity: 0;
+  }
+  .demo-stage.playing .ticket-pop .t-stamp { animation: bubbleIn 0.4s ease forwards; animation-delay: 5.6s; }
+  .demo-loop-nota {
+    position: absolute; left: 0; right: 0; bottom: -8px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: rgba(250,246,239,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
   @media (prefers-reduced-motion: reduce) {
-    .bubble, .ticket-pop { animation: none; opacity: 1; transform: none; }
+    .bubble, .ticket-pop, .ticket-pop .t-stamp { animation: none !important; opacity: 1; transform: none; }
   }
 
   /* ---- SECTIONS shared ---- */
@@ -452,9 +495,13 @@
         <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
         <a href="#como-funciona" class="btn-ghost">Ver como funciona ↓</a>
       </div>
-      <div style="margin-top:18px; font-size:12.5px; color:rgba(250,246,239,0.55); font-family:var(--font-mono);">Sem fidelidade • Configuração acompanhada • Cancele quando quiser</div>
+      <div class="oferta-badge" style="margin-top:18px;">
+        <span class="selo-emoji">🎁</span>
+        <span>No teste grátis, <b>a gente cadastra seu cardápio inicial pra você</b> — você só manda a foto ou o link do cardápio e já começa recebendo pedido.</span>
+      </div>
+      <div style="margin-top:14px; font-size:12.5px; color:rgba(250,246,239,0.55); font-family:var(--font-mono);">Sem fidelidade • Configuração acompanhada • Cancele quando quiser</div>
     </div>
-    <div class="demo-stage">
+    <div class="demo-stage playing">
       <div class="phone">
         <div class="phone-screen">
           <div class="bubble in b1">oi, quero 2 x-bacon e uma coca</div>
@@ -469,7 +516,9 @@
         2x X-Bacon<br>1x Coca-Cola
         <div class="t-line"></div>
         <div class="t-total">R$50,80</div>
+        <div class="t-stamp">🖨️ NA COZINHA</div>
       </div>
+      <div class="demo-loop-nota">cliente manda no WhatsApp → vira pedido → sai a comanda</div>
     </div>
   </div>
 </section>
@@ -717,6 +766,10 @@
           <li>WhatsApp com IA + atendimento presencial</li>
           <li>Um único painel pra tudo</li>
         </ul>
+        <div class="oferta-badge" style="font-size:11.5px; margin-bottom:14px; padding:8px 12px;">
+          <span class="selo-emoji" style="font-size:13px;">🎁</span>
+          <span>No teste, <b>a gente monta seu cardápio inicial</b> pra você.</span>
+        </div>
         <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20Pro%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
       </div>
 
@@ -744,7 +797,11 @@
       <span class="eyebrow" style="color:var(--mustard);">Teste sem compromisso</span>
       <h2>Teste o Vendly por 7 dias</h2>
       <p>Veja na prática como funciona no seu restaurante antes de decidir.</p>
-      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Quero testar grátis</a>
+      <div class="oferta-badge" style="margin:0 auto 22px;">
+        <span class="selo-emoji">🎁</span>
+        <span>Você não precisa digitar cardápio nenhum: <b>manda a foto do seu cardápio e a gente cadastra pra você</b> no começo do teste.</span>
+      </div>
+      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante.%20Posso%20mandar%20a%20foto%20do%20meu%20card%C3%A1pio%3F" class="btn-primary">Quero testar grátis</a>
     </div>
   </div>
 </section>
@@ -822,7 +879,13 @@
 <section class="cta-final">
   <div class="wrap">
     <h2>Seu restaurante pode começar a operar melhor hoje.</h2>
-    <p>Configure seu cardápio, conecte seus canais de atendimento, e veja o Vendly funcionando na prática.</p>
+    <p>A gente cadastra seu cardápio inicial, conecta seus canais de atendimento, e você já começa recebendo pedido — sem trabalho de configuração.</p>
+    <div style="display:flex; justify-content:center; margin-bottom:22px;">
+      <div class="oferta-badge escura">
+        <span class="selo-emoji">🎁</span>
+        <span><b>Cardápio inicial por nossa conta</b> no teste de 7 dias.</span>
+      </div>
+    </div>
     <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
     <div style="margin-top:16px;"><a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20com%20algu%C3%A9m%20antes%20de%20come%C3%A7ar" style="font-size:13px; color:rgba(250,246,239,0.8); text-decoration:underline;">Falar com alguém antes de começar</a></div>
   </div>
@@ -831,6 +894,21 @@
 <footer>
   <div class="wrap">Vendly — feito pra quem vende de verdade.</div>
 </footer>
+
+<script>
+  // Deixa a demo do topo rodando em loop, feito um GIF — reinicia as
+  // animações CSS a cada ~13s (tempo da sequência inteira + respiro).
+  (function () {
+    var stage = document.querySelector('.demo-stage');
+    if (!stage) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setInterval(function () {
+      stage.classList.remove('playing');
+      void stage.offsetWidth; // força um reflow pra as animações reiniciarem
+      stage.classList.add('playing');
+    }, 13000);
+  })();
+</script>
 
 </body>
 </html>
