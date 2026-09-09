@@ -170,8 +170,10 @@
   }
   .oferta-badge .selo-emoji { font-size: 15px; flex-shrink: 0; }
   .oferta-badge b { color: var(--mustard); font-weight: 700; }
-  .oferta-badge.escura { background: rgba(26,24,22,0.14); border-color: rgba(26,24,22,0.35); color: var(--ink); }
-  .oferta-badge.escura b { color: var(--flame-dark); }
+  /* Sobre o fundo laranja do CTA final: caixa escura sólida com texto
+     claro — dark-sobre-laranja não dava contraste pra ler. */
+  .oferta-badge.escura { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .oferta-badge.escura b { color: var(--mustard); }
 
   /* ---- HERO DEMO (signature element: WhatsApp -> ticket) ---- */
   .demo-stage {
