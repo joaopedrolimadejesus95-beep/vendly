@@ -137,13 +137,43 @@ app.use(express.static(join(__dirname, "..", "public")));
 // o id da empresa com o número do cliente.
 const conversas = {};
 
+// Quantas mensagens do histórico manter por conversa. Um pedido de comida
+// raramente precisa de mais contexto que isso — sem esse teto, o histórico
+// cresceria pra sempre e ia comendo RAM num dia movimentado.
+const HISTORICO_MAX = 20;
+// Depois de quanto tempo parado uma conversa é descartada da memória.
+const CONVERSA_TTL_MS = 6 * 60 * 60 * 1000;          // 6h se está tocando normal
+const CONVERSA_TTL_PAUSADA_MS = 48 * 60 * 60 * 1000; // 48h se está esperando atendente
+
 function getConversa(empresaId, numero) {
   const chave = `${empresaId}:${numero}`;
   if (!conversas[chave]) {
-    conversas[chave] = { historico: [], pausadaParaHumano: false, ultimaMensagem: "", horarioTransferencia: null };
+    conversas[chave] = {
+      historico: [],
+      pausadaParaHumano: false,
+      ultimaMensagem: "",
+      horarioTransferencia: null,
+      ultimaAtividade: Date.now(),
+    };
   }
   return conversas[chave];
 }
+
+// Faxina periódica: corta históricos gigantes e joga fora conversas paradas
+// há muito tempo. Sem isso, cada número que já mandou mensagem fica na RAM
+// pra sempre. `.unref()` pra não segurar o processo.
+setInterval(() => {
+  const agora = Date.now();
+  for (const [chave, c] of Object.entries(conversas)) {
+    if (c.historico.length > HISTORICO_MAX) {
+      c.historico = c.historico.slice(-HISTORICO_MAX);
+    }
+    const limite = c.pausadaParaHumano ? CONVERSA_TTL_PAUSADA_MS : CONVERSA_TTL_MS;
+    if (agora - (c.ultimaAtividade || 0) > limite) {
+      delete conversas[chave];
+    }
+  }
+}, 30 * 60 * 1000).unref();
 
 // ---- Limite de tentativas de login ----
 // Em memória, sem biblioteca externa (mesmo espírito do resto do código).
@@ -303,6 +333,7 @@ app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
     }
 
     const conversa = getConversa(empresaId, numero);
+    conversa.ultimaAtividade = Date.now();
 
     if (conversa.pausadaParaHumano) {
       return res.sendStatus(200);
@@ -312,6 +343,9 @@ app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
 
     conversa.historico.push({ role: "user", content: mensagem });
     conversa.historico.push({ role: "assistant", content: resultado.resposta_cliente });
+    if (conversa.historico.length > HISTORICO_MAX) {
+      conversa.historico = conversa.historico.slice(-HISTORICO_MAX);
+    }
 
     if (resultado.precisa_humano) {
       conversa.pausadaParaHumano = true;
