@@ -750,14 +750,23 @@ app.use((erro, req, res, next) => {
 
 const PORTA = process.env.PORT || 3000;
 
-inicializarBancoDeDados()
-  .then(() => {
-    app.listen(PORTA, () => {
-      console.log(`Vendly bot escutando na porta ${PORTA}`);
-      console.log(`Painel de administração: http://localhost:${PORTA}/admin.html`);
+// Só sobe o servidor de verdade quando este arquivo é executado direto
+// (node src/server.js). Quando é só IMPORTADO (pelos testes), exporta o
+// `app` sem escutar porta nem tocar no banco.
+const executadoDireto = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (executadoDireto) {
+  inicializarBancoDeDados()
+    .then(() => {
+      app.listen(PORTA, () => {
+        console.log(`Vendly bot escutando na porta ${PORTA}`);
+        console.log(`Painel de administração: http://localhost:${PORTA}/admin.html`);
+      });
+    })
+    .catch((erro) => {
+      console.error("Não foi possível conectar ao banco de dados:", erro.message);
+      process.exit(1);
     });
-  })
-  .catch((erro) => {
-    console.error("Não foi possível conectar ao banco de dados:", erro.message);
-    process.exit(1);
-  });
+}
+
+export { app };

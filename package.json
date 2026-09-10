@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test \"test/unit/**/*.test.mjs\"",
+    "test:db": "node --test --test-concurrency=1 \"test/integration/**/*.test.mjs\"",
+    "test:all": "node --test --test-concurrency=1 \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "express": "^4.19.2",

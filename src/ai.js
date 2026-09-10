@@ -242,7 +242,7 @@ export async function interpretarMensagem(empresaId, historico, mensagemAtual) {
 // pro cliente — e esse texto pode ficar desatualizado se a conta da IA
 // estava errada. Isso substitui qualquer menção a "Total: R$..." no texto
 // pelo valor correto recalculado, pra nunca informar um valor errado.
-function corrigirTotalNoTexto(pedido) {
+export function corrigirTotalNoTexto(pedido) {
   if (typeof pedido.resposta_cliente !== "string") return pedido;
   const totalFormatado = pedido.total.toFixed(2).replace(".", ",");
   pedido.resposta_cliente = pedido.resposta_cliente.replace(
@@ -272,7 +272,7 @@ function corrigirTotalNoTexto(pedido) {
 // Às vezes a IA escreve o texto literal barra-n em vez de uma quebra de
 // linha de verdade. Isso troca de volta pra quebra de linha real, pra não
 // aparecer "\n" escrito na mensagem que o cliente recebe no WhatsApp.
-function corrigirQuebrasDeLinha(pedido) {
+export function corrigirQuebrasDeLinha(pedido) {
   if (typeof pedido.resposta_cliente === "string") {
     pedido.resposta_cliente = pedido.resposta_cliente.replace(/\\n/g, "\n");
   }
@@ -322,7 +322,7 @@ async function validarPrecosComCatalogo(empresaId, pedido) {
 // calculou de cabeça. O código recalcula (preço base + adicionais) x
 // quantidade, item por item, e usa esse valor — não o da IA. Isso importa
 // mais ainda agora que adicionais entram na conta.
-function recalcularTotal(pedido) {
+export function recalcularTotal(pedido) {
   let total = 0;
   for (const item of pedido.itens || []) {
     const precoAdicionais = (item.adicionais || []).reduce((soma, a) => soma + (a.preco || 0), 0);
@@ -336,7 +336,7 @@ function recalcularTotal(pedido) {
 // horário configurados. Se a empresa não configurou nada (diasFuncionamento
 // vazio/ausente), considera sempre aberta — mantém compatibilidade com
 // quem ainda não preencheu essa regra.
-function verificarFuncionamento(empresa) {
+export function verificarFuncionamento(empresa) {
   const diasConfigurados = empresa.diasFuncionamento;
   if (!diasConfigurados || diasConfigurados.length === 0) {
     return { aberto: true };
