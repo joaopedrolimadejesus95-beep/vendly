@@ -472,9 +472,64 @@
   .fluxo-dor .item { background: var(--paper); border: 1px solid var(--line); padding: 10px 20px; font-size: 14px; color: var(--muted); }
   .fluxo-dor .seta { color: var(--flame); font-size: 18px; }
   .fluxo-solucao-final { text-align: center; font-family: var(--font-display); font-size: clamp(20px, 3vw, 26px); }
+
+  /* ---- ÍCONES (SVG monocromático — sem emoji) ---- */
+  .canal-item .icone svg { width: 22px; height: 22px; color: var(--mustard); }
+  .beneficio .icone svg { width: 28px; height: 28px; color: var(--flame); }
+  .oferta-badge .selo-ico { width: 16px; height: 16px; flex-shrink: 0; color: var(--herb); margin-top: 1px; }
+  .oferta-badge.escura .selo-ico { color: var(--mustard); }
+  .price-badge svg { display: inline-block; width: 12px; height: 12px; fill: currentColor; vertical-align: -1px; margin-right: 4px; }
+  .wa-glyph { display: inline-block; width: 15px; height: 15px; fill: currentColor; vertical-align: -2px; margin-right: 7px; }
+  .canal-item .icone svg, .beneficio .icone svg { display: inline-block; }
+
+  /* ---- BOTÃO FLUTUANTE DO WHATSAPP ---- */
+  .wa-float {
+    position: fixed; right: 20px; bottom: 20px; z-index: 200;
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #25d366; color: #fff;
+    padding: 13px 20px 13px 16px;
+    border-radius: 999px;
+    text-decoration: none; font-weight: 600; font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .wa-float:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(0,0,0,0.34); }
+  .wa-float svg { width: 22px; height: 22px; fill: #fff; flex-shrink: 0; }
+  @media (max-width: 600px) {
+    .wa-float { padding: 15px; right: 16px; bottom: 16px; }
+    .wa-float .wa-label { display: none; }
+  }
 </style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/>
+    </symbol>
+    <symbol id="ic-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9h18l-1-3H4L3 9Z"/><path d="M6 9v10M18 9v10M4 9h16"/>
+    </symbol>
+    <symbol id="ic-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>
+    </symbol>
+    <symbol id="ic-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>
+    </symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 21h18"/><path d="M6 21v-7M12 21V6M18 21v-4"/>
+    </symbol>
+    <symbol id="ic-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>
+    </symbol>
+    <symbol id="ic-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12v9H4v-9M2 7h20v5H2zM12 22V7M12 7S10.5 3 8 3 5 7 5 7M12 7s1.5-4 4-4 3 4 3 4"/>
+    </symbol>
+    <symbol id="ic-star" viewBox="0 0 24 24"><path d="m12 2 2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.8 6.1 20.2l1.2-6.6L2.5 9l6.6-.9L12 2Z"/></symbol>
+    <symbol id="ic-wa" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.6-6.1c-.25-.13-1.5-.74-1.73-.82-.23-.09-.4-.13-.57.13-.17.25-.65.82-.8.99-.15.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.66-1.25-1.48-1.4-1.73-.15-.25-.02-.39.11-.51.11-.11.25-.29.38-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.57-1.37-.78-1.87-.2-.49-.41-.42-.57-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.6.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.43.53.6.19 1.15.16 1.58.1.48-.07 1.5-.61 1.71-1.2.21-.59.21-1.1.15-1.2-.06-.11-.23-.17-.48-.3Z"/></symbol>
+  </defs>
+</svg>
 
 <nav>
   <div class="wrap">
@@ -486,7 +541,7 @@
       <a href="#faq">FAQ</a>
       <a href="/admin.html">Já sou cliente</a>
     </div>
-    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="nav-cta">Testar grátis</a>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="nav-cta"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis</a>
   </div>
 </nav>
 
@@ -497,11 +552,11 @@
       <h1>Seu restaurante vende. <em>A Vendly</em> organiza o resto.</h1>
       <p class="lede">Atenda pedidos no WhatsApp, gerencie suas mesas e acompanhe tudo em um só lugar. Sem planilhas. Sem pedidos perdidos. Sem ficar respondendo as mesmas perguntas o dia inteiro.</p>
       <div class="hero-ctas">
-        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
         <a href="#como-funciona" class="btn-ghost">Ver como funciona ↓</a>
       </div>
       <div class="oferta-badge" style="margin-top:18px;">
-        <span class="selo-emoji">🎁</span>
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
         <span>No teste grátis, <b>a gente cadastra seu cardápio inicial pra você</b> — você só manda a foto ou o link do cardápio e já começa recebendo pedido.</span>
       </div>
       <div style="margin-top:14px; font-size:12.5px; color:rgba(250,246,239,0.55); font-family:var(--font-mono);">Sem fidelidade • Configuração acompanhada • Cancele quando quiser</div>
@@ -512,7 +567,7 @@
           <div class="bubble in b1">oi, quero 2 x-bacon e uma coca</div>
           <div class="bubble out b2">Show! 2x X-Bacon + 1x Coca-Cola. Total R$50,80. Confirma?</div>
           <div class="bubble in b3">sim</div>
-          <div class="bubble out b4">Pedido confirmado! 🎉</div>
+          <div class="bubble out b4">Pedido confirmado. Já vamos preparar.</div>
         </div>
       </div>
       <div class="ticket-pop">
@@ -521,7 +576,7 @@
         2x X-Bacon<br>1x Coca-Cola
         <div class="t-line"></div>
         <div class="t-total">R$50,80</div>
-        <div class="t-stamp">🖨️ NA COZINHA</div>
+        <div class="t-stamp">ENVIADO À COZINHA</div>
       </div>
       <div class="demo-loop-nota">cliente manda no WhatsApp → vira pedido → sai a comanda</div>
     </div>
@@ -615,7 +670,7 @@
         <div class="bubble in">oi, quero 2 x-bacon e uma coca</div>
         <div class="bubble out">Show! 2x X-Bacon + 1x Coca-Cola. Total R$50,80. Confirma?</div>
         <div class="bubble in">sim</div>
-        <div class="bubble out">Pedido confirmado! 🎉 Já vamos preparar tudo.</div>
+        <div class="bubble out">Pedido confirmado. Já vamos preparar tudo.</div>
       </div>
       <div class="receipt">
         <div class="r-head">Hamburgueria do Zé</div>
@@ -640,27 +695,27 @@
     </div>
     <div class="canais-grid">
       <div class="canal-item">
-        <div class="icone">💬</div>
+        <div class="icone"><svg><use href="#ic-chat"/></svg></div>
         <h3>WhatsApp</h3>
         <p>Seu cliente faz o pedido conversando normalmente.</p>
       </div>
       <div class="canal-item">
-        <div class="icone">🪑</div>
+        <div class="icone"><svg><use href="#ic-table"/></svg></div>
         <h3>Mesas</h3>
         <p>Seu garçom registra pedidos direto na mesa.</p>
       </div>
       <div class="canal-item">
-        <div class="icone">🧾</div>
+        <div class="icone"><svg><use href="#ic-receipt"/></svg></div>
         <h3>Pedidos</h3>
         <p>Tudo chega ao mesmo painel.</p>
       </div>
       <div class="canal-item">
-        <div class="icone">📦</div>
+        <div class="icone"><svg><use href="#ic-box"/></svg></div>
         <h3>Estoque</h3>
         <p>Os pedidos usam o mesmo estoque.</p>
       </div>
       <div class="canal-item">
-        <div class="icone">📊</div>
+        <div class="icone"><svg><use href="#ic-chart"/></svg></div>
         <h3>Vendas</h3>
         <p>Você acompanha tudo em tempo real.</p>
       </div>
@@ -677,22 +732,22 @@
     </div>
     <div class="beneficios-grid">
       <div class="beneficio">
-        <div class="icone">🤖</div>
+        <div class="icone"><svg><use href="#ic-bolt"/></svg></div>
         <h3>Atendimento automático</h3>
         <p>A IA atende seus clientes pelo WhatsApp e entende pedidos em português natural — sem inventar produto ou preço fora do cardápio.</p>
       </div>
       <div class="beneficio">
-        <div class="icone">🪑</div>
+        <div class="icone"><svg><use href="#ic-table"/></svg></div>
         <h3>Salão organizado</h3>
         <p>Garçons lançam pedidos direto nas mesas, pelo celular ou tablet, sem depender de papel.</p>
       </div>
       <div class="beneficio">
-        <div class="icone">📦</div>
+        <div class="icone"><svg><use href="#ic-box"/></svg></div>
         <h3>Estoque conectado</h3>
         <p>Cada pedido — do WhatsApp ou da mesa — reflete no mesmo estoque automaticamente.</p>
       </div>
       <div class="beneficio">
-        <div class="icone">📊</div>
+        <div class="icone"><svg><use href="#ic-chart"/></svg></div>
         <h3>Tudo em um painel</h3>
         <p>Pedidos, mesas, vendas e atendimento, tudo num único lugar — sem sistemas separados.</p>
       </div>
@@ -761,7 +816,7 @@
       </div>
 
       <div class="price-card destaque">
-        <span class="price-badge">⭐ Mais escolhido</span>
+        <span class="price-badge"><svg><use href="#ic-star"/></svg>Mais escolhido</span>
         <h3>Vendly Pro</h3>
         <p class="price-desc">Leve WhatsApp + Mesas juntos por R$199/mês, em vez de R$229 separados.</p>
         <div class="price-value">R$199<span>/mês</span></div>
@@ -772,10 +827,10 @@
           <li>Um único painel pra tudo</li>
         </ul>
         <div class="oferta-badge" style="font-size:11.5px; margin-bottom:14px; padding:8px 12px;">
-          <span class="selo-emoji" style="font-size:13px;">🎁</span>
+          <svg class="selo-ico"><use href="#ic-gift"/></svg>
           <span>No teste, <b>a gente monta seu cardápio inicial</b> pra você.</span>
         </div>
-        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20Pro%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20Pro%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
       </div>
 
       <div class="price-card">
@@ -803,10 +858,10 @@
       <h2>Teste o Vendly por 7 dias</h2>
       <p>Veja na prática como funciona no seu restaurante antes de decidir.</p>
       <div class="oferta-badge" style="margin:0 auto 24px;">
-        <span class="selo-emoji">🎁</span>
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
         <span>Manda a foto do seu cardápio e <b>a gente cadastra pra você</b> — você não digita nada.</span>
       </div>
-      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante.%20Posso%20mandar%20a%20foto%20do%20meu%20card%C3%A1pio%3F" class="btn-primary">Quero testar grátis</a>
+      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante.%20Posso%20mandar%20a%20foto%20do%20meu%20card%C3%A1pio%3F" class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Quero testar grátis</a>
     </div>
   </div>
 </section>
@@ -887,11 +942,11 @@
     <p>A gente cadastra seu cardápio inicial, conecta seus canais de atendimento, e você já começa recebendo pedido — sem trabalho de configuração.</p>
     <div style="display:flex; justify-content:center; margin-bottom:22px;">
       <div class="oferta-badge escura">
-        <span class="selo-emoji">🎁</span>
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
         <span><b>Cardápio inicial por nossa conta</b> no teste de 7 dias.</span>
       </div>
     </div>
-    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary">Testar grátis por 7 dias</a>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
     <div style="margin-top:16px;"><a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20com%20algu%C3%A9m%20antes%20de%20come%C3%A7ar" style="font-size:13px; color:rgba(250,246,239,0.8); text-decoration:underline;">Falar com alguém antes de começar</a></div>
   </div>
 </section>
@@ -899,6 +954,11 @@
 <footer>
   <div class="wrap">Vendly — feito pra quem vende de verdade.</div>
 </footer>
+
+<a class="wa-float" href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Vendly%20pro%20meu%20restaurante." target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-wa"/></svg>
+  <span class="wa-label">Falar no WhatsApp</span>
+</a>
 
 <script>
   // Deixa a demo do topo rodando em loop, feito um GIF — reinicia as
