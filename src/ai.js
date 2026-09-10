@@ -199,11 +199,25 @@ export async function interpretarMensagem(empresaId, historico, mensagemAtual) {
   const resposta = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 1000,
-    system: await systemPrompt(empresaId),
+    // O prompt do sistema é o cardápio + configs da empresa — grande e igual
+    // em toda mensagem da mesma conversa. Com cache_control, a 1ª mensagem
+    // paga o processamento normal e as seguintes (dentro de ~5 min) reusam
+    // esse prefixo já processado: resposta bem mais rápida e ~90% mais barata
+    // na parte repetida. O cache "invalida" sozinho quando o cardápio muda.
+    system: [
+      { type: "text", text: await systemPrompt(empresaId), cache_control: { type: "ephemeral" } },
+    ],
     messages: mensagens,
     tools: [FERRAMENTA_PEDIDO],
     tool_choice: { type: "tool", name: "registrar_interacao" },
   });
+
+  // Log leve pra dá pra conferir se o cache está pegando (cache_read > 0 da
+  // segunda mensagem em diante numa conversa).
+  const u = resposta.usage || {};
+  console.log(
+    `[IA] empresa ${empresaId} — in:${u.input_tokens ?? "?"} cache_write:${u.cache_creation_input_tokens ?? 0} cache_read:${u.cache_read_input_tokens ?? 0} out:${u.output_tokens ?? "?"}`
+  );
 
   const blocoFerramenta = resposta.content.find(
     (bloco) => bloco.type === "tool_use" && bloco.name === "registrar_interacao"
