@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test \"test/unit/**/*.test.mjs\"",
-    "test:db": "node --test --test-concurrency=1 \"test/integration/**/*.test.mjs\"",
-    "test:all": "node --test --test-concurrency=1 \"test/**/*.test.mjs\""
+    "test": "node test/run-tests.mjs unit",
+    "test:db": "node test/run-tests.mjs db",
+    "test:all": "node test/run-tests.mjs all"
   },
   "dependencies": {
     "express": "^4.19.2",
