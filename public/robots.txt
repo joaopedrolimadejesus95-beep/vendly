@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /admin.html
+Disallow: /api/
+Disallow: /webhook/
 
 Sitemap: https://meuvendly.com.br/sitemap.xml

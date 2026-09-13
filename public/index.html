@@ -1,18 +1,25 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Vendly — Sistema para restaurantes: WhatsApp + Mesas + Pedidos + Estoque</title>
-<meta name="description" content="A Vendly automatiza o atendimento do seu restaurante pelo WhatsApp, organiza pedidos de mesa e centraliza estoque e vendas em um único painel. Teste grátis por 7 dias." />
+<title>Vendly — Sistema para Restaurante: WhatsApp com IA, Mesas e Pedidos</title>
+<meta name="description" content="Sistema completo para restaurantes: atendimento automático com IA no WhatsApp, controle de mesas, pedidos e estoque em um único painel. Teste grátis por 7 dias." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#1a1816" />
 <link rel="canonical" href="https://meuvendly.com.br/" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
 <!-- Open Graph (link bonito quando compartilhado no WhatsApp, Instagram, etc) -->
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://meuvendly.com.br/" />
+<meta property="og:site_name" content="Vendly" />
 <meta property="og:title" content="Vendly — Seu restaurante vende. A Vendly organiza o resto." />
 <meta property="og:description" content="WhatsApp + Mesas + Pedidos + Estoque, tudo em um único painel. Teste grátis por 7 dias." />
 <meta property="og:image" content="https://meuvendly.com.br/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Vendly — painel de atendimento pra restaurantes" />
 <meta property="og:locale" content="pt_BR" />
 
 <!-- Twitter/X Card (mesmo princípio do Open Graph) -->
@@ -21,7 +28,61 @@
 <meta name="twitter:description" content="WhatsApp + Mesas + Pedidos + Estoque, tudo em um único painel. Teste grátis por 7 dias." />
 <meta name="twitter:image" content="https://meuvendly.com.br/og-image.png" />
 
+<!-- Dados estruturados (Schema.org) — ajudam o Google a entender o que é
+     o site e podem gerar resultado rico (FAQ expansível, preço) na busca. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Vendly",
+  "url": "https://meuvendly.com.br/",
+  "image": "https://meuvendly.com.br/og-image.png",
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "Sistema para gestão de restaurantes",
+  "operatingSystem": "Web",
+  "description": "Sistema para restaurantes com atendimento automático por IA no WhatsApp, controle de mesas, pedidos e estoque em um único painel.",
+  "inLanguage": "pt-BR",
+  "offers": [
+    { "@type": "Offer", "name": "Vendly Mesas", "price": "79", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" },
+    { "@type": "Offer", "name": "Vendly Base", "price": "150", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" },
+    { "@type": "Offer", "name": "Vendly Pro", "price": "199", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" }
+  ],
+  "provider": {
+    "@type": "Organization",
+    "name": "Vendly",
+    "url": "https://meuvendly.com.br/",
+    "logo": "https://meuvendly.com.br/og-image.png",
+    "areaServed": "BR",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "telephone": "+55-44-99987-4707",
+      "url": "https://wa.me/5544999874707",
+      "availableLanguage": "Portuguese"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "O Vendly funciona pelo WhatsApp?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Nos planos Base e Pro, a Vendly usa IA pra atender clientes pelo WhatsApp e transformar conversas em pedidos." } },
+    { "@type": "Question", "name": "Preciso ficar respondendo os clientes?", "acceptedAnswer": { "@type": "Answer", "text": "Não. A IA cuida dos pedidos dentro das regras configuradas no sistema, e encaminha pra você as situações que precisam de atendimento humano." } },
+    { "@type": "Question", "name": "A IA pode inventar produtos ou preços?", "acceptedAnswer": { "@type": "Answer", "text": "Não. O sistema usa o cardápio que você cadastrou pra responder. Totais e cálculos importantes são conferidos pelo sistema, não confiados só à IA." } },
+    { "@type": "Question", "name": "O Vendly também funciona pra atendimento presencial?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O plano Mesas organiza pedidos presenciais e mesas, mesmo sem usar WhatsApp." } },
+    { "@type": "Question", "name": "Posso usar WhatsApp e Mesas juntos?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O plano Pro reúne os dois módulos num único painel." } },
+    { "@type": "Question", "name": "Preciso instalar algum programa?", "acceptedAnswer": { "@type": "Answer", "text": "Depende da configuração do seu restaurante (ex: impressora). A configuração é acompanhada, pra deixar tudo funcionando certinho." } },
+    { "@type": "Question", "name": "Posso cancelar quando quiser?", "acceptedAnswer": { "@type": "Answer", "text": "Sim, não existe fidelidade." } },
+    { "@type": "Question", "name": "Posso testar antes de contratar?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Você pode testar o Vendly gratuitamente por 7 dias." } },
+    { "@type": "Question", "name": "E se eu precisar de ajuda?", "acceptedAnswer": { "@type": "Answer", "text": "Você fala direto com a gente pelo WhatsApp." } }
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
