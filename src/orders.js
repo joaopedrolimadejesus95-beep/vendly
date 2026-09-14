@@ -48,6 +48,59 @@ export function linhaParaPedido(linha) {
   };
 }
 
+// Confirma um pedido do WhatsApp de forma atômica: desconta o estoque E
+// cria o pedido na MESMA transação — ou as duas coisas acontecem juntas,
+// ou nenhuma. Sem isso, um erro entre as duas operações deixava o estoque
+// descontado sem nenhum pedido registrado (perda silenciosa).
+//
+// O desconto usa "UPDATE ... WHERE estoque >= quantidade" em vez de
+// conferir o estoque numa consulta separada antes — isso torna a checagem
+// e o desconto uma coisa só e atômica, fechando a brecha de dois clientes
+// confirmando o último item ao "mesmo tempo" e o estoque ficando negativo
+// (a proteção de estoque em ai.js olha uma "foto" de antes, que pode estar
+// desatualizada bem nesse intervalo).
+export async function confirmarPedidoWhatsapp(empresaId, { numeroCliente, itens, total, tipoEntrega, endereco }) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+
+    for (const item of itens || []) {
+      const { rows } = await cliente.query(
+        `UPDATE produtos SET estoque = estoque - $1
+         WHERE empresa_id = $2 AND id = $3 AND estoque >= $1
+         RETURNING estoque`,
+        [item.quantidade, empresaId, item.produto_id]
+      );
+      if (rows.length === 0) {
+        const { rows: atual } = await cliente.query(
+          "SELECT estoque FROM produtos WHERE empresa_id = $1 AND id = $2",
+          [empresaId, item.produto_id]
+        );
+        const disponivel = atual[0]?.estoque ?? 0;
+        throw new Error(
+          disponivel <= 0
+            ? `o ${item.nome} acabou de esgotar.`
+            : `só restam ${disponivel} unidades de ${item.nome} agora.`
+        );
+      }
+    }
+
+    const { rows } = await cliente.query(
+      `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, origem)
+       VALUES ($1, $2, $3, $4, $5, $6, 'whatsapp') RETURNING *`,
+      [empresaId, numeroCliente, JSON.stringify(itens), total, tipoEntrega || null, endereco || null]
+    );
+
+    await cliente.query("COMMIT");
+    return linhaParaPedido(rows[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 export async function registrarPedido(empresaId, { numeroCliente, itens, total, tipoEntrega, endereco, origem, mesaNumero, atendenteNome }) {
   const { rows } = await pool.query(
     `INSERT INTO pedidos (empresa_id, numero_cliente, itens, total, tipo_entrega, endereco, origem, mesa_numero, atendente_nome)

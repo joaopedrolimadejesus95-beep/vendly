@@ -79,6 +79,26 @@ describe("mesas", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" 
     assert.equal(mesa.itensAtuais.length, 0);
   });
 
+  test("removerItemMesa: item já lançado gera aviso de cancelamento pra cozinha", async () => {
+    const m = await criarMesa(empresa, "1");
+    await adicionarItemMesa(empresa, m.id, item());
+    await lancarPedidoMesa(empresa, m.id, "Pedro");
+    await removerItemMesa(empresa, m.id, 0, "Pedro");
+    const pend = await listarLancamentosPendentes(empresa);
+    assert.equal(pend.length, 2); // o lançamento original + o de cancelamento
+    const cancelamento = pend.find((l) => l.cancelamento);
+    assert.ok(cancelamento, "deveria ter um lançamento marcado como cancelamento");
+    assert.equal(cancelamento.itens[0].produto_id, "xb");
+    assert.equal(cancelamento.atendenteNome, "Pedro");
+  });
+
+  test("removerItemMesa: item ainda não lançado NÃO gera aviso de cancelamento", async () => {
+    const m = await criarMesa(empresa, "1");
+    await adicionarItemMesa(empresa, m.id, item());
+    await removerItemMesa(empresa, m.id, 0);
+    assert.equal((await listarLancamentosPendentes(empresa)).length, 0);
+  });
+
   test("removerMesa recusa mesa com conta aberta", async () => {
     const m = await criarMesa(empresa, "1");
     await adicionarItemMesa(empresa, m.id, item());

@@ -4,12 +4,13 @@ import { timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
+import { comFila } from "./fileLock.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
 import {
-  registrarPedido,
+  confirmarPedidoWhatsapp,
   listarPedidos,
   getEstatisticas,
   listarPedidosNaoImpressos,
@@ -20,7 +21,6 @@ import {
   buscarPedidosMesaPorItem,
 } from "./orders.js";
 import {
-  baixarEstoque,
   getEmpresa,
   salvarEmpresa,
   getCatalogoCompleto,
@@ -333,41 +333,55 @@ app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const conversa = getConversa(empresaId, numero);
-    conversa.ultimaAtividade = Date.now();
+    // Serializa o processamento por cliente (empresa + número): sem isso,
+    // duas mensagens quase simultâneas do mesmo cliente (reenvio da
+    // Evolution, ou o cliente mandando rápido demais) processariam o MESMO
+    // histórico de conversa ao mesmo tempo, podendo confirmar pedido
+    // duplicado ou embaralhar o histórico. Mensagens de clientes
+    // DIFERENTES continuam processando em paralelo normalmente.
+    await comFila(`${empresaId}:${numero}`, async () => {
+      const conversa = getConversa(empresaId, numero);
+      conversa.ultimaAtividade = Date.now();
 
-    if (conversa.pausadaParaHumano) {
-      return res.sendStatus(200);
-    }
+      if (conversa.pausadaParaHumano) return;
 
-    const resultado = await interpretarMensagem(empresaId, conversa.historico, mensagem);
+      const resultado = await interpretarMensagem(empresaId, conversa.historico, mensagem);
 
-    conversa.historico.push({ role: "user", content: mensagem });
-    conversa.historico.push({ role: "assistant", content: resultado.resposta_cliente });
-    if (conversa.historico.length > HISTORICO_MAX) {
-      conversa.historico = conversa.historico.slice(-HISTORICO_MAX);
-    }
+      conversa.historico.push({ role: "user", content: mensagem });
+      conversa.historico.push({ role: "assistant", content: resultado.resposta_cliente });
+      if (conversa.historico.length > HISTORICO_MAX) {
+        conversa.historico = conversa.historico.slice(-HISTORICO_MAX);
+      }
 
-    if (resultado.precisa_humano) {
-      conversa.pausadaParaHumano = true;
-      conversa.ultimaMensagem = mensagem;
-      conversa.horarioTransferencia = new Date().toISOString();
-      console.log(`[TRANSFERIR] Empresa ${empresaId}, conversa com ${numero} precisa de atendente humano.`);
-    }
+      if (resultado.precisa_humano) {
+        conversa.pausadaParaHumano = true;
+        conversa.ultimaMensagem = mensagem;
+        conversa.horarioTransferencia = new Date().toISOString();
+        console.log(`[TRANSFERIR] Empresa ${empresaId}, conversa com ${numero} precisa de atendente humano.`);
+      }
 
-    if (resultado.status_pedido === "confirmado") {
-      await baixarEstoque(empresaId, resultado.itens);
-      await registrarPedido(empresaId, {
-        numeroCliente: numero,
-        itens: resultado.itens,
-        total: resultado.total,
-        tipoEntrega: resultado.tipo_entrega,
-        endereco: resultado.endereco,
-      });
-      console.log(`[PEDIDO CONFIRMADO] Empresa ${empresaId}, ${numero}:`, resultado.itens, `Total: R$${resultado.total}`);
-    }
+      if (resultado.status_pedido === "confirmado") {
+        try {
+          await confirmarPedidoWhatsapp(empresaId, {
+            numeroCliente: numero,
+            itens: resultado.itens,
+            total: resultado.total,
+            tipoEntrega: resultado.tipo_entrega,
+            endereco: resultado.endereco,
+          });
+          console.log(`[PEDIDO CONFIRMADO] Empresa ${empresaId}, ${numero}:`, resultado.itens, `Total: R$${resultado.total}`);
+        } catch (erroEstoque) {
+          // Pode acontecer mesmo depois da checagem de estoque da IA, se
+          // outro cliente levou o último item bem nesse intervalo — nesse
+          // caso avisa o cliente em vez de confirmar um pedido sem estoque.
+          console.warn(`[ESTOQUE] Empresa ${empresaId}, ${numero}: ${erroEstoque.message}`);
+          await enviarMensagem(nomeInstancia, numero, `Poxa, ${erroEstoque.message} Pode ajustar seu pedido?`);
+          return;
+        }
+      }
 
-    await enviarMensagem(nomeInstancia, numero, resultado.resposta_cliente);
+      await enviarMensagem(nomeInstancia, numero, resultado.resposta_cliente);
+    });
 
     res.sendStatus(200);
   } catch (erro) {
