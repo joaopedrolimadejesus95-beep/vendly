@@ -88,6 +88,12 @@ export async function inicializarBancoDeDados() {
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS taxa_servico NUMERIC(10,2) DEFAULT 0;
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS desconto NUMERIC(10,2) DEFAULT 0;
     ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS desconto_motivo TEXT;
+    -- Pedido cancelado NUNCA é apagado (fica no histórico/relatórios como
+    -- cancelado) — diferente de "reabrir mesa", que é pra corrigir um
+    -- fechamento por engano. "impresso" volta pra false pra a comanda de
+    -- cancelamento entrar na fila de impressão de novo, avisando a cozinha.
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelado BOOLEAN DEFAULT false;
+    ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelado_em TIMESTAMPTZ;
 
     CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON pedidos(empresa_id);
     CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON produtos(empresa_id);
@@ -137,6 +143,13 @@ export async function inicializarBancoDeDados() {
       impresso BOOLEAN DEFAULT false,
       criado_em TIMESTAMPTZ DEFAULT now()
     );
+
+    -- "cancelamento = true" identifica um lançamento que NÃO é comida nova
+    -- pra cozinha preparar, e sim um aviso pra TIRAR da produção algo que
+    -- já tinha sido lançado (item removido da mesa depois de já ter ido
+    -- pra cozinha). O agente de impressão local deve imprimir esses de
+    -- forma bem diferente (ex: "CANCELAR — NÃO PREPARAR").
+    ALTER TABLE lancamentos_mesa ADD COLUMN IF NOT EXISTS cancelamento BOOLEAN DEFAULT false;
 
     CREATE INDEX IF NOT EXISTS idx_lancamentos_empresa ON lancamentos_mesa(empresa_id);
   `);

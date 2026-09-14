@@ -15,6 +15,7 @@ import {
   listarPedidosNaoImpressos,
   marcarComoImpresso,
   removerPedido,
+  cancelarPedido,
   listarPedidosPorMesa,
   buscarPedidosMesaPorItem,
 } from "./orders.js";
@@ -512,7 +513,11 @@ app.put("/api/mesas/:id/item/:indice", async (req, res) => {
 
 app.delete("/api/mesas/:id/item/:indice", async (req, res) => {
   try {
-    const mesa = await removerItemMesa(req.empresaId, Number(req.params.id), Number(req.params.indice));
+    // Se o item já tinha ido pra cozinha, removerItemMesa gera uma comanda
+    // de cancelamento — precisa saber quem foi (dono ou nome do atendente)
+    // pra registrar isso na comanda, mesmo padrão de lançar/fechar mesa.
+    const atendenteNome = req.tipoUsuario === "atendente" ? await getNomeAtendente(req.empresaId, req.atendenteId) : null;
+    const mesa = await removerItemMesa(req.empresaId, Number(req.params.id), Number(req.params.indice), atendenteNome);
     res.json(mesa);
   } catch (erro) {
     res.status(400).json({ erro: erro.message });
@@ -618,6 +623,22 @@ app.post("/api/pedidos/:id/reabrir-mesa", exigirPlanoMesas, async (req, res) => 
   try {
     const resultado = await reabrirMesaDoPedido(req.empresaId, Number(req.params.id));
     res.json({ ok: true, ...resultado });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
+});
+
+// Cancela um pedido já fechado — do WhatsApp (ex: cliente pede pra
+// cancelar ou trocar algo depois que o pedido já foi confirmado; a IA
+// nunca faz isso sozinha, só avisa que vai chamar um atendente) ou de
+// mesa. Diferente de excluir: o pedido continua no histórico (marcado
+// como cancelado, fora do faturamento), o estoque volta, e sai uma
+// comanda de cancelamento pra cozinha. Só o dono — mexe em estoque e
+// em relatório financeiro.
+app.post("/api/pedidos/:id/cancelar", async (req, res) => {
+  try {
+    const pedido = await cancelarPedido(req.empresaId, Number(req.params.id));
+    res.json({ ok: true, pedido });
   } catch (erro) {
     res.status(400).json({ erro: erro.message });
   }

@@ -43,6 +43,8 @@ export function linhaParaPedido(linha) {
     taxaServico: linha.taxa_servico != null ? Number(linha.taxa_servico) : 0,
     desconto: linha.desconto != null ? Number(linha.desconto) : 0,
     descontoMotivo: linha.desconto_motivo || null,
+    cancelado: linha.cancelado || false,
+    canceladoEm: linha.cancelado_em,
   };
 }
 
@@ -104,6 +106,51 @@ export async function removerPedido(empresaId, id) {
   return rowCount > 0;
 }
 
+// Cancela um pedido já fechado (do WhatsApp ou de mesa) — usado quando o
+// cliente pede pra cancelar ou trocar algo DEPOIS que o pedido já foi
+// confirmado/fechado (nesse caso a IA nunca cancela sozinha, só encaminha
+// pra um atendente humano, que usa isso no painel). Diferente de
+// "excluir": o pedido continua existindo no histórico, só marcado como
+// cancelado (não conta mais em faturamento/estatísticas), o estoque que
+// tinha sido baixado volta, e ele reentra na fila de impressão — assim a
+// cozinha recebe uma comanda de cancelamento em vez de só sumir do sistema
+// sem ninguém saber que não é mais pra preparar.
+// Protegido com trava de linha, mesmo padrão do resto do código.
+export async function cancelarPedido(empresaId, id) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    const { rows } = await cliente.query(
+      "SELECT * FROM pedidos WHERE empresa_id = $1 AND id = $2 FOR UPDATE",
+      [empresaId, id]
+    );
+    if (rows.length === 0) throw new Error("Pedido não encontrado.");
+    const pedido = rows[0];
+    if (pedido.cancelado) throw new Error("Esse pedido já está cancelado.");
+
+    for (const item of pedido.itens || []) {
+      await cliente.query(
+        "UPDATE produtos SET estoque = estoque + $1 WHERE empresa_id = $2 AND id = $3",
+        [item.quantidade, empresaId, item.produto_id]
+      );
+    }
+
+    const { rows: atualizado } = await cliente.query(
+      `UPDATE pedidos SET cancelado = true, cancelado_em = now(), impresso = false
+       WHERE empresa_id = $1 AND id = $2 RETURNING *`,
+      [empresaId, id]
+    );
+
+    await cliente.query("COMMIT");
+    return linhaParaPedido(atualizado[0]);
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+}
+
 // Histórico de pedidos JÁ FECHADOS de uma mesa específica (não inclui o
 // que está no carrinho em andamento agora, só o que já virou venda).
 export async function listarPedidosPorMesa(empresaId, mesaNumero) {
@@ -137,7 +184,7 @@ export async function getEstatisticas(empresaId) {
   const mesInicio = inicioDoMesEmSaoPaulo();
 
   const { rows: totalRows } = await pool.query(
-    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1",
+    "SELECT COUNT(*)::int AS total, COALESCE(SUM(total), 0)::float AS faturamento FROM pedidos WHERE empresa_id = $1 AND cancelado = false",
     [empresaId]
   );
   // Hoje / 7 dias / mês numa consulta só, com FILTER.
@@ -149,13 +196,14 @@ export async function getEstatisticas(empresaId) {
        COALESCE(SUM(total) FILTER (WHERE data_hora >= $3), 0)::float AS fat_semana,
        COUNT(*) FILTER (WHERE data_hora >= $4)::int AS pedidos_mes,
        COALESCE(SUM(total) FILTER (WHERE data_hora >= $4), 0)::float AS fat_mes
-     FROM pedidos WHERE empresa_id = $1`,
+     FROM pedidos WHERE empresa_id = $1 AND cancelado = false`,
     [empresaId, hojeInicio.toISOString(), semanaInicio.toISOString(), mesInicio.toISOString()]
   );
   const j = janelasRows[0];
-  const { rows: itensRows } = await pool.query("SELECT itens FROM pedidos WHERE empresa_id = $1", [
-    empresaId,
-  ]);
+  const { rows: itensRows } = await pool.query(
+    "SELECT itens FROM pedidos WHERE empresa_id = $1 AND cancelado = false",
+    [empresaId]
+  );
 
   const contagemProdutos = {};
   for (const linha of itensRows) {

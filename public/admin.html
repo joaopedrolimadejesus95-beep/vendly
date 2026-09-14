@@ -1481,6 +1481,18 @@ async function excluirPedido(id) {
   carregarTudo();
 }
 
+async function cancelarPedido(id) {
+  if (!(await confirmarAcao(`Cancelar o pedido #${id}? O estoque volta, o pedido sai do faturamento e uma comanda de cancelamento é enviada pra cozinha. O pedido continua no histórico, marcado como cancelado.`))) return;
+  const resp = await apiFetch(`/api/pedidos/${id}/cancelar`, { method: 'POST' });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível cancelar o pedido.', 'erro');
+    return;
+  }
+  toast('Pedido cancelado ✓', 'sucesso');
+  carregarTudo();
+}
+
 // --- Mesas ---
 let mesaAtualId = null;
 
@@ -2224,12 +2236,13 @@ function renderizarListaPedidos(pedidos) {
     lista.innerHTML = vazioHtml('💬', mensagemVazia);
   } else {
     lista.innerHTML = pedidos.slice(0, 15).map(p => `
-      <div class="pedido-ticket">
+      <div class="pedido-ticket" style="${p.cancelado ? 'opacity:0.6;' : ''}">
         <div class="pedido-cabecalho">
-          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${esc(p.mesaNumero || '')}</span>` : `<span class="badge-origem">WhatsApp</span>`}</span>
+          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${esc(p.mesaNumero || '')}</span>` : `<span class="badge-origem">WhatsApp</span>`}${p.cancelado ? `<span class="badge-origem" style="background:#f5d6d6;color:#a02020;">CANCELADO</span>` : ''}</span>
           <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + esc(p.endereco) : ''}</div>` : ''}
+        ${p.origem !== 'mesa' ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">📱 ${esc((p.numeroCliente || '').replace('@s.whatsapp.net', ''))}</div>` : ''}
         ${p.atendenteNome ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">👤 ${esc(p.atendenteNome)}</div>` : ''}
         ${p.itens.map(item => `
           <div class="pedido-item">
@@ -2253,7 +2266,10 @@ function renderizarListaPedidos(pedidos) {
           <span>${formatarMoeda(p.total)}</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:10px;">
-          ${p.origem === 'mesa' ? `<button class="btn-secundario" style="flex:1;" onclick="reabrirMesaDePedido(${p.id})">Reabrir mesa</button>` : ''}
+          ${!p.cancelado ? `
+            ${p.origem === 'mesa' ? `<button class="btn-secundario" style="flex:1;" onclick="reabrirMesaDePedido(${p.id})">Reabrir mesa</button>` : ''}
+            <button class="btn-secundario" style="flex:1;" onclick="cancelarPedido(${p.id})">Cancelar pedido</button>
+          ` : ''}
           <button class="btn-remover" style="flex:1;" onclick="excluirPedido(${p.id})">Excluir pedido</button>
         </div>
       </div>

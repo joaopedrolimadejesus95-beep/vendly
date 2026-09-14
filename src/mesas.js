@@ -165,7 +165,13 @@ export async function adicionarItemMesa(empresaId, mesaId, item) {
 }
 
 // Mesma proteção de trava de linha do adicionarItemMesa.
-export async function removerItemMesa(empresaId, mesaId, indiceItem) {
+// Se o item removido já tinha sido LANÇADO pra cozinha, a cozinha já está
+// preparando (ou já preparou) — não basta sumir com ele da mesa, senão
+// ninguém lá avisa a cozinha pra parar. Nesse caso, gera um "lançamento de
+// cancelamento" (mesma fila de impressão dos lançamentos normais, só que
+// marcado como cancelamento) pra sair uma comanda avisando pra NÃO
+// preparar/descartar aquele item.
+export async function removerItemMesa(empresaId, mesaId, indiceItem, atendenteNome) {
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
@@ -175,7 +181,19 @@ export async function removerItemMesa(empresaId, mesaId, indiceItem) {
     );
     if (rows.length === 0) throw new Error("Mesa não encontrada.");
 
-    const itensAtuais = (rows[0].itens_atuais || []).filter((_, i) => i !== indiceItem);
+    const itensAtuaisAntes = rows[0].itens_atuais || [];
+    const itemRemovido = itensAtuaisAntes[indiceItem];
+    if (!itemRemovido) throw new Error("Item não encontrado.");
+
+    const itensAtuais = itensAtuaisAntes.filter((_, i) => i !== indiceItem);
+
+    if (itemRemovido.lancado) {
+      await cliente.query(
+        `INSERT INTO lancamentos_mesa (empresa_id, mesa_numero, itens, atendente_nome, cancelamento)
+         VALUES ($1, $2, $3, $4, true)`,
+        [empresaId, rows[0].numero, JSON.stringify([itemRemovido]), atendenteNome || null]
+      );
+    }
 
     // Se tirou o último item, a mesa volta a ficar livre — senão ela ficava
     // "Ocupada / R$0,00" pra sempre: não dava pra fechar (sem item) nem pra
@@ -521,6 +539,7 @@ export async function listarLancamentosPendentes(empresaId) {
     itens: linha.itens,
     atendenteNome: linha.atendente_nome,
     dataHora: linha.criado_em,
+    cancelamento: linha.cancelamento || false,
   }));
 }
 
