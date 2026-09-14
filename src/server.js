@@ -753,7 +753,15 @@ const PORTA = process.env.PORT || 3000;
 // Só sobe o servidor de verdade quando este arquivo é executado direto
 // (node src/server.js). Quando é só IMPORTADO (pelos testes), exporta o
 // `app` sem escutar porta nem tocar no banco.
-const executadoDireto = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+//
+// O PM2 (modo fork) carrega o script através do próprio wrapper interno
+// dele — em projetos ESM isso faz process.argv[1] apontar pro wrapper do
+// PM2, não pro server.js, e a comparação abaixo falharia sempre (processo
+// sobe mas nunca escuta porta nenhuma). `pm_id` é uma env var que o PM2
+// injeta em todo processo que ele gerencia, então serve pra detectar isso.
+const executadoDireto =
+  process.env.pm_id !== undefined ||
+  (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]);
 
 if (executadoDireto) {
   inicializarBancoDeDados()
