@@ -1,4 +1,5 @@
 import { pool } from "./db.js";
+import { temFuncionalidade } from "./auth.js";
 
 function linhaParaProduto(linha) {
   return {
@@ -69,8 +70,14 @@ export async function getEmpresa(empresaId) {
     impressoras: e.impressoras || {},
     taxaServicoPercent: e.taxa_servico_percent != null ? Number(e.taxa_servico_percent) : 0,
     entenderAudio: e.entender_audio || false,
+    slug: e.slug || null,
+    numeroWhatsapp: e.numero_whatsapp || "",
   };
 }
+
+// Só letras minúsculas, números e hífen — é isso que vira a URL pública
+// (/c/<slug>). Vazio é permitido (empresa que ainda não quer publicar).
+const SLUG_VALIDO = /^[a-z0-9-]+$/;
 
 export async function salvarEmpresa(empresaId, novosDados) {
   const atual = await getEmpresa(empresaId);
@@ -78,30 +85,46 @@ export async function salvarEmpresa(empresaId, novosDados) {
   // Taxa de serviço: número entre 0 e 100, arredondado a 2 casas. 0 = desligada.
   const taxa = Math.min(100, Math.max(0, Math.round((Number(dados.taxaServicoPercent) || 0) * 100) / 100));
 
-  await pool.query(
-    `UPDATE empresas SET nome=$1, tipo=$2, aceita_entrega=$3, endereco=$4, formas_pagamento=$5,
-     exige_pagamento_antecipado=$6, dias_funcionamento=$7, horario_abertura=$8, horario_fechamento=$9,
-     separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12, entender_audio=$13
-     WHERE id = $14`,
-    [
-      dados.nome,
-      // "restaurante" é só o default de quem nunca preencheu — nunca grava
-      // vazio, senão o prompt da IA ficaria "um ." (sem nicho nenhum).
-      (dados.tipo || "").trim() || "restaurante",
-      dados.aceitaEntrega,
-      dados.endereco,
-      JSON.stringify(dados.formasPagamento || []),
-      dados.exigePagamentoAntecipado,
-      JSON.stringify(dados.diasFuncionamento || []),
-      dados.horarioAbertura || "",
-      dados.horarioFechamento || "",
-      dados.separarBebidaComanda || false,
-      JSON.stringify(dados.impressoras || {}),
-      taxa,
-      dados.entenderAudio || false,
-      empresaId,
-    ]
-  );
+  const slugBruto = (dados.slug || "").trim().toLowerCase();
+  if (slugBruto && !SLUG_VALIDO.test(slugBruto)) {
+    throw new Error("Endereço do cardápio só pode ter letras minúsculas, números e hífen.");
+  }
+  const slug = slugBruto || null; // null (não string vazia) pra não conflitar no UNIQUE
+
+  try {
+    await pool.query(
+      `UPDATE empresas SET nome=$1, tipo=$2, aceita_entrega=$3, endereco=$4, formas_pagamento=$5,
+       exige_pagamento_antecipado=$6, dias_funcionamento=$7, horario_abertura=$8, horario_fechamento=$9,
+       separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12, entender_audio=$13,
+       slug=$14, numero_whatsapp=$15
+       WHERE id = $16`,
+      [
+        dados.nome,
+        // "restaurante" é só o default de quem nunca preencheu — nunca grava
+        // vazio, senão o prompt da IA ficaria "um ." (sem nicho nenhum).
+        (dados.tipo || "").trim() || "restaurante",
+        dados.aceitaEntrega,
+        dados.endereco,
+        JSON.stringify(dados.formasPagamento || []),
+        dados.exigePagamentoAntecipado,
+        JSON.stringify(dados.diasFuncionamento || []),
+        dados.horarioAbertura || "",
+        dados.horarioFechamento || "",
+        dados.separarBebidaComanda || false,
+        JSON.stringify(dados.impressoras || {}),
+        taxa,
+        dados.entenderAudio || false,
+        slug,
+        (dados.numeroWhatsapp || "").trim(),
+        empresaId,
+      ]
+    );
+  } catch (erro) {
+    if (erro.code === "23505") {
+      throw new Error("Esse endereço de cardápio já está em uso por outro restaurante. Escolha outro.");
+    }
+    throw erro;
+  }
   return getEmpresa(empresaId);
 }
 
@@ -111,6 +134,52 @@ export async function getCatalogo(empresaId) {
     [empresaId]
   );
   return rows.map(linhaParaProduto);
+}
+
+// Dados do cardápio digital PÚBLICO (rota /api/publico/:slug, sem login).
+// Lista explícita de campos — nunca "{...empresa}" nem "{...produto}" —
+// de propósito, pra nunca vazar por descuido algo interno (senha, token
+// de webhook, instância da Evolution, estoque numérico, custo, config de
+// impressora etc.) quando um campo novo for adicionado no futuro em
+// outro lugar do sistema.
+export async function getEmpresaPublicaPorSlug(slug) {
+  const { rows } = await pool.query("SELECT * FROM empresas WHERE slug = $1", [slug]);
+  const e = rows[0];
+  if (!e) return null;
+
+  const [produtos, estoque] = await Promise.all([getCatalogo(e.id), getEstoque(e.id)]);
+
+  return {
+    empresa: {
+      nome: e.nome,
+      tipo: e.tipo,
+      endereco: e.endereco,
+      aceitaEntrega: e.aceita_entrega,
+      diasFuncionamento: e.dias_funcionamento,
+      horarioAbertura: e.horario_abertura,
+      horarioFechamento: e.horario_fechamento,
+      numeroWhatsapp: e.numero_whatsapp || "",
+      // Plano "mesas" não tem WhatsApp — a página vira só vitrine, sem
+      // botão de mandar pedido (ver cuidados da Parte 4).
+      temWhatsapp: temFuncionalidade(e.plano, "whatsapp"),
+    },
+    produtos: produtos.map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      descricao: p.descricao,
+      preco: p.preco,
+      temMeiaPorcao: p.temMeiaPorcao,
+      precoMeia: p.precoMeia,
+      adicionais: p.adicionais,
+      unidade: p.unidade,
+      categoria: p.categoria,
+      tamanhos: p.tamanhos,
+      foto: p.foto,
+      // Booleano, nunca o número — a quantidade de estoque é informação
+      // interna do restaurante, não do cliente.
+      esgotado: (estoque[p.id] ?? 0) <= 0,
+    })),
+  };
 }
 
 export async function getCatalogoCompleto(empresaId) {

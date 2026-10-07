@@ -14,6 +14,7 @@ describe("HTTP / middlewares", { skip: !TEM_DB && "defina DATABASE_URL (banco de
     await limparBanco();
 
     const { criarEmpresa, criarAtendente, gerarToken, gerarTokenAtendente } = await import("../../src/auth.js");
+    const { salvarEmpresa } = await import("../../src/catalog.js");
     const idPro = await criarEmpresa({ nome: "Pro", login: "pro", senha: "senha123", evolutionInstance: "i-pro", plano: "pro" });
     const idBase = await criarEmpresa({ nome: "Base", login: "base", senha: "senha123", evolutionInstance: "i-base", plano: "base" });
     const idMesas = await criarEmpresa({ nome: "Mesas", login: "mesas", senha: "senha123", evolutionInstance: "i-mesas", plano: "mesas" });
@@ -24,6 +25,7 @@ describe("HTTP / middlewares", { skip: !TEM_DB && "defina DATABASE_URL (banco de
       mesas: gerarToken(idMesas),
     };
     tokenAtendente = gerarTokenAtendente(aid, idPro);
+    await salvarEmpresa(idPro, { slug: "restaurante-pro-teste", numeroWhatsapp: "5544999998888" });
 
     const { app } = await import("../../src/server.js");
     servidor = app.listen(0);
@@ -95,5 +97,27 @@ describe("HTTP / middlewares", { skip: !TEM_DB && "defina DATABASE_URL (banco de
       ultimo = (await req("POST", "/api/login", { body: { login: "naoexiste", senha: "x" } })).status;
     }
     assert.equal(ultimo, 429);
+  });
+
+  test("GET /api/publico/:slug: funciona SEM token (é público de verdade)", async () => {
+    const r = await req("GET", "/api/publico/restaurante-pro-teste"); // sem token nenhum
+    assert.equal(r.status, 200);
+    const dados = await r.json();
+    assert.equal(dados.empresa.nome, "Pro");
+    assert.equal(typeof dados.aberto, "boolean");
+    assert.ok(Array.isArray(dados.produtos));
+  });
+
+  test("GET /api/publico/:slug: slug que não existe dá 404", async () => {
+    assert.equal((await req("GET", "/api/publico/esse-slug-nao-existe")).status, 404);
+  });
+
+  test("GET /c/:slug: serve a página (HTML) pra qualquer slug, existindo ou não", async () => {
+    const r = await req("GET", "/c/restaurante-pro-teste");
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get("content-type") || "", /html/);
+
+    const r2 = await req("GET", "/c/nao-existe-esse-aqui");
+    assert.equal(r2.status, 200); // a própria página trata o "não encontrado" no navegador
   });
 });

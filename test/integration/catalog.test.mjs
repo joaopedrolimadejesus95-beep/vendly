@@ -4,7 +4,7 @@ import { TEM_DB, prepararBanco, limparBanco, fecharBanco, criarEmpresaCrua } fro
 import {
   getEmpresa, salvarEmpresa, salvarProduto, salvarProdutosEmLote, getCatalogo, getCatalogoCompleto,
   getEstoque, baixarEstoque, setDisponibilidadeProduto, atualizarEstoqueManual, catalogoFormatado,
-  atualizarFotoPathProduto, removerProduto,
+  atualizarFotoPathProduto, removerProduto, getEmpresaPublicaPorSlug,
 } from "../../src/catalog.js";
 
 describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" }, () => {
@@ -202,5 +202,67 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     await salvarProduto(empresa, { id: "x", nome: "X", preco: 10, categoria: "" });
     const texto = await catalogoFormatado(empresa);
     assert.match(texto, /^Comidas:/m);
+  });
+
+  test("slug: recusa formato inválido (maiúscula, espaço, acento)", async () => {
+    await assert.rejects(() => salvarEmpresa(empresa, { slug: "Pizzaria do Zé" }), /letras minúsculas/i);
+  });
+
+  test("slug: aceita formato válido e faz round-trip", async () => {
+    await salvarEmpresa(empresa, { slug: "pizzaria-do-ze" });
+    assert.equal((await getEmpresa(empresa)).slug, "pizzaria-do-ze");
+  });
+
+  test("slug: vazio é permitido (empresa sem cardápio digital publicado ainda)", async () => {
+    await salvarEmpresa(empresa, { slug: "" });
+    assert.equal((await getEmpresa(empresa)).slug, null);
+  });
+
+  test("slug: duas empresas não podem usar o mesmo endereço", async () => {
+    await salvarEmpresa(empresa, { slug: "pizzaria-do-ze" });
+    const outra = await criarEmpresaCrua({ login: "outra-slug", evolutionInstance: "inst-outra-slug" });
+    await assert.rejects(() => salvarEmpresa(outra, { slug: "pizzaria-do-ze" }), /já está em uso/i);
+  });
+
+  test("getEmpresaPublicaPorSlug: devolve null pra slug que não existe", async () => {
+    assert.equal(await getEmpresaPublicaPorSlug("nao-existe"), null);
+  });
+
+  test("getEmpresaPublicaPorSlug: NUNCA vaza campo interno (estoque numérico, custo, senha, impressoras, etc.)", async () => {
+    await salvarEmpresa(empresa, {
+      slug: "lanchonete-teste", numeroWhatsapp: "5544999998888",
+      impressoras: { principal: { ip: "10.0.0.5" } },
+    });
+    await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida", estoqueInicial: 3 });
+    await salvarProduto(empresa, { id: "pausado", nome: "Fora do ar", preco: 10, categoria: "comida", disponivel: false });
+
+    const dados = await getEmpresaPublicaPorSlug("lanchonete-teste");
+
+    // Campos da empresa que NÃO podem aparecer de jeito nenhum.
+    for (const campoProibido of ["senhaSalt", "senhaHash", "senha_hash", "evolutionInstance", "impressoras", "taxaServicoPercent", "separarBebidaComanda"]) {
+      assert.equal(dados.empresa[campoProibido], undefined, `campo interno "${campoProibido}" vazou na empresa pública`);
+    }
+    // Produto pausado nunca aparece (igual já valia pro catálogo do WhatsApp).
+    assert.equal(dados.produtos.find((p) => p.id === "pausado"), undefined);
+
+    const xb = dados.produtos.find((p) => p.id === "xb");
+    assert.equal(xb.esgotado, false); // tem 3 em estoque
+    // NUNCA o número de estoque, nem custo — só o booleano "esgotado".
+    assert.equal(xb.estoque, undefined);
+    assert.equal(xb.custo, undefined);
+  });
+
+  test("getEmpresaPublicaPorSlug: produto com estoque 0 vem com esgotado=true", async () => {
+    await salvarEmpresa(empresa, { slug: "lanchonete-esgotado" });
+    await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida", estoqueInicial: 0 });
+    const dados = await getEmpresaPublicaPorSlug("lanchonete-esgotado");
+    assert.equal(dados.produtos[0].esgotado, true);
+  });
+
+  test("getEmpresaPublicaPorSlug: temWhatsapp reflete o plano (mesas = vitrine, sem WhatsApp)", async () => {
+    const emMesas = await criarEmpresaCrua({ login: "so-mesas", evolutionInstance: "inst-so-mesas", plano: "mesas" });
+    await salvarEmpresa(emMesas, { slug: "so-mesas-cardapio" });
+    const dados = await getEmpresaPublicaPorSlug("so-mesas-cardapio");
+    assert.equal(dados.empresa.temWhatsapp, false);
   });
 });

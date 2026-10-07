@@ -10,7 +10,7 @@ import { extrairItensCardapio } from "./catalogoImport.js";
 import { salvarFotoProduto, removerFotoProduto, apagarArquivoFoto } from "./fotoProduto.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
-import { interpretarMensagem } from "./ai.js";
+import { interpretarMensagem, verificarFuncionamento } from "./ai.js";
 import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook, baixarMidiaMensagem } from "./whatsapp.js";
 import { transcreverAudio } from "./transcricao.js";
 import {
@@ -35,6 +35,7 @@ import {
   getEstoque,
   atualizarEstoqueManual,
   getEmpresaPorInstancia,
+  getEmpresaPublicaPorSlug,
 } from "./catalog.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -163,8 +164,10 @@ function restringirAtendente(req, res, next) {
 }
 
 app.use("/api", (req, res, next) => {
-  // O login em si não precisa de token (é ele que gera o token).
-  if (req.path === "/login") return next();
+  // O login em si não precisa de token (é ele que gera o token), e o
+  // cardápio digital público também não — é a página que o CLIENTE
+  // final abre, sem conta nenhuma no Vendly.
+  if (req.path === "/login" || req.path.startsWith("/publico/")) return next();
   return exigirLogin(req, res, next);
 });
 
@@ -259,6 +262,59 @@ setInterval(() => {
     if (agora - r.primeiraEm > LOGIN_JANELA_MS) tentativasLogin.delete(ip);
   }
 }, LOGIN_JANELA_MS).unref();
+
+// ---- Limite de requisições no cardápio digital público ----
+// Mesmo espírito do limite de login (em memória, sem biblioteca externa),
+// mas bem mais generoso — aqui não é tela de senha, é só pra evitar
+// scraping/abuso automatizado numa página que qualquer um acessa sem conta.
+const PUBLICO_JANELA_MS = 60 * 1000;
+const PUBLICO_MAX_REQUISICOES = 60;
+const requisicoesPublicas = new Map(); // ip -> { count, primeiraEm }
+
+function limitarRotaPublica(req, res, next) {
+  const ip = ipDoRequest(req);
+  const agora = Date.now();
+  const registro = requisicoesPublicas.get(ip);
+
+  if (!registro || agora - registro.primeiraEm > PUBLICO_JANELA_MS) {
+    requisicoesPublicas.set(ip, { count: 1, primeiraEm: agora });
+    return next();
+  }
+
+  registro.count++;
+  if (registro.count > PUBLICO_MAX_REQUISICOES) {
+    return res.status(429).json({ erro: "Muitas requisições. Espere um minuto e tente de novo." });
+  }
+  next();
+}
+
+setInterval(() => {
+  const agora = Date.now();
+  for (const [ip, r] of requisicoesPublicas) {
+    if (agora - r.primeiraEm > PUBLICO_JANELA_MS) requisicoesPublicas.delete(ip);
+  }
+}, PUBLICO_JANELA_MS).unref();
+
+// ---- Cardápio digital público ----
+// Sem login — é a página que o CLIENTE final abre (ver regra de bypass
+// do "/publico/" lá em cima, no middleware que exige token em /api).
+
+app.get("/api/publico/:slug", limitarRotaPublica, async (req, res) => {
+  const dados = await getEmpresaPublicaPorSlug(req.params.slug.toLowerCase());
+  if (!dados) {
+    return res.status(404).json({ erro: "Cardápio não encontrado." });
+  }
+  const statusFuncionamento = verificarFuncionamento(dados.empresa);
+  res.json({ ...dados, aberto: statusFuncionamento.aberto, mensagemFechado: statusFuncionamento.mensagem || null });
+});
+
+// Mesmo HTML pra qualquer slug — a página em si busca os dados reais em
+// /api/publico/:slug e decide (cardápio existe? restaurante aberto?
+// tem WhatsApp no plano?) inteiramente no navegador, igual o admin.html
+// já faz com o painel.
+app.get("/c/:slug", (req, res) => {
+  res.sendFile(join(__dirname, "..", "public", "cardapio.html"));
+});
 
 // ---- Login ----
 
@@ -483,7 +539,13 @@ app.get("/api/empresa", async (req, res) => {
 });
 
 app.put("/api/empresa", async (req, res) => {
-  res.json(await salvarEmpresa(req.empresaId, req.body));
+  try {
+    res.json(await salvarEmpresa(req.empresaId, req.body));
+  } catch (erro) {
+    // salvarEmpresa lança erro de validação de formato do slug, ou de
+    // slug duplicado (outra empresa já usa esse endereço de cardápio).
+    res.status(400).json({ erro: erro.message });
+  }
 });
 
 app.post("/api/senha", async (req, res) => {

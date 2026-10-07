@@ -913,6 +913,18 @@
       <input type="text" id="empresa-endereco" placeholder="Ex: Rua das Flores, 123 - Centro" />
     </div>
 
+    <h2>Cardápio digital</h2>
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Uma página pública onde o cliente monta o pedido e manda pro seu WhatsApp — sem precisar de conta nem instalar nada.</div>
+
+      <label>Endereço do cardápio <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(só letras minúsculas, números e hífen)</span></label>
+      <input type="text" id="empresa-slug" placeholder="Ex: pizzaria-do-ze" oninput="atualizarPreviaSlug()" />
+      <div id="empresa-slug-previa" style="font-size:12.5px;color:var(--muted);margin-top:5px;"></div>
+
+      <label>Número de WhatsApp pra receber os pedidos <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(com DDD e código do país, só números)</span></label>
+      <input type="text" id="empresa-numero-whatsapp" placeholder="Ex: 5544999998888" />
+    </div>
+
     <h2>Funcionamento</h2>
     <div class="card">
       <label>Dias que funciona</label>
@@ -1344,6 +1356,9 @@ async function carregarTudo() {
   document.getElementById('empresa-nome').value = empresaResp.nome || '';
   document.getElementById('empresa-tipo').value = empresaResp.tipo || '';
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
+  document.getElementById('empresa-slug').value = empresaResp.slug || '';
+  document.getElementById('empresa-numero-whatsapp').value = empresaResp.numeroWhatsapp || '';
+  atualizarPreviaSlug();
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
   document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
   document.getElementById('empresa-entender-audio').checked = !!empresaResp.entenderAudio;
@@ -2934,13 +2949,15 @@ async function salvarEmpresa() {
     .filter((el) => el.checked)
     .map((el) => el.value);
 
-  await apiFetch('/api/empresa', {
+  const resp = await apiFetch('/api/empresa', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       nome: document.getElementById('empresa-nome').value,
       tipo: document.getElementById('empresa-tipo').value,
       endereco: document.getElementById('empresa-endereco').value,
+      slug: document.getElementById('empresa-slug').value,
+      numeroWhatsapp: document.getElementById('empresa-numero-whatsapp').value,
       aceitaEntrega: document.getElementById('empresa-entrega').checked,
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
       entenderAudio: document.getElementById('empresa-entender-audio').checked,
@@ -2964,8 +2981,26 @@ async function salvarEmpresa() {
       horarioFechamento: document.getElementById('empresa-horario-fechamento').value,
     }),
   });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível salvar.', 'erro');
+    return;
+  }
+  document.getElementById('empresa-slug').value = dados.slug || '';
+  atualizarPreviaSlug();
   mostrarSalvo();
   carregarTudo();
+}
+
+function atualizarPreviaSlug() {
+  const slug = document.getElementById('empresa-slug').value.trim();
+  const previa = document.getElementById('empresa-slug-previa');
+  if (!slug) {
+    previa.textContent = 'Sem endereço definido — o cardápio digital ainda não fica acessível.';
+    return;
+  }
+  const url = `${window.location.origin}/c/${slug}`;
+  previa.innerHTML = `Vai ficar em: <a href="${esc(url)}" target="_blank" style="color:var(--flame);">${esc(url)}</a>`;
 }
 
 function cancelarComFeedback() {

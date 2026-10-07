@@ -43,6 +43,13 @@ export async function inicializarBancoDeDados() {
     -- Desligado por padrão: empresa que não mexeu nisso mantém o
     -- comportamento de sempre (pede pra digitar quando chega áudio).
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS entender_audio BOOLEAN DEFAULT false;
+    -- Endereço do cardápio digital público (ex: /c/pizzaria-do-ze) e o
+    -- número que recebe os pedidos vindos de lá. "slug" só vira único de
+    -- verdade quando preenchido (NULL não conflita com NULL no Postgres,
+    -- então várias empresas sem slug cadastrado convivem numa UNIQUE sem
+    -- problema — só trava duplicata entre quem já preencheu).
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE;
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS numero_whatsapp TEXT DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT NOT NULL,
