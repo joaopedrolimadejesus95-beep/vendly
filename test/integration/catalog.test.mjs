@@ -83,6 +83,13 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     assert.equal((await getEmpresa(empresa)).taxaServicoPercent, 0);
   });
 
+  test("tipo (o nicho do negócio) faz round-trip; vazio cai pro default 'restaurante'", async () => {
+    await salvarEmpresa(empresa, { tipo: "Pizzaria" });
+    assert.equal((await getEmpresa(empresa)).tipo, "Pizzaria");
+    await salvarEmpresa(empresa, { tipo: "  " });
+    assert.equal((await getEmpresa(empresa)).tipo, "restaurante");
+  });
+
   test("salvarProdutosEmLote salva vários produtos numa transação só", async () => {
     const salvos = await salvarProdutosEmLote(empresa, [
       { id: "xb", nome: "X-Bacon", preco: 22, categoria: "comida" },
@@ -151,5 +158,17 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     const texto = await catalogoFormatado(empresa);
     assert.match(texto, /porção inteira R\$7\.00/);
     assert.doesNotMatch(texto, /tamanhos disponíveis/);
+  });
+
+  test("categoria é texto livre: catalogoFormatado agrupa por uma categoria nova, capitalizada", async () => {
+    await salvarProduto(empresa, { id: "pzd", nome: "Romeu e Julieta", categoria: "pizzas doces", preco: 25, descricao: "goiabada e queijo" });
+    const texto = await catalogoFormatado(empresa);
+    assert.match(texto, /^Pizzas doces:\n- Romeu e Julieta/m);
+  });
+
+  test("categoria vazia/ausente cai pro default 'comida' (rótulo 'Comidas')", async () => {
+    await salvarProduto(empresa, { id: "x", nome: "X", preco: 10, categoria: "" });
+    const texto = await catalogoFormatado(empresa);
+    assert.match(texto, /^Comidas:/m);
   });
 });

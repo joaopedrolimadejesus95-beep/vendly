@@ -28,6 +28,12 @@ export function sanitizarTamanhos(tamanhos) {
     .map((t) => ({ nome: t.nome.trim().slice(0, 40), preco: t.preco }));
 }
 
+// Categoria é texto livre (ver catalogoFormatado) — mas nunca vazio
+// (senão o produto sumiria do agrupamento) nem absurdamente longo.
+function sanitizarCategoria(categoria) {
+  return (typeof categoria === "string" ? categoria.trim().slice(0, 60) : "") || "comida";
+}
+
 // Quando o produto tem tamanhos, a coluna "preco" (usada nas listagens,
 // nunca no pedido) guarda o menor valor entre eles — serve só pra mostrar
 // "a partir de R$X"; o preço de verdade cobrado vem do tamanho escolhido.
@@ -69,12 +75,15 @@ export async function salvarEmpresa(empresaId, novosDados) {
   const taxa = Math.min(100, Math.max(0, Math.round((Number(dados.taxaServicoPercent) || 0) * 100) / 100));
 
   await pool.query(
-    `UPDATE empresas SET nome=$1, aceita_entrega=$2, endereco=$3, formas_pagamento=$4,
-     exige_pagamento_antecipado=$5, dias_funcionamento=$6, horario_abertura=$7, horario_fechamento=$8,
-     separar_bebida_comanda=$9, impressoras=$10, taxa_servico_percent=$11
-     WHERE id = $12`,
+    `UPDATE empresas SET nome=$1, tipo=$2, aceita_entrega=$3, endereco=$4, formas_pagamento=$5,
+     exige_pagamento_antecipado=$6, dias_funcionamento=$7, horario_abertura=$8, horario_fechamento=$9,
+     separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12
+     WHERE id = $13`,
     [
       dados.nome,
+      // "restaurante" é só o default de quem nunca preencheu — nunca grava
+      // vazio, senão o prompt da IA ficaria "um ." (sem nicho nenhum).
+      (dados.tipo || "").trim() || "restaurante",
       dados.aceitaEntrega,
       dados.endereco,
       JSON.stringify(dados.formasPagamento || []),
@@ -117,10 +126,16 @@ export async function getEstoque(empresaId) {
 export async function catalogoFormatado(empresaId) {
   const catalogo = await getCatalogo(empresaId);
 
-  const nomesCategoria = { comida: "Comidas", salada: "Saladas", bebida: "Bebidas", sobremesa: "Sobremesas" };
-  const porCategoria = { comida: [], salada: [], bebida: [], sobremesa: [] };
+  // Categoria é texto livre (cada restaurante usa as que fizerem sentido
+  // pro próprio cardápio, ex: "Pizzas", "Pizzas Doces", "Caldos") — agrupa
+  // dinamicamente pelas que existem de verdade, em vez de uma lista fixa.
+  // "bebida" continua com um papel especial só pra separar via na
+  // impressão (separarBebidaComanda); fora isso, é só um nome de seção.
+  const porCategoria = new Map();
   for (const p of catalogo) {
-    (porCategoria[p.categoria] || porCategoria.comida).push(p);
+    const chave = (p.categoria || "comida").trim() || "comida";
+    if (!porCategoria.has(chave)) porCategoria.set(chave, []);
+    porCategoria.get(chave).push(p);
   }
 
   const formatarItem = (p) => {
@@ -149,10 +164,18 @@ export async function catalogoFormatado(empresaId) {
     return linha;
   };
 
-  return Object.entries(porCategoria)
-    .filter(([, itens]) => itens.length > 0)
-    .map(([categoria, itens]) => `${nomesCategoria[categoria]}:\n${itens.map(formatarItem).join("\n")}`)
+  return Array.from(porCategoria.entries())
+    .map(([categoria, itens]) => `${rotuloCategoria(categoria)}:\n${itens.map(formatarItem).join("\n")}`)
     .join("\n\n");
+}
+
+// As 4 categorias originais tinham um rótulo no plural ("Comidas", não
+// "Comida") — mantém isso pra quem já usa essas, e só capitaliza qualquer
+// categoria nova que o restaurante inventar (ex: "pizzas doces" -> "Pizzas doces").
+const ROTULOS_CATEGORIA_PADRAO = { comida: "Comidas", salada: "Saladas", bebida: "Bebidas", sobremesa: "Sobremesas" };
+function rotuloCategoria(categoria) {
+  if (ROTULOS_CATEGORIA_PADRAO[categoria]) return ROTULOS_CATEGORIA_PADRAO[categoria];
+  return categoria.charAt(0).toUpperCase() + categoria.slice(1);
 }
 
 export async function baixarEstoque(empresaId, itens = []) {
@@ -193,7 +216,7 @@ export async function salvarProduto(empresaId, produto) {
       JSON.stringify(produto.adicionais || []),
       produto.estoqueInicial ?? 50,
       produto.unidade || "",
-      produto.categoria || "comida",
+      sanitizarCategoria(produto.categoria),
       JSON.stringify(tamanhos),
     ]
   );
@@ -241,7 +264,7 @@ export async function salvarProdutosEmLote(empresaId, produtos) {
           JSON.stringify(produto.adicionais || []),
           produto.estoqueInicial ?? 50,
           produto.unidade || "",
-          produto.categoria || "comida",
+          sanitizarCategoria(produto.categoria),
           JSON.stringify(tamanhos),
         ]
       );
