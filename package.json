@@ -1,7 +1,7 @@
 {
-  "name": "vendly-bot",
+  "name": "vendly",
   "version": "0.1.0",
-  "description": "Bot WhatsApp com IA para captar pedidos - MVP do Vendly",
+  "description": "SaaS multi-empresa de atendimento para restaurantes: pedidos via WhatsApp com IA e gestão de mesas",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
@@ -12,9 +12,10 @@
     "test:all": "node test/run-tests.mjs all"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "dotenv": "^16.4.5",
     "@anthropic-ai/sdk": "^0.32.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.4.0",
     "node-thermal-printer": "^4.4.4",
     "pg": "^8.13.1"
   }
