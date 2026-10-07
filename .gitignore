@@ -4,3 +4,7 @@ data/pedidos.json
 data/catalogo.json
 *.log
 .env.CORRIGIDO
+
+# Fotos de produto enviadas pelo painel — ficam só no disco da VPS, não
+# fazem parte do código (ver DEPLOY.md pra como incluir no backup).
+public/fotos-produtos/

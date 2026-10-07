@@ -13,6 +13,7 @@ function linhaParaProduto(linha) {
     unidade: linha.unidade || "",
     categoria: linha.categoria || "comida",
     tamanhos: (linha.tamanhos || []).map((t) => ({ nome: t.nome, preco: Number(t.preco) })),
+    foto: linha.foto_path || null,
   };
 }
 
@@ -283,9 +284,30 @@ export async function salvarProdutosEmLote(empresaId, produtos) {
   return getCatalogoCompleto(empresaId);
 }
 
+// Devolve o foto_path que o produto tinha (ou null) — é o que permite
+// quem chamou (server.js) apagar o arquivo do disco também, sem deixar
+// órfão quando o produto inteiro é removido.
 export async function removerProduto(empresaId, id) {
-  await pool.query("DELETE FROM produtos WHERE empresa_id = $1 AND id = $2", [empresaId, id]);
-  return getCatalogoCompleto(empresaId);
+  const { rows } = await pool.query(
+    "DELETE FROM produtos WHERE empresa_id = $1 AND id = $2 RETURNING foto_path",
+    [empresaId, id]
+  );
+  return rows[0]?.foto_path || null;
+}
+
+// Troca (ou remove, se fotoPath for null) a foto do produto — devolve o
+// foto_path ANTERIOR, pra quem chamou (fotoProduto.js) apagar o arquivo
+// velho do disco. Isolamento por empresa de sempre: se o produto não é
+// dessa empresa (ou não existe), lança erro em vez de mexer em nada.
+export async function atualizarFotoPathProduto(empresaId, id, fotoPath) {
+  const { rows } = await pool.query(
+    `WITH anterior AS (SELECT foto_path FROM produtos WHERE empresa_id = $2 AND id = $3)
+     UPDATE produtos SET foto_path = $1 WHERE empresa_id = $2 AND id = $3
+     RETURNING (SELECT foto_path FROM anterior) AS foto_path_antigo`,
+    [fotoPath, empresaId, id]
+  );
+  if (rows.length === 0) throw new Error("Produto não encontrado.");
+  return rows[0].foto_path_antigo;
 }
 
 // Pausa/reativa um produto sem apagar. Pausado (disponivel = false) some do

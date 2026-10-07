@@ -71,6 +71,9 @@ export async function inicializarBancoDeDados() {
     -- Quando tamanhos[] tem itens, ELE manda no preço — preco/preco_meia
     -- deixam de ser usados pra aquele produto.
     ALTER TABLE produtos ADD COLUMN IF NOT EXISTS tamanhos JSONB DEFAULT '[]';
+    -- Caminho público da foto do produto (ex: /fotos-produtos/12/xb-ab12.jpg)
+    -- — o arquivo em si fica no disco da VPS, fora do banco. NULL = sem foto.
+    ALTER TABLE produtos ADD COLUMN IF NOT EXISTS foto_path TEXT;
 
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,

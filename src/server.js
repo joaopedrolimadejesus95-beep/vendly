@@ -7,6 +7,7 @@ import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
 import { comFila } from "./fileLock.js";
 import { extrairItensCardapio } from "./catalogoImport.js";
+import { salvarFotoProduto, removerFotoProduto, apagarArquivoFoto } from "./fotoProduto.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
@@ -56,6 +57,20 @@ const uploadCardapio = multer({
 function processarUploadCardapio(req, res) {
   return new Promise((resolve, reject) => {
     uploadCardapio.array("arquivos", 5)(req, res, (erro) => (erro ? reject(erro) : resolve()));
+  });
+}
+
+const uploadFotoProduto = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB antes de redimensionar/comprimir
+  fileFilter: (req, arquivo, cb) => {
+    const permitido = ["image/jpeg", "image/png"].includes(arquivo.mimetype);
+    cb(permitido ? null : new Error("Envie apenas JPG ou PNG."), permitido);
+  },
+});
+function processarUploadFotoProduto(req, res) {
+  return new Promise((resolve, reject) => {
+    uploadFotoProduto.single("foto")(req, res, (erro) => (erro ? reject(erro) : resolve()));
   });
 }
 
@@ -546,7 +561,45 @@ app.post("/api/cardapio/importar-confirmar", async (req, res) => {
 });
 
 app.delete("/api/produtos/:id", async (req, res) => {
-  res.json(await removerProduto(req.empresaId, req.params.id));
+  // Apaga o produto inteiro, e junto a foto dele no disco (se tinha) —
+  // removerProduto devolve o foto_path antigo bem pra isso, evita
+  // arquivo órfão sem produto nenhum apontando pra ele.
+  const fotoPathAntigo = await removerProduto(req.empresaId, req.params.id);
+  await apagarArquivoFoto(fotoPathAntigo);
+  res.json({ ok: true });
+});
+
+// ---- Foto do produto ----
+// Fica no disco da VPS (public/fotos-produtos/<empresa>/), fora do git —
+// servida automaticamente pelo express.static que já cobre public/.
+
+app.post("/api/produtos/:id/foto", async (req, res) => {
+  try {
+    await processarUploadFotoProduto(req, res);
+  } catch (erro) {
+    const mensagem =
+      erro.code === "LIMIT_FILE_SIZE" ? "A foto pode ter no máximo 8MB."
+      : erro.message || "Não foi possível processar o arquivo enviado.";
+    return res.status(400).json({ erro: mensagem });
+  }
+  if (!req.file) {
+    return res.status(400).json({ erro: "Envie uma foto (JPG ou PNG)." });
+  }
+  try {
+    const foto = await salvarFotoProduto(req.empresaId, req.params.id, req.file.buffer);
+    res.json({ foto });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message || "Não foi possível processar essa imagem — confira se é um JPG/PNG válido." });
+  }
+});
+
+app.delete("/api/produtos/:id/foto", async (req, res) => {
+  try {
+    await removerFotoProduto(req.empresaId, req.params.id);
+    res.json({ ok: true });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
 });
 
 // Pausar/reativar produto (não apaga — só tira do cardápio da IA e das mesas).

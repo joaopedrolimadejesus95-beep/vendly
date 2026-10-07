@@ -125,6 +125,23 @@ docker exec evolution-postgres pg_dump -U vendly vendly > backup-$(date +%Y%m%d)
 Guarda esse arquivo fora do servidor de vez em quando (seu computador,
 Google Drive) — principalmente antes de qualquer atualização grande.
 
+### Fotos de produto
+
+As fotos de produto (cadastradas pelo painel) ficam no **disco da VPS**,
+na pasta `public/fotos-produtos/`, fora do banco e fora do git. Isso
+significa que o `pg_dump` acima **não inclui as fotos** — se restaurar só
+o banco sem restaurar a pasta junto, os produtos vão apontar pra fotos que
+não existem mais.
+
+Faça backup dela do mesmo jeito que faz do banco (idealmente junto, pra
+manter as duas coisas no mesmo "ponto no tempo"):
+
+```
+tar -czf fotos-$(date +%Y%m%d).tar.gz -C /root/vendly/public fotos-produtos
+```
+
+E guarda esse arquivo junto com o backup do banco, fora do servidor.
+
 ## Se algo der errado numa migração de schema
 
 Sempre faça o backup do passo anterior **antes** de rodar qualquer

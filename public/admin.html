@@ -840,6 +840,20 @@
       <label>Nome</label>
       <input type="text" id="produto-nome" placeholder="Ex: X-Bacon" />
 
+      <div id="produto-foto-bloco" style="display:none; margin-top:10px; margin-bottom:10px;">
+        <label>Foto do produto</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img id="produto-foto-preview" src="" alt="Foto do produto" style="display:none; width:72px; height:72px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0;" />
+          <div style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;">
+            <input type="file" id="produto-foto-arquivo" accept="image/jpeg,image/png" onchange="enviarFotoProduto()" />
+            <button type="button" class="btn-secundario" id="btn-remover-foto-produto" style="display:none; width:fit-content;" onclick="removerFotoProdutoAtual()">Remover foto</button>
+          </div>
+        </div>
+      </div>
+      <div id="produto-foto-aviso-novo" style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+        Salve o produto primeiro — depois disso dá pra adicionar uma foto.
+      </div>
+
       <label>Unidade (opcional)</label>
       <input type="text" id="produto-unidade" placeholder="Ex: 350ml, 1kg, un — deixa claro se é bebida/peso" />
 
@@ -2458,6 +2472,7 @@ function renderizarProdutos(produtos, estoque) {
       const pausado = p.disponivel === false;
       div.className = 'produto' + (pausado ? ' produto-indisponivel' : '');
       div.innerHTML = `
+        ${p.foto ? `<img src="${esc(p.foto)}" alt="" style="width:48px; height:48px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0;" />` : ''}
         <div class="produto-info">
           <div class="produto-linha-nome">
             <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${pausado ? ' <span class="badge-origem" style="background:#f9e4dc;color:var(--flame);">pausado</span>' : ''}</span>
@@ -2749,6 +2764,9 @@ function editarProduto(id) {
     renderizarAdicionaisForm();
     tamanhosFormAtual = p.tamanhos ? [...p.tamanhos] : [];
     renderizarTamanhosForm();
+    document.getElementById('produto-foto-aviso-novo').style.display = 'none';
+    document.getElementById('produto-foto-bloco').style.display = 'block';
+    mostrarPreviaFotoProduto(p.foto);
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   });
 }
@@ -2783,6 +2801,7 @@ async function salvarProduto() {
   // bugs reais: nome so com emoji/acento virava id vazio, e dois produtos de
   // nome parecido ("Coca-Cola" / "Coca Cola") colidiam e um sobrescrevia o
   // outro via ON CONFLICT. Ao editar, mantem o id que ja existe.
+  const eraEdicao = Boolean(produtoEmEdicao);
   const slugProduto = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
   const id = produtoEmEdicao || (slugProduto || 'item') + '-' + Math.random().toString(36).slice(2, 7);
 
@@ -2800,6 +2819,18 @@ async function salvarProduto() {
     });
   }
 
+  mostrarSalvo();
+
+  if (!eraEdicao) {
+    // Produto acabou de ser criado: já entra no modo edição desse mesmo
+    // produto, pra poder adicionar uma foto sem precisar clicar em
+    // "editar" de novo (a foto só pode ser enviada depois de o produto
+    // já existir, já que o upload referencia o id dele).
+    carregarTudo();
+    editarProduto(id);
+    return;
+  }
+
   produtoEmEdicao = null;
   adicionaisFormAtual = [];
   document.getElementById('produto-categoria').value = '';
@@ -2814,8 +2845,10 @@ async function salvarProduto() {
   renderizarAdicionaisForm();
   tamanhosFormAtual = [];
   renderizarTamanhosForm();
+  document.getElementById('produto-foto-bloco').style.display = 'none';
+  document.getElementById('produto-foto-aviso-novo').style.display = 'block';
+  mostrarPreviaFotoProduto(null);
 
-  mostrarSalvo();
   carregarTudo();
 }
 
@@ -2823,6 +2856,53 @@ async function removerProduto(id) {
   if (!(await confirmarAcao('Remover esse produto do cardápio? Ele não aparecerá mais pros clientes.'))) return;
   await apiFetch(`/api/produtos/${id}`, { method: 'DELETE' });
   mostrarSalvo();
+  carregarTudo();
+}
+
+// --- Foto do produto ---
+
+function mostrarPreviaFotoProduto(caminho) {
+  const img = document.getElementById('produto-foto-preview');
+  const btnRemover = document.getElementById('btn-remover-foto-produto');
+  if (caminho) {
+    // "?t=" evita o navegador mostrar a miniatura antiga em cache depois
+    // de trocar a foto (o caminho novo tem nome de arquivo diferente, mas
+    // isso aqui é reforço extra pra quando o navegador cacheia agressivo).
+    img.src = caminho + '?t=' + Date.now();
+    img.style.display = 'block';
+    btnRemover.style.display = 'block';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    btnRemover.style.display = 'none';
+  }
+}
+
+async function enviarFotoProduto() {
+  const input = document.getElementById('produto-foto-arquivo');
+  const arquivo = input.files[0];
+  if (!arquivo || !produtoEmEdicao) return;
+
+  const formData = new FormData();
+  formData.append('foto', arquivo);
+  const resp = await apiFetch(`/api/produtos/${produtoEmEdicao}/foto`, { method: 'POST', body: formData });
+  const dados = await resp.json();
+  input.value = '';
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível enviar a foto.', 'erro');
+    return;
+  }
+  mostrarPreviaFotoProduto(dados.foto);
+  toast('Foto salva ✓', 'sucesso');
+  carregarTudo();
+}
+
+async function removerFotoProdutoAtual() {
+  if (!produtoEmEdicao) return;
+  if (!(await confirmarAcao('Remover a foto desse produto?'))) return;
+  await apiFetch(`/api/produtos/${produtoEmEdicao}/foto`, { method: 'DELETE' });
+  mostrarPreviaFotoProduto(null);
+  toast('Foto removida ✓', 'sucesso');
   carregarTudo();
 }
 

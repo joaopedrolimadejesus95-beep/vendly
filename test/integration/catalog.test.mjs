@@ -4,6 +4,7 @@ import { TEM_DB, prepararBanco, limparBanco, fecharBanco, criarEmpresaCrua } fro
 import {
   getEmpresa, salvarEmpresa, salvarProduto, salvarProdutosEmLote, getCatalogo, getCatalogoCompleto,
   getEstoque, baixarEstoque, setDisponibilidadeProduto, atualizarEstoqueManual, catalogoFormatado,
+  atualizarFotoPathProduto, removerProduto,
 } from "../../src/catalog.js";
 
 describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" }, () => {
@@ -118,6 +119,31 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
 
   test("salvarProdutosEmLote recusa lista vazia", async () => {
     await assert.rejects(() => salvarProdutosEmLote(empresa, []), /[Nn]enhum produto/);
+  });
+
+  test("atualizarFotoPathProduto: faz round-trip e devolve o foto_path ANTERIOR", async () => {
+    await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida" });
+    const antesDeTer = await atualizarFotoPathProduto(empresa, "xb", "/fotos-produtos/1/xb-aaa.jpg");
+    assert.equal(antesDeTer, null); // não tinha foto ainda
+    assert.equal((await getCatalogoCompleto(empresa))[0].foto, "/fotos-produtos/1/xb-aaa.jpg");
+
+    const antigoAoTrocar = await atualizarFotoPathProduto(empresa, "xb", "/fotos-produtos/1/xb-bbb.jpg");
+    assert.equal(antigoAoTrocar, "/fotos-produtos/1/xb-aaa.jpg"); // devolve o que tinha antes de trocar
+  });
+
+  test("atualizarFotoPathProduto recusa produto de outra empresa (isolamento)", async () => {
+    const outra = await criarEmpresaCrua({ login: "outra-foto", evolutionInstance: "inst-outra-foto" });
+    await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida" });
+    await assert.rejects(() => atualizarFotoPathProduto(outra, "xb", "/fotos-produtos/99/x.jpg"), /não encontrado/i);
+  });
+
+  test("removerProduto devolve o foto_path (pra apagar o arquivo do disco também)", async () => {
+    await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida" });
+    assert.equal(await removerProduto(empresa, "xb"), null); // sem foto
+
+    await salvarProduto(empresa, { id: "coca", nome: "Coca", preco: 7, categoria: "bebida" });
+    await atualizarFotoPathProduto(empresa, "coca", "/fotos-produtos/1/coca-x.jpg");
+    assert.equal(await removerProduto(empresa, "coca"), "/fotos-produtos/1/coca-x.jpg");
   });
 
   test("produto com tamanhos: preco vira o menor tamanho, sem precisar informar preco", async () => {
