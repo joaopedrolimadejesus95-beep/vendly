@@ -61,6 +61,13 @@ export async function inicializarBancoDeDados() {
     -- unidade existir.
     ALTER TABLE produtos ADD COLUMN IF NOT EXISTS unidade TEXT DEFAULT '';
     ALTER TABLE produtos ADD COLUMN IF NOT EXISTS categoria TEXT DEFAULT 'comida';
+    -- Tamanhos com nome e preço livres (ex: pizza "PP/P/M/G", bebida
+    -- "lata/garrafa") — mecanismo NOVO e adicional, separado do preço
+    -- único e da meia porção acima. Produto com tamanhos[] vazio (padrão)
+    -- continua funcionando exatamente como antes, com preco/preco_meia.
+    -- Quando tamanhos[] tem itens, ELE manda no preço — preco/preco_meia
+    -- deixam de ser usados pra aquele produto.
+    ALTER TABLE produtos ADD COLUMN IF NOT EXISTS tamanhos JSONB DEFAULT '[]';
 
     CREATE TABLE IF NOT EXISTS pedidos (
       id SERIAL PRIMARY KEY,

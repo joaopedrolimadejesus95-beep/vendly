@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { TEM_DB, prepararBanco, limparBanco, fecharBanco, criarEmpresaCrua } from "../helpers/db.mjs";
 import {
   getEmpresa, salvarEmpresa, salvarProduto, salvarProdutosEmLote, getCatalogo, getCatalogoCompleto,
-  getEstoque, baixarEstoque, setDisponibilidadeProduto, atualizarEstoqueManual,
+  getEstoque, baixarEstoque, setDisponibilidadeProduto, atualizarEstoqueManual, catalogoFormatado,
 } from "../../src/catalog.js";
 
 describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" }, () => {
@@ -105,5 +105,51 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
 
   test("salvarProdutosEmLote recusa lista vazia", async () => {
     await assert.rejects(() => salvarProdutosEmLote(empresa, []), /[Nn]enhum produto/);
+  });
+
+  test("produto com tamanhos: preco vira o menor tamanho, sem precisar informar preco", async () => {
+    const tamanhos = [{ nome: "P", preco: 20 }, { nome: "M", preco: 25 }, { nome: "G", preco: 30 }];
+    await salvarProduto(empresa, { id: "pz", nome: "Pizza Mussarela", categoria: "comida", tamanhos });
+    const cat = await getCatalogoCompleto(empresa);
+    assert.equal(cat[0].preco, 20); // o menor tamanho
+    assert.deepEqual(cat[0].tamanhos, tamanhos);
+  });
+
+  test("tamanhos descarta entrada inválida (nome vazio / preço não-numérico)", async () => {
+    await salvarProduto(empresa, {
+      id: "pz", nome: "Pizza", categoria: "comida",
+      tamanhos: [{ nome: "P", preco: 20 }, { nome: "", preco: 10 }, { nome: "G", preco: "trinta" }],
+    });
+    const cat = await getCatalogoCompleto(empresa);
+    assert.deepEqual(cat[0].tamanhos, [{ nome: "P", preco: 20 }]);
+  });
+
+  test("salvarProdutosEmLote: item com tamanhos não precisa de preco; item sem tamanhos continua exigindo", async () => {
+    await salvarProdutosEmLote(empresa, [
+      { id: "pz", nome: "Pizza", categoria: "comida", tamanhos: [{ nome: "P", preco: 20 }, { nome: "G", preco: 30 }] },
+      { id: "coca", nome: "Coca", categoria: "bebida", preco: 7 },
+    ]);
+    assert.equal((await getCatalogoCompleto(empresa)).length, 2);
+
+    await assert.rejects(
+      () => salvarProdutosEmLote(empresa, [{ id: "y", nome: "Sem preço nem tamanho", categoria: "comida" }]),
+      /[Pp]re[çc]o inv[áa]lido/
+    );
+  });
+
+  test("catalogoFormatado (o texto que a IA do WhatsApp lê) lista os tamanhos, não um preço só", async () => {
+    await salvarProduto(empresa, {
+      id: "pz", nome: "Pizza Mussarela", categoria: "comida", descricao: "molho, mussarela, orégano",
+      tamanhos: [{ nome: "PP", preco: 10 }, { nome: "P", preco: 20 }, { nome: "M", preco: 25 }, { nome: "G", preco: 30 }],
+    });
+    const texto = await catalogoFormatado(empresa);
+    assert.match(texto, /tamanhos disponíveis: PP R\$10\.00 \/ P R\$20\.00 \/ M R\$25\.00 \/ G R\$30\.00/);
+  });
+
+  test("catalogoFormatado: produto sem tamanhos continua mostrando 'porção inteira' como antes", async () => {
+    await salvarProduto(empresa, { id: "coca", nome: "Coca", categoria: "bebida", preco: 7, descricao: "lata 350ml" });
+    const texto = await catalogoFormatado(empresa);
+    assert.match(texto, /porção inteira R\$7\.00/);
+    assert.doesNotMatch(texto, /tamanhos disponíveis/);
   });
 });

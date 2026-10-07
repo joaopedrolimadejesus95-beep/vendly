@@ -845,7 +845,7 @@
 
       <div class="linha">
         <div>
-          <label>Preço (R$)</label>
+          <label id="produto-preco-label">Preço (R$)</label>
           <input type="number" id="produto-preco" step="0.01" placeholder="22.90" />
         </div>
         <div>
@@ -864,6 +864,14 @@
       <div id="linha-preco-meia" style="display:none">
         <label>Preço da meia porção (R$)</label>
         <input type="number" id="produto-preco-meia" step="0.01" placeholder="Ex: 12.50" />
+      </div>
+
+      <label>Tamanhos com preços diferentes (opcional) <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">— ex: pizza "PP/P/M/G", bebida "lata/garrafa". Se usar isso, o campo Preço acima vira só informativo (o menor tamanho).</span></label>
+      <div id="lista-tamanhos-form"></div>
+      <div class="linha" style="margin-top:6px">
+        <div><input type="text" id="tamanho-nome" placeholder="Ex: Grande" /></div>
+        <div style="flex:0 0 90px"><input type="number" id="tamanho-preco" step="0.01" placeholder="30.00" /></div>
+        <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="adicionarTamanhoNaLista()">+</button></div>
       </div>
 
       <label>Adicionais (opcional)</label>
@@ -1103,6 +1111,7 @@ let planoAtual = 'base';
 let empresaTaxaServicoPercent = 0;
 let pedidosRecentesAtuais = [];
 let adicionaisFormAtual = [];
+let tamanhosFormAtual = [];
 let itensCardapioImportado = [];
 let contagemAtendimentosAnterior = 0;
 let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
@@ -2356,9 +2365,10 @@ function renderizarProdutos(produtos, estoque) {
           <div class="produto-linha-nome">
             <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${pausado ? ' <span class="badge-origem" style="background:#f9e4dc;color:var(--flame);">pausado</span>' : ''}</span>
             <span class="produto-leader"></span>
-            <span class="produto-preco">${formatarMoeda(p.preco)}</span>
+            <span class="produto-preco">${p.tamanhos && p.tamanhos.length > 0 ? `a partir de ${formatarMoeda(p.preco)}` : formatarMoeda(p.preco)}</span>
           </div>
           <div class="produto-descricao">${esc(p.descricao || '')}</div>
+          ${(p.tamanhos && p.tamanhos.length > 0) ? `<div class="produto-adicionais">Tamanhos: ${p.tamanhos.map(t => `${esc(t.nome)} (${formatarMoeda(t.preco)})`).join(' · ')}</div>` : ''}
           ${(p.adicionais && p.adicionais.length > 0) ? `<div class="produto-adicionais">+ ${p.adicionais.map(a => `${esc(a.nome)} (${formatarMoeda(a.preco)})`).join(' · ')}</div>` : ''}
           <div class="produto-estoque ${qtdEstoque < 10 ? 'baixo' : ''}">estoque: ${qtdEstoque}</div>
         </div>
@@ -2404,6 +2414,47 @@ function adicionarAdicionalNaLista() {
 function removerAdicionalDaLista(indice) {
   adicionaisFormAtual.splice(indice, 1);
   renderizarAdicionaisForm();
+}
+
+// Mesmo padrão dos adicionais acima, só que pra tamanhos (nome + preço
+// livres, ex: pizza "PP/P/M/G"). Quando a lista tem algo, o campo de
+// "Preço" único vira só informativo (desabilitado) — o preço de verdade
+// passa a vir de cada tamanho.
+function renderizarTamanhosForm() {
+  const container = document.getElementById('lista-tamanhos-form');
+  container.innerHTML = tamanhosFormAtual.map((t, i) => `
+    <span class="adicional-tag">
+      ${esc(t.nome)} (${formatarMoeda(t.preco)})
+      <button type="button" class="remover-tag" onclick="removerTamanhoDaLista(${i})">×</button>
+    </span>
+  `).join('');
+
+  const campoPreco = document.getElementById('produto-preco');
+  const labelPreco = document.getElementById('produto-preco-label');
+  const temTamanhos = tamanhosFormAtual.length > 0;
+  campoPreco.disabled = temTamanhos;
+  labelPreco.textContent = temTamanhos ? 'Preço (a partir de — calculado pelos tamanhos)' : 'Preço (R$)';
+  if (temTamanhos) {
+    campoPreco.value = Math.min(...tamanhosFormAtual.map((t) => t.preco));
+  }
+}
+
+function adicionarTamanhoNaLista() {
+  const nome = document.getElementById('tamanho-nome').value.trim();
+  const preco = parseFloat(document.getElementById('tamanho-preco').value);
+  if (!nome || isNaN(preco)) {
+    toast('Preencha o nome e o preço do tamanho.', 'erro');
+    return;
+  }
+  tamanhosFormAtual.push({ nome, preco });
+  document.getElementById('tamanho-nome').value = '';
+  document.getElementById('tamanho-preco').value = '';
+  renderizarTamanhosForm();
+}
+
+function removerTamanhoDaLista(indice) {
+  tamanhosFormAtual.splice(indice, 1);
+  renderizarTamanhosForm();
 }
 
 // --- Importar cardápio por foto ---
@@ -2558,6 +2609,8 @@ function editarProduto(id) {
     document.getElementById('linha-preco-meia').style.display = p.temMeiaPorcao ? 'block' : 'none';
     adicionaisFormAtual = p.adicionais ? [...p.adicionais] : [];
     renderizarAdicionaisForm();
+    tamanhosFormAtual = p.tamanhos ? [...p.tamanhos] : [];
+    renderizarTamanhosForm();
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   });
 }
@@ -2577,8 +2630,10 @@ async function salvarProduto() {
   const temMeiaPorcao = document.getElementById('produto-tem-meia').checked;
   const precoMeia = temMeiaPorcao ? parseFloat(document.getElementById('produto-preco-meia').value) : null;
 
-  if (!nome || isNaN(preco)) {
-    toast('Preencha ao menos o nome e o preço.', 'erro');
+  // Produto com tamanhos (PP/P/M/G etc.) não precisa do preço único — o
+  // preço de verdade vem de cada tamanho.
+  if (!nome || (tamanhosFormAtual.length === 0 && isNaN(preco))) {
+    toast('Preencha ao menos o nome e o preço (ou cadastre os tamanhos).', 'erro');
     return;
   }
   if (temMeiaPorcao && isNaN(precoMeia)) {
@@ -2596,7 +2651,7 @@ async function salvarProduto() {
   await apiFetch('/api/produtos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, nome, unidade, categoria: categoriaProdutoAtual, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual, temMeiaPorcao, precoMeia }),
+    body: JSON.stringify({ id, nome, unidade, categoria: categoriaProdutoAtual, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual, temMeiaPorcao, precoMeia, tamanhos: tamanhosFormAtual }),
   });
 
   if (produtoEmEdicao) {
@@ -2619,6 +2674,8 @@ async function salvarProduto() {
   document.getElementById('produto-preco-meia').value = '';
   document.getElementById('linha-preco-meia').style.display = 'none';
   renderizarAdicionaisForm();
+  tamanhosFormAtual = [];
+  renderizarTamanhosForm();
 
   mostrarSalvo();
   carregarTudo();

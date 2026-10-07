@@ -12,7 +12,25 @@ function linhaParaProduto(linha) {
     adicionais: linha.adicionais || [],
     unidade: linha.unidade || "",
     categoria: linha.categoria || "comida",
+    tamanhos: (linha.tamanhos || []).map((t) => ({ nome: t.nome, preco: Number(t.preco) })),
   };
+}
+
+// Nunca confia cegamente na lista de tamanhos que chegou (do formulário,
+// ou da importação por foto) — mesmo princípio do resto do arquivo: nome
+// precisa ser texto não-vazio, preço precisa ser número >= 0.
+function sanitizarTamanhos(tamanhos) {
+  if (!Array.isArray(tamanhos)) return [];
+  return tamanhos
+    .filter((t) => t && typeof t.nome === "string" && t.nome.trim() && typeof t.preco === "number" && t.preco >= 0)
+    .map((t) => ({ nome: t.nome.trim().slice(0, 40), preco: t.preco }));
+}
+
+// Quando o produto tem tamanhos, a coluna "preco" (usada nas listagens,
+// nunca no pedido) guarda o menor valor entre eles — serve só pra mostrar
+// "a partir de R$X"; o preço de verdade cobrado vem do tamanho escolhido.
+function resolverPrecoArmazenado(produto, tamanhosSanitizados) {
+  return tamanhosSanitizados.length > 0 ? Math.min(...tamanhosSanitizados.map((t) => t.preco)) : produto.preco;
 }
 
 // Todas as funções abaixo recebem "empresaId" como primeiro parâmetro —
@@ -104,9 +122,20 @@ export async function catalogoFormatado(empresaId) {
   }
 
   const formatarItem = (p) => {
-    let linha = `- ${p.nome}${p.unidade ? ` (${p.unidade})` : ""} (id: ${p.id}) — porção inteira R$${p.preco.toFixed(2)}`;
-    if (p.temMeiaPorcao && p.precoMeia) {
-      linha += ` / meia porção R$${p.precoMeia.toFixed(2)}`;
+    let linha = `- ${p.nome}${p.unidade ? ` (${p.unidade})` : ""} (id: ${p.id})`;
+    if (p.tamanhos && p.tamanhos.length > 0) {
+      // Produto com tamanhos (ex: pizza PP/P/M/G) — o preço único e a
+      // meia porção não se aplicam, cada tamanho tem o preço próprio.
+      // O nome do tamanho aqui é EXATAMENTE o que vai no pedido depois —
+      // a IA deve perguntar qual tamanho e usar um desses nomes, nunca
+      // inventar um tamanho que não está nesta lista.
+      const lista = p.tamanhos.map((t) => `${t.nome} R$${t.preco.toFixed(2)}`).join(" / ");
+      linha += ` — tamanhos disponíveis: ${lista}`;
+    } else {
+      linha += ` — porção inteira R$${p.preco.toFixed(2)}`;
+      if (p.temMeiaPorcao && p.precoMeia) {
+        linha += ` / meia porção R$${p.precoMeia.toFixed(2)}`;
+      }
     }
     linha += ` — ingredientes: ${p.descricao}`;
     if (p.adicionais && p.adicionais.length > 0) {
@@ -144,16 +173,17 @@ export async function baixarEstoque(empresaId, itens = []) {
 }
 
 export async function salvarProduto(empresaId, produto) {
+  const tamanhos = sanitizarTamanhos(produto.tamanhos);
   await pool.query(
-    `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE((SELECT estoque FROM produtos WHERE empresa_id=$2 AND id=$1), $10), $11, $12)
+    `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria, tamanhos)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE((SELECT estoque FROM produtos WHERE empresa_id=$2 AND id=$1), $10), $11, $12, $13)
      ON CONFLICT (empresa_id, id) DO UPDATE SET
-       nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12`,
+       nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12, tamanhos=$13`,
     [
       produto.id,
       empresaId,
       produto.nome,
-      produto.preco,
+      resolverPrecoArmazenado(produto, tamanhos),
       produto.descricao || "",
       produto.disponivel ?? true,
       produto.temMeiaPorcao || false,
@@ -162,6 +192,7 @@ export async function salvarProduto(empresaId, produto) {
       produto.estoqueInicial ?? 50,
       produto.unidade || "",
       produto.categoria || "comida",
+      JSON.stringify(tamanhos),
     ]
   );
   return getCatalogoCompleto(empresaId);
@@ -176,26 +207,31 @@ export async function salvarProdutosEmLote(empresaId, produtos) {
   if (!produtos || produtos.length === 0) {
     throw new Error("Nenhum produto para salvar.");
   }
-  for (const produto of produtos) {
-    if (typeof produto.preco !== "number" || !(produto.preco >= 0)) {
+  // Produto com tamanhos usa o preço de cada tamanho — "preco" sozinho só
+  // é obrigatório pra quem NÃO tem tamanhos.
+  const tamanhosPorProduto = produtos.map((p) => sanitizarTamanhos(p.tamanhos));
+  produtos.forEach((produto, i) => {
+    if (tamanhosPorProduto[i].length === 0 && (typeof produto.preco !== "number" || !(produto.preco >= 0))) {
       throw new Error(`Preço inválido para "${produto.nome || "item sem nome"}".`);
     }
-  }
+  });
 
   const cliente = await pool.connect();
   try {
     await cliente.query("BEGIN");
-    for (const produto of produtos) {
+    for (let i = 0; i < produtos.length; i++) {
+      const produto = produtos[i];
+      const tamanhos = tamanhosPorProduto[i];
       await cliente.query(
-        `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria, tamanhos)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          ON CONFLICT (empresa_id, id) DO UPDATE SET
-           nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12`,
+           nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12, tamanhos=$13`,
         [
           produto.id,
           empresaId,
           produto.nome,
-          produto.preco,
+          resolverPrecoArmazenado(produto, tamanhos),
           produto.descricao || "",
           produto.disponivel ?? true,
           produto.temMeiaPorcao || false,
@@ -204,6 +240,7 @@ export async function salvarProdutosEmLote(empresaId, produtos) {
           produto.estoqueInicial ?? 50,
           produto.unidade || "",
           produto.categoria || "comida",
+          JSON.stringify(tamanhos),
         ]
       );
     }
