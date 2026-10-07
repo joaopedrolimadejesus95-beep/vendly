@@ -44,7 +44,11 @@ const FERRAMENTA_PEDIDO = {
             porcao: {
               type: "string",
               enum: ["inteira", "meia"],
-              description: "Se o produto tem opção de meia porção e o cliente escolheu, marque 'meia' e use o preço de meia porção do catálogo em preco_unitario. Caso contrário, 'inteira'.",
+              description: "Se o produto tem opção de meia porção e o cliente escolheu, marque 'meia' e use o preço de meia porção do catálogo em preco_unitario. Caso contrário, 'inteira'. Não se aplica a produto com TAMANHOS — use 'tamanho' nesse caso, nunca os dois juntos.",
+            },
+            tamanho: {
+              type: "string",
+              description: "Se o produto tem a lista 'tamanhos disponíveis' no catálogo (ex: pizza PP/P/M/G), o nome do tamanho que o cliente escolheu, EXATAMENTE como está escrito no catálogo. Deixe vazio se o produto não tem tamanhos, ou se o cliente ainda não escolheu — nesse caso pergunte antes de adicionar o item com um preço.",
             },
             observacao: {
               type: "string",
@@ -134,6 +138,18 @@ Alguns produtos têm opção de MEIA PORÇÃO, com preço próprio (indicado no 
 como "meia porção R$X"). Se o cliente pedir meia porção, use esse preço exato em
 preco_unitario e marque "porcao": "meia". Nunca ofereça meia porção pra produto
 que não tem essa opção no catálogo.
+
+Alguns produtos têm vários TAMANHOS com preços diferentes em vez de um preço só
+(indicado no catálogo como "tamanhos disponíveis: X R$.. / Y R$..") — é um
+mecanismo DIFERENTE de meia porção, nunca confunda ou misture os dois. Se o
+cliente pedir um produto desses, você DEVE perguntar qual tamanho ele quer
+ANTES de colocar esse item no pedido com um preço — nunca assuma um tamanho
+"padrão" nem cobre pelo menor preço da lista sem o cliente escolher. Quando ele
+escolher, marque "tamanho" com o nome EXATAMENTE como está escrito no catálogo
+(ex: se o catálogo diz "G", marque "G", não "Grande") e use o preço daquele
+tamanho específico em preco_unitario. Se o cliente pedir um tamanho que não
+existe na lista do produto, avise educadamente e diga quais tamanhos existem
+de verdade — nunca invente nem aproxime pro mais parecido.
 
 Cada item também pode ter ADICIONAIS, mas SOMENTE os que estão listados no catálogo
 para aquele produto específico, com o preço exato de lá. Se o cliente pedir um
@@ -281,24 +297,46 @@ export function corrigirQuebrasDeLinha(pedido) {
 
 // Quinta camada de proteção: nunca confia no preço unitário que a IA
 // colocou no item — sempre substitui pelo preço REAL do catálogo (preço
-// inteiro ou de meia porção, conforme o que foi pedido), e o mesmo pros
-// adicionais. As camadas anteriores só pegavam erro de MATEMÁTICA (conta
-// errada em cima de um preço certo); esta pega preço errado desde o
-// início — importante porque sem isso, alguém poderia tentar (por
-// conversa) convencer a IA a "cobrar menos" por um item, e o sistema não
-// perceberia, já que a conta em cima do preço errado bateria certinho.
-async function validarPrecosComCatalogo(empresaId, pedido) {
+// inteiro, de meia porção, ou do tamanho escolhido, conforme o que foi
+// pedido), e o mesmo pros adicionais. As camadas anteriores só pegavam
+// erro de MATEMÁTICA (conta errada em cima de um preço certo); esta pega
+// preço errado desde o início — importante porque sem isso, alguém
+// poderia tentar (por conversa) convencer a IA a "cobrar menos" por um
+// item, e o sistema não perceberia, já que a conta em cima do preço
+// errado bateria certinho.
+//
+// Também é aqui que travamos a confirmação de um produto com tamanhos
+// sem um tamanho VÁLIDO escolhido — mesmo padrão de segurança do
+// endereço e do estoque em validarComEstoque: nunca deixa fechar faltando
+// essa informação, mesmo que a IA tenha esquecido de perguntar.
+export async function validarPrecosComCatalogo(empresaId, pedido) {
   const catalogo = await getCatalogo(empresaId);
   const catalogoPorId = Object.fromEntries(catalogo.map((p) => [p.id, p]));
+  let itemComTamanhoPendente = null;
 
   for (const item of pedido.itens || []) {
     const produtoReal = catalogoPorId[item.produto_id];
     if (!produtoReal) continue; // produto não existe mais — validado depois pelo estoque
 
-    item.preco_unitario =
-      item.porcao === "meia" && produtoReal.temMeiaPorcao && produtoReal.precoMeia
-        ? produtoReal.precoMeia
-        : produtoReal.preco;
+    if (produtoReal.tamanhos && produtoReal.tamanhos.length > 0) {
+      // Produto com tamanhos nunca usa o preço base nem meia porção — o
+      // preço de verdade vem sempre do tamanho escolhido.
+      const tamanhoReal = produtoReal.tamanhos.find(
+        (t) => t.nome.trim().toLowerCase() === String(item.tamanho || "").trim().toLowerCase()
+      );
+      if (tamanhoReal) {
+        item.tamanho = tamanhoReal.nome; // grafia exata do catálogo, não a que a IA escreveu
+        item.preco_unitario = tamanhoReal.preco;
+      } else {
+        item.preco_unitario = 0; // nunca confirma assim — barrado logo abaixo
+        if (!itemComTamanhoPendente) itemComTamanhoPendente = { item, tamanhos: produtoReal.tamanhos };
+      }
+    } else {
+      item.preco_unitario =
+        item.porcao === "meia" && produtoReal.temMeiaPorcao && produtoReal.precoMeia
+          ? produtoReal.precoMeia
+          : produtoReal.preco;
+    }
 
     // Guarda a categoria (comida/bebida/sobremesa) junto do item — é
     // assim que o agente de impressão sabe depois, na hora de imprimir,
@@ -315,6 +353,14 @@ async function validarPrecosComCatalogo(empresaId, pedido) {
         .map((a) => ({ ...a, preco: adicionaisReais[a.nome] })); // sempre usa o preço real
     }
   }
+
+  if (pedido.status_pedido === "confirmado" && itemComTamanhoPendente) {
+    const opcoes = itemComTamanhoPendente.tamanhos.map((t) => t.nome).join(", ");
+    pedido.status_pedido = "aguardando_confirmacao";
+    pedido.resposta_cliente = `Qual tamanho você quer pro ${itemComTamanhoPendente.item.nome}? Temos: ${opcoes}.`;
+    pedido.precisa_humano = false;
+  }
+
   return pedido;
 }
 
