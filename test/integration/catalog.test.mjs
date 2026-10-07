@@ -2,7 +2,7 @@ import { describe, test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { TEM_DB, prepararBanco, limparBanco, fecharBanco, criarEmpresaCrua } from "../helpers/db.mjs";
 import {
-  getEmpresa, salvarEmpresa, salvarProduto, getCatalogo, getCatalogoCompleto,
+  getEmpresa, salvarEmpresa, salvarProduto, salvarProdutosEmLote, getCatalogo, getCatalogoCompleto,
   getEstoque, baixarEstoque, setDisponibilidadeProduto, atualizarEstoqueManual,
 } from "../../src/catalog.js";
 
@@ -81,5 +81,29 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     assert.equal((await getEmpresa(empresa)).taxaServicoPercent, 100);
     await salvarEmpresa(empresa, { taxaServicoPercent: -3 });
     assert.equal((await getEmpresa(empresa)).taxaServicoPercent, 0);
+  });
+
+  test("salvarProdutosEmLote salva vários produtos numa transação só", async () => {
+    const salvos = await salvarProdutosEmLote(empresa, [
+      { id: "xb", nome: "X-Bacon", preco: 22, categoria: "comida" },
+      { id: "coca", nome: "Coca", preco: 7, categoria: "bebida" },
+    ]);
+    assert.equal(salvos.length, 2);
+    assert.equal((await getEstoque(empresa)).xb, 50); // estoqueInicial padrão
+  });
+
+  test("salvarProdutosEmLote recusa (sem salvar nada) se algum item tiver preço inválido", async () => {
+    await assert.rejects(
+      () => salvarProdutosEmLote(empresa, [
+        { id: "xb", nome: "X-Bacon", preco: 22, categoria: "comida" },
+        { id: "y", nome: "Sem preço", categoria: "comida" }, // preco ausente — item com "dúvida"
+      ]),
+      /[Pp]re[çc]o inv[áa]lido/
+    );
+    assert.equal((await getCatalogoCompleto(empresa)).length, 0); // nada foi salvo, nem o xb
+  });
+
+  test("salvarProdutosEmLote recusa lista vazia", async () => {
+    await assert.rejects(() => salvarProdutosEmLote(empresa, []), /[Nn]enhum produto/);
   });
 });

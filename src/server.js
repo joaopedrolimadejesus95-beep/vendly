@@ -1,10 +1,12 @@
 import "dotenv/config";
 import express from "express";
+import multer from "multer";
 import { timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { inicializarBancoDeDados } from "./db.js";
 import { comFila } from "./fileLock.js";
+import { extrairItensCardapio } from "./catalogoImport.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
@@ -25,6 +27,7 @@ import {
   salvarEmpresa,
   getCatalogoCompleto,
   salvarProduto,
+  salvarProdutosEmLote,
   removerProduto,
   setDisponibilidadeProduto,
   getEstoque,
@@ -34,6 +37,26 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+// Upload das fotos/PDF do cardápio pra importação. Fica só na memória (nunca
+// grava em disco) — depois que extrairItensCardapio() lê o buffer, ele é
+// descartado normalmente pelo garbage collector, nada fica salvo.
+const uploadCardapio = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 5 }, // 5MB por arquivo, até 5 arquivos
+  fileFilter: (req, arquivo, cb) => {
+    const permitido = ["image/jpeg", "image/png", "application/pdf"].includes(arquivo.mimetype);
+    cb(permitido ? null : new Error("Envie apenas JPG, PNG ou PDF."), permitido);
+  },
+});
+
+// Promisifica o middleware do multer pra poder usar try/catch normal na rota
+// (e devolver uma mensagem de erro amigável em vez do 500 genérico).
+function processarUploadCardapio(req, res) {
+  return new Promise((resolve, reject) => {
+    uploadCardapio.array("arquivos", 5)(req, res, (erro) => (erro ? reject(erro) : resolve()));
+  });
+}
 
 // Confia em 1 hop de proxy reverso (o Caddy/Nginx recomendado no DEPLOY.md),
 // pra que req.ip seja o IP real do cliente e não o do proxy — importante pro
@@ -430,6 +453,48 @@ app.get("/api/produtos", async (req, res) => {
 app.post("/api/produtos", async (req, res) => {
   const produto = await salvarProduto(req.empresaId, req.body);
   res.json(produto);
+});
+
+// ---- Importar cardápio por foto ----
+// Dois passos de propósito: o primeiro só LÊ as imagens/PDF e devolve a
+// lista pro dono revisar (nada salvo ainda); o segundo salva só o que o
+// dono confirmou na tela. Só o dono usa isso (não entra na lista de rotas
+// liberadas pra atendente).
+
+app.post("/api/cardapio/importar-preview", async (req, res) => {
+  try {
+    await processarUploadCardapio(req, res);
+  } catch (erro) {
+    const mensagem =
+      erro.code === "LIMIT_FILE_SIZE" ? "Cada arquivo pode ter no máximo 5MB."
+      : erro.code === "LIMIT_FILE_COUNT" ? "Envie no máximo 5 arquivos."
+      : erro.message || "Não foi possível processar os arquivos enviados.";
+    return res.status(400).json({ erro: mensagem });
+  }
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ erro: "Envie pelo menos uma foto ou um PDF do cardápio." });
+  }
+  const temPdf = req.files.some((a) => a.mimetype === "application/pdf");
+  if (temPdf && req.files.length > 1) {
+    return res.status(400).json({ erro: "Envie um PDF por vez (sem combinar com fotos)." });
+  }
+
+  try {
+    const itens = await extrairItensCardapio(req.files);
+    res.json({ itens });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message || "Não foi possível ler o cardápio. Tente de novo." });
+  }
+});
+
+app.post("/api/cardapio/importar-confirmar", async (req, res) => {
+  try {
+    const produtos = await salvarProdutosEmLote(req.empresaId, req.body.produtos || []);
+    res.json({ produtos });
+  } catch (erro) {
+    res.status(400).json({ erro: erro.message });
+  }
 });
 
 app.delete("/api/produtos/:id", async (req, res) => {

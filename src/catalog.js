@@ -167,6 +167,56 @@ export async function salvarProduto(empresaId, produto) {
   return getCatalogoCompleto(empresaId);
 }
 
+// Salva vários produtos de uma vez (usado pela importação de cardápio por
+// foto) numa transação só — ou todos entram, ou nenhum entra. Confere o
+// preço de novo aqui (nunca confia só na validação da tela): a IA que lê a
+// foto pode deixar "preco" vazio quando não conseguiu ler com confiança, e
+// esse item NUNCA pode ser salvo sem o dono preencher.
+export async function salvarProdutosEmLote(empresaId, produtos) {
+  if (!produtos || produtos.length === 0) {
+    throw new Error("Nenhum produto para salvar.");
+  }
+  for (const produto of produtos) {
+    if (typeof produto.preco !== "number" || !(produto.preco >= 0)) {
+      throw new Error(`Preço inválido para "${produto.nome || "item sem nome"}".`);
+    }
+  }
+
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("BEGIN");
+    for (const produto of produtos) {
+      await cliente.query(
+        `INSERT INTO produtos (id, empresa_id, nome, preco, descricao, disponivel, tem_meia_porcao, preco_meia, adicionais, estoque, unidade, categoria)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         ON CONFLICT (empresa_id, id) DO UPDATE SET
+           nome=$3, preco=$4, descricao=$5, disponivel=$6, tem_meia_porcao=$7, preco_meia=$8, adicionais=$9, unidade=$11, categoria=$12`,
+        [
+          produto.id,
+          empresaId,
+          produto.nome,
+          produto.preco,
+          produto.descricao || "",
+          produto.disponivel ?? true,
+          produto.temMeiaPorcao || false,
+          produto.precoMeia || null,
+          JSON.stringify(produto.adicionais || []),
+          produto.estoqueInicial ?? 50,
+          produto.unidade || "",
+          produto.categoria || "comida",
+        ]
+      );
+    }
+    await cliente.query("COMMIT");
+  } catch (erro) {
+    await cliente.query("ROLLBACK");
+    throw erro;
+  } finally {
+    cliente.release();
+  }
+  return getCatalogoCompleto(empresaId);
+}
+
 export async function removerProduto(empresaId, id) {
   await pool.query("DELETE FROM produtos WHERE empresa_id = $1 AND id = $2", [empresaId, id]);
   return getCatalogoCompleto(empresaId);

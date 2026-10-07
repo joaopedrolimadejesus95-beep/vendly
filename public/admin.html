@@ -794,8 +794,37 @@
     </div>
   </div>
 
+  <div id="modal-importar-cardapio" onclick="if(event.target===this) fecharModalImportarCardapio()" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); max-width:560px; width:100%; max-height:88vh; overflow-y:auto; padding:22px; border-radius:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0;">Importar cardápio</h2>
+        <button onclick="fecharModalImportarCardapio()" class="btn-secundario" style="width:40px; height:40px; padding:0; font-size:18px; line-height:1; flex-shrink:0;">✕</button>
+      </div>
+
+      <div id="importar-cardapio-passo-upload">
+        <p style="color:var(--muted); font-size:14px; margin-bottom:14px;">
+          Envie até 5 fotos do cardápio impresso (ou 1 PDF). A IA lê os itens e você revisa tudo antes de salvar — nada é cadastrado sem sua confirmação.
+        </p>
+        <input type="file" id="importar-cardapio-arquivos" accept="image/jpeg,image/png,application/pdf" multiple style="margin-bottom:14px;" />
+        <button class="btn-principal" id="btn-ler-cardapio" style="width:100%;" onclick="lerCardapioImportado(this)">Ler cardápio</button>
+      </div>
+
+      <div id="importar-cardapio-passo-revisao" style="display:none;">
+        <p style="color:var(--muted); font-size:14px; margin-bottom:10px;">
+          Confira cada item antes de salvar. Itens com preço não identificado precisam ser preenchidos pra poderem ser salvos. Itens que já existem no seu cardápio vêm desmarcados.
+        </p>
+        <div id="importar-cardapio-lista"></div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button class="btn-secundario" style="flex:1;" onclick="fecharModalImportarCardapio()">Cancelar</button>
+          <button class="btn-principal" style="flex:1;" id="btn-confirmar-importacao" onclick="confirmarImportacaoCardapio(this)">Salvar selecionados</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <section class="painel" id="painel-cardapio">
     <h2>Produtos</h2>
+    <button class="btn-secundario" style="margin-bottom:14px;" onclick="abrirModalImportarCardapio()">Importar cardápio por foto</button>
     <div id="lista-produtos"></div>
 
     <div class="card">
@@ -1074,6 +1103,7 @@ let planoAtual = 'base';
 let empresaTaxaServicoPercent = 0;
 let pedidosRecentesAtuais = [];
 let adicionaisFormAtual = [];
+let itensCardapioImportado = [];
 let contagemAtendimentosAnterior = 0;
 let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
 let ultimoStatusWhatsapp = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
@@ -2374,6 +2404,134 @@ function adicionarAdicionalNaLista() {
 function removerAdicionalDaLista(indice) {
   adicionaisFormAtual.splice(indice, 1);
   renderizarAdicionaisForm();
+}
+
+// --- Importar cardápio por foto ---
+
+function abrirModalImportarCardapio() {
+  itensCardapioImportado = [];
+  document.getElementById('importar-cardapio-arquivos').value = '';
+  document.getElementById('importar-cardapio-passo-upload').style.display = 'block';
+  document.getElementById('importar-cardapio-passo-revisao').style.display = 'none';
+  document.getElementById('modal-importar-cardapio').style.display = 'flex';
+}
+
+function fecharModalImportarCardapio() {
+  document.getElementById('modal-importar-cardapio').style.display = 'none';
+}
+
+async function lerCardapioImportado(botao) {
+  const arquivos = document.getElementById('importar-cardapio-arquivos').files;
+  if (!arquivos || arquivos.length === 0) {
+    toast('Escolha ao menos uma foto ou um PDF do cardápio.', 'erro');
+    return;
+  }
+
+  await comBotaoDesabilitado(botao, 'Lendo cardápio...', async () => {
+    const formData = new FormData();
+    for (const arquivo of arquivos) formData.append('arquivos', arquivo);
+
+    const resposta = await apiFetch('/api/cardapio/importar-preview', { method: 'POST', body: formData });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      toast(dados.erro || 'Não foi possível ler o cardápio.', 'erro');
+      return;
+    }
+    if (dados.itens.length === 0) {
+      toast('Não encontrei nenhum item legível nessas imagens. Tente fotos mais nítidas.', 'erro');
+      return;
+    }
+
+    // Pra marcar por padrão como desmarcado o que já existe no cardápio —
+    // compara pelo nome (minúsculo, sem espaço nas pontas), já que o item
+    // importado ainda não tem id nenhum em comum com o catálogo atual.
+    const catalogoResp = await apiFetch('/api/produtos');
+    const catalogoAtual = await catalogoResp.json();
+    const nomesExistentes = new Set((catalogoAtual.produtos || []).map((p) => p.nome.trim().toLowerCase()));
+
+    itensCardapioImportado = dados.itens.map((item) => ({
+      ...item,
+      jaExiste: nomesExistentes.has((item.nome || '').trim().toLowerCase()),
+      selecionado: !nomesExistentes.has((item.nome || '').trim().toLowerCase()),
+    }));
+
+    document.getElementById('importar-cardapio-passo-upload').style.display = 'none';
+    document.getElementById('importar-cardapio-passo-revisao').style.display = 'block';
+    renderizarListaImportacao();
+  });
+}
+
+function renderizarListaImportacao() {
+  const lista = document.getElementById('importar-cardapio-lista');
+  lista.innerHTML = itensCardapioImportado.map((item, i) => `
+    <div style="border:1px solid ${item.duvida ? 'var(--mustard)' : 'var(--line)'}; background:${item.jaExiste ? 'var(--paper-dim)' : 'var(--paper)'}; padding:12px; margin-bottom:8px; border-radius:2px;">
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <input type="checkbox" ${item.selecionado ? 'checked' : ''} onchange="itensCardapioImportado[${i}].selecionado = this.checked" style="width:18px; height:18px; margin-top:6px; flex-shrink:0;" />
+        <div style="flex:1; min-width:0;">
+          ${item.jaExiste ? `<div style="font-size:11px; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; margin-bottom:4px;">Já existe no seu cardápio</div>` : ''}
+          ${item.duvida ? `<div style="font-size:12px; color:var(--flame); margin-bottom:6px;">⚠ ${esc(item.duvida)}</div>` : ''}
+          <input type="text" value="${esc(item.nome)}" placeholder="Nome" oninput="itensCardapioImportado[${i}].nome = this.value" style="margin-bottom:6px; font-weight:600;" />
+          <div class="linha" style="margin-bottom:6px;">
+            <div><input type="number" step="0.01" value="${item.preco ?? ''}" placeholder="Preço (obrigatório)" oninput="itensCardapioImportado[${i}].preco = this.value === '' ? null : parseFloat(this.value)" style="${item.preco == null ? 'border-color:var(--flame);' : ''}" /></div>
+            <div>
+              <select onchange="itensCardapioImportado[${i}].categoria = this.value" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px;">
+                ${['comida', 'salada', 'bebida', 'sobremesa'].map((c) => `<option value="${c}" ${item.categoria === c ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <input type="text" value="${esc(item.descricao || '')}" placeholder="Ingredientes / descrição (opcional)" oninput="itensCardapioImportado[${i}].descricao = this.value" style="font-size:13px;" />
+        </div>
+        <button type="button" class="btn-secundario" onclick="itensCardapioImportado.splice(${i},1); renderizarListaImportacao();" style="width:32px; height:32px; padding:0; flex-shrink:0;">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function confirmarImportacaoCardapio(botao) {
+  const selecionados = itensCardapioImportado.filter((item) => item.selecionado);
+  if (selecionados.length === 0) {
+    toast('Marque ao menos um item pra salvar.', 'erro');
+    return;
+  }
+  const semPreco = selecionados.find((item) => item.preco == null || isNaN(item.preco));
+  if (semPreco) {
+    toast(`Preencha o preço de "${semPreco.nome}" antes de salvar.`, 'erro');
+    return;
+  }
+
+  await comBotaoDesabilitado(botao, 'Salvando...', async () => {
+    // Mesmo esquema de id usado no cadastro manual (slug do nome + sufixo
+    // aleatório) — ver salvarProduto() acima.
+    const produtos = selecionados.map((item) => {
+      const slug = item.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+      return {
+        id: (slug || 'item') + '-' + Math.random().toString(36).slice(2, 7),
+        nome: item.nome,
+        preco: item.preco,
+        categoria: item.categoria,
+        descricao: item.descricao || '',
+        unidade: item.unidade || '',
+        temMeiaPorcao: Boolean(item.temMeiaPorcao),
+        precoMeia: item.temMeiaPorcao ? item.precoMeia : null,
+        adicionais: item.adicionais || [],
+      };
+    });
+
+    const resposta = await apiFetch('/api/cardapio/importar-confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ produtos }),
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      toast(dados.erro || 'Não foi possível salvar os itens.', 'erro');
+      return;
+    }
+
+    fecharModalImportarCardapio();
+    toast(`${produtos.length} item(ns) importado(s) ✓`, 'sucesso');
+    carregarTudo();
+  });
 }
 
 let categoriaProdutoAtual = 'comida';
