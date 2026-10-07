@@ -184,6 +184,20 @@ Se o cliente pedir mais do que existe no estoque, avise a quantidade disponível
 e pergunte se quer ajustar.`;
 }
 
+// Decide se vale a pena incluir, nesta chamada, a instrução pra IA oferecer
+// o cardápio digital — nunca decide o "oi vs pedido direto" (isso fica por
+// conta do julgamento da IA dentro da mesma chamada, de propósito, pra não
+// precisar de uma segunda chamada só pra classificar a mensagem). Extraída
+// como função pura só pra dar pra testar sem precisar chamar a IA de verdade.
+export function deveIncluirOfertaCardapio(historico, empresa) {
+  return (
+    historico.length === 0
+    && Boolean(empresa.ofereceCardapioDigital)
+    && Boolean(empresa.slug)
+    && Boolean(process.env.URL_PUBLICA_SERVIDOR)
+  );
+}
+
 /**
  * @param {Array<{role: 'user'|'assistant', content: string}>} historico - mensagens anteriores da conversa
  * @param {string} mensagemAtual - nova mensagem do cliente
@@ -212,17 +226,45 @@ export async function interpretarMensagem(empresaId, historico, mensagemAtual) {
     { role: "user", content: mensagemAtual },
   ];
 
+  // O prompt do sistema é o cardápio + configs da empresa — grande e igual
+  // em toda mensagem da mesma conversa. Com cache_control, a 1ª mensagem
+  // paga o processamento normal e as seguintes (dentro de ~5 min) reusam
+  // esse prefixo já processado: resposta bem mais rápida e ~90% mais barata
+  // na parte repetida. O cache "invalida" sozinho quando o cardápio muda.
+  const systemBlocks = [
+    { type: "text", text: await systemPrompt(empresaId), cache_control: { type: "ephemeral" } },
+  ];
+
+  // Oferece o cardápio digital só na primeira mensagem da conversa.
+  // "historico vazio" já significa "conversa nova" (primeira vez, ou
+  // passou da janela de inatividade — ver limpeza de `conversas` no
+  // server.js), então isso também garante sozinho que a oferta nunca se
+  // repete nas mensagens seguintes da mesma conversa. Fica em um bloco
+  // separado de propósito: muda a cada conversa, então não cacheamos
+  // ele, e isso não quebra o cache do bloco principal acima (cada bloco
+  // do "system" cacheia de forma independente).
+  const urlPublica = process.env.URL_PUBLICA_SERVIDOR;
+  if (deveIncluirOfertaCardapio(historico, empresa)) {
+    systemBlocks.push({
+      type: "text",
+      text: `Esta é a primeira mensagem desta conversa. Se o cliente só mandou uma
+saudação ou pergunta genérica (ex: "oi", "bom dia", "vocês estão abertos?"), sem
+pedir nenhum item específico, ofereça duas formas de pedir: continuar pedindo
+aqui mesmo pelo WhatsApp, ou abrir o cardápio digital em ${urlPublica}/c/${empresa.slug}
+e montar o pedido por lá. Deixe claro que as duas formas funcionam, de forma
+natural e curta — não é um menu de opções numeradas.
+
+NÃO ofereça essas opções se a mensagem já for um pedido específico (ex: "quero
+2 x-burger"), ou se ela começar com "Vim pelo cardápio digital" (isso quer dizer
+que o cliente já montou o pedido pelo cardápio digital e só está confirmando por
+aqui) — nesses casos, siga direto o fluxo normal de pedido, sem mencionar o link.`,
+    });
+  }
+
   const resposta = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 1000,
-    // O prompt do sistema é o cardápio + configs da empresa — grande e igual
-    // em toda mensagem da mesma conversa. Com cache_control, a 1ª mensagem
-    // paga o processamento normal e as seguintes (dentro de ~5 min) reusam
-    // esse prefixo já processado: resposta bem mais rápida e ~90% mais barata
-    // na parte repetida. O cache "invalida" sozinho quando o cardápio muda.
-    system: [
-      { type: "text", text: await systemPrompt(empresaId), cache_control: { type: "ephemeral" } },
-    ],
+    system: systemBlocks,
     messages: mensagens,
     tools: [FERRAMENTA_PEDIDO],
     tool_choice: { type: "tool", name: "registrar_interacao" },

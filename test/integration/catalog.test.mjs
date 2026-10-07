@@ -224,6 +224,23 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     await assert.rejects(() => salvarEmpresa(outra, { slug: "pizzaria-do-ze" }), /já está em uso/i);
   });
 
+  test("ofereceCardapioDigital: desligado por padrão", async () => {
+    assert.equal((await getEmpresa(empresa)).ofereceCardapioDigital, false);
+  });
+
+  test("ofereceCardapioDigital: não liga sem slug definido", async () => {
+    await salvarEmpresa(empresa, { slug: "" });
+    await assert.rejects(
+      () => salvarEmpresa(empresa, { ofereceCardapioDigital: true }),
+      /endereço do cardápio digital/i
+    );
+  });
+
+  test("ofereceCardapioDigital: liga com slug definido e faz round-trip", async () => {
+    await salvarEmpresa(empresa, { slug: "pizzaria-do-ze", ofereceCardapioDigital: true });
+    assert.equal((await getEmpresa(empresa)).ofereceCardapioDigital, true);
+  });
+
   test("getEmpresaPublicaPorSlug: devolve null pra slug que não existe", async () => {
     assert.equal(await getEmpresaPublicaPorSlug("nao-existe"), null);
   });

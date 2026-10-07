@@ -50,6 +50,9 @@ export async function inicializarBancoDeDados() {
     -- problema — só trava duplicata entre quem já preencheu).
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE;
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS numero_whatsapp TEXT DEFAULT '';
+    -- Desligado por padrão. Só faz sentido com "slug" já preenchido —
+    -- isso é garantido na validação de salvarEmpresa, não aqui no banco.
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS oferece_cardapio_digital BOOLEAN DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT NOT NULL,

@@ -923,6 +923,13 @@
 
       <label>Número de WhatsApp pra receber os pedidos <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(com DDD e código do país, só números)</span></label>
       <input type="text" id="empresa-numero-whatsapp" placeholder="Ex: 5544999998888" />
+
+      <div class="toggle-linha" style="margin-top:14px;">
+        <span>Oferecer o cardápio digital no início da conversa do WhatsApp?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Quando o cliente manda só um "oi" numa conversa nova, o bot avisa que ele também pode montar o pedido pelo cardápio digital. Precisa do endereço do cardápio preenchido acima.</div>
+        </span>
+        <input type="checkbox" id="empresa-oferece-cardapio-digital" />
+      </div>
     </div>
 
     <h2>Funcionamento</h2>
@@ -1358,6 +1365,7 @@ async function carregarTudo() {
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
   document.getElementById('empresa-slug').value = empresaResp.slug || '';
   document.getElementById('empresa-numero-whatsapp').value = empresaResp.numeroWhatsapp || '';
+  document.getElementById('empresa-oferece-cardapio-digital').checked = !!empresaResp.ofereceCardapioDigital;
   atualizarPreviaSlug();
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
   document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
@@ -2958,6 +2966,7 @@ async function salvarEmpresa() {
       endereco: document.getElementById('empresa-endereco').value,
       slug: document.getElementById('empresa-slug').value,
       numeroWhatsapp: document.getElementById('empresa-numero-whatsapp').value,
+      ofereceCardapioDigital: document.getElementById('empresa-oferece-cardapio-digital').checked,
       aceitaEntrega: document.getElementById('empresa-entrega').checked,
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
       entenderAudio: document.getElementById('empresa-entender-audio').checked,

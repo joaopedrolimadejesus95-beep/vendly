@@ -72,6 +72,7 @@ export async function getEmpresa(empresaId) {
     entenderAudio: e.entender_audio || false,
     slug: e.slug || null,
     numeroWhatsapp: e.numero_whatsapp || "",
+    ofereceCardapioDigital: e.oferece_cardapio_digital || false,
   };
 }
 
@@ -91,13 +92,18 @@ export async function salvarEmpresa(empresaId, novosDados) {
   }
   const slug = slugBruto || null; // null (não string vazia) pra não conflitar no UNIQUE
 
+  const ofereceCardapioDigital = dados.ofereceCardapioDigital || false;
+  if (ofereceCardapioDigital && !slug) {
+    throw new Error("Defina o endereço do cardápio digital antes de ativar esta opção.");
+  }
+
   try {
     await pool.query(
       `UPDATE empresas SET nome=$1, tipo=$2, aceita_entrega=$3, endereco=$4, formas_pagamento=$5,
        exige_pagamento_antecipado=$6, dias_funcionamento=$7, horario_abertura=$8, horario_fechamento=$9,
        separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12, entender_audio=$13,
-       slug=$14, numero_whatsapp=$15
-       WHERE id = $16`,
+       slug=$14, numero_whatsapp=$15, oferece_cardapio_digital=$16
+       WHERE id = $17`,
       [
         dados.nome,
         // "restaurante" é só o default de quem nunca preencheu — nunca grava
@@ -116,6 +122,7 @@ export async function salvarEmpresa(empresaId, novosDados) {
         dados.entenderAudio || false,
         slug,
         (dados.numeroWhatsapp || "").trim(),
+        ofereceCardapioDigital,
         empresaId,
       ]
     );
