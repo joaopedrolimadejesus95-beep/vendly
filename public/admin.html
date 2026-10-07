@@ -933,6 +933,12 @@
         <span>Exigir pagamento antes de confirmar?</span>
         <input type="checkbox" id="empresa-pagamento-antecipado" />
       </div>
+      <div class="toggle-linha">
+        <span>Entender áudios no WhatsApp?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">A IA transcreve o áudio e trata como se o cliente tivesse digitado. Desligado: continua pedindo pra escrever.</div>
+        </span>
+        <input type="checkbox" id="empresa-entender-audio" />
+      </div>
 
       <label>Formas de pagamento aceitas</label>
       <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
@@ -1326,6 +1332,7 @@ async function carregarTudo() {
   document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
   document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
   document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
+  document.getElementById('empresa-entender-audio').checked = !!empresaResp.entenderAudio;
   empresaTaxaServicoPercent = Number(empresaResp.taxaServicoPercent) || 0;
   document.getElementById('empresa-taxa-servico-on').checked = empresaTaxaServicoPercent > 0;
   document.getElementById('linha-taxa-servico').style.display = empresaTaxaServicoPercent > 0 ? 'block' : 'none';
@@ -2856,6 +2863,7 @@ async function salvarEmpresa() {
       endereco: document.getElementById('empresa-endereco').value,
       aceitaEntrega: document.getElementById('empresa-entrega').checked,
       exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
+      entenderAudio: document.getElementById('empresa-entender-audio').checked,
       taxaServicoPercent: document.getElementById('empresa-taxa-servico-on').checked
         ? (parseFloat(document.getElementById('empresa-taxa-servico-percent').value) || 0)
         : 0,

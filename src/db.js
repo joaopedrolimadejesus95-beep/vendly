@@ -40,6 +40,9 @@ export async function inicializarBancoDeDados() {
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS impressoras JSONB DEFAULT '{}';
     -- Taxa de serviço (%) aplicada ao fechar mesa. 0 = desligada.
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS taxa_servico_percent NUMERIC(5,2) DEFAULT 0;
+    -- Desligado por padrão: empresa que não mexeu nisso mantém o
+    -- comportamento de sempre (pede pra digitar quando chega áudio).
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS entender_audio BOOLEAN DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT NOT NULL,

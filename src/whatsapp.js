@@ -61,6 +61,36 @@ export async function gerarQrCode(instanceName) {
   return dados.base64 || dados.qrcode?.base64 || null;
 }
 
+// Baixa o áudio (ou qualquer mídia) de uma mensagem recebida, usando a
+// própria Evolution API pra descriptografar — ela já tem a chave da
+// mensagem, então evita reimplementar a descriptografia do protocolo do
+// WhatsApp aqui. "mensagemBruta" é o objeto "data" que o webhook recebeu
+// (tem "key" e "message" dentro, igual a Evolution espera de volta).
+//
+// ATENÇÃO: a chamada exata (endpoint e corpo) pode variar entre versões
+// da Evolution API — testado contra a documentação pública, mas vale
+// conferir contra a versão instalada se der erro aqui. Devolve o áudio só
+// em memória (Buffer) — nunca grava em disco.
+export async function baixarMidiaMensagem(instanceName, mensagemBruta) {
+  const resposta = await fetch(`${EVOLUTION_URL}/chat/getBase64FromMediaMessage/${instanceName}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: EVOLUTION_KEY },
+    body: JSON.stringify({ message: mensagemBruta }),
+  });
+  if (!resposta.ok) {
+    const erro = await resposta.text().catch(() => "");
+    throw new Error(`Evolution API não conseguiu devolver a mídia (${resposta.status}): ${erro.slice(0, 200)}`);
+  }
+  const dados = await resposta.json();
+  if (!dados.base64) {
+    throw new Error("Evolution API respondeu sem o campo base64 da mídia.");
+  }
+  return {
+    buffer: Buffer.from(dados.base64, "base64"),
+    mimetype: dados.mimetype || mensagemBruta?.message?.audioMessage?.mimetype || "audio/ogg",
+  };
+}
+
 export async function desconectar(instanceName) {
   await fetch(`${EVOLUTION_URL}/instance/logout/${instanceName}`, {
     method: "DELETE",

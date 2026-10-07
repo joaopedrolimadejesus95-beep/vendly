@@ -90,6 +90,12 @@ describe("catalog", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)
     assert.equal((await getEmpresa(empresa)).tipo, "restaurante");
   });
 
+  test("entenderAudio: desligado por padrão, faz round-trip quando ligado", async () => {
+    assert.equal((await getEmpresa(empresa)).entenderAudio, false);
+    await salvarEmpresa(empresa, { entenderAudio: true });
+    assert.equal((await getEmpresa(empresa)).entenderAudio, true);
+  });
+
   test("salvarProdutosEmLote salva vários produtos numa transação só", async () => {
     const salvos = await salvarProdutosEmLote(empresa, [
       { id: "xb", nome: "X-Bacon", preco: 22, categoria: "comida" },

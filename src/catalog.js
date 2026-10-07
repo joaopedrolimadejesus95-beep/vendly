@@ -67,6 +67,7 @@ export async function getEmpresa(empresaId) {
     separarBebidaComanda: e.separar_bebida_comanda || false,
     impressoras: e.impressoras || {},
     taxaServicoPercent: e.taxa_servico_percent != null ? Number(e.taxa_servico_percent) : 0,
+    entenderAudio: e.entender_audio || false,
   };
 }
 
@@ -79,8 +80,8 @@ export async function salvarEmpresa(empresaId, novosDados) {
   await pool.query(
     `UPDATE empresas SET nome=$1, tipo=$2, aceita_entrega=$3, endereco=$4, formas_pagamento=$5,
      exige_pagamento_antecipado=$6, dias_funcionamento=$7, horario_abertura=$8, horario_fechamento=$9,
-     separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12
-     WHERE id = $13`,
+     separar_bebida_comanda=$10, impressoras=$11, taxa_servico_percent=$12, entender_audio=$13
+     WHERE id = $14`,
     [
       dados.nome,
       // "restaurante" é só o default de quem nunca preencheu — nunca grava
@@ -96,6 +97,7 @@ export async function salvarEmpresa(empresaId, novosDados) {
       dados.separarBebidaComanda || false,
       JSON.stringify(dados.impressoras || {}),
       taxa,
+      dados.entenderAudio || false,
       empresaId,
     ]
   );

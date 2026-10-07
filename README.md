@@ -52,6 +52,8 @@ Pedido aparece no mesmo painel de Vendas que os pedidos do WhatsApp
 | `src/mesas.js` | Mesas, carrinho em andamento, fechamento com transação |
 | `src/ai.js` | Prompt da IA e as camadas de proteção (preço, estoque, total) |
 | `src/whatsapp.js` | Integração com a Evolution API |
+| `src/catalogoImport.js` | Lê cardápio de foto/PDF e extrai os produtos (IA) |
+| `src/transcricao.js` | Transcreve áudio do WhatsApp via API da OpenAI |
 | `src/server.js` | Rotas HTTP, autenticação, permissões por plano |
 | `public/admin.html` | Painel administrativo (SPA, um arquivo só) |
 | `public/index.html` | Landing page (serve automaticamente na raiz do site) |

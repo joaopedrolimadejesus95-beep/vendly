@@ -10,7 +10,8 @@ import { extrairItensCardapio } from "./catalogoImport.js";
 import { listarMesas, criarMesa, criarMesasEmLote, removerMesa, adicionarItemMesa, editarItemMesa, removerItemMesa, fecharMesa, reabrirMesaDoPedido, buscarMesasAbertasComItem, getReservadoEmMesas, lancarPedidoMesa, listarLancamentosPendentes, marcarLancamentoImpresso } from "./mesas.js";
 import { autenticar, trocarSenha, gerarToken, verificarToken, temFuncionalidade, autenticarAtendente, gerarTokenAtendente, criarAtendente, listarAtendentes, removerAtendente, getNomeAtendente } from "./auth.js";
 import { interpretarMensagem } from "./ai.js";
-import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook } from "./whatsapp.js";
+import { enviarMensagem, statusConexao, gerarQrCode, desconectar, configurarWebhook, baixarMidiaMensagem } from "./whatsapp.js";
+import { transcreverAudio } from "./transcricao.js";
 import {
   confirmarPedidoWhatsapp,
   listarPedidos,
@@ -165,6 +166,10 @@ const conversas = {};
 // raramente precisa de mais contexto que isso — sem esse teto, o histórico
 // cresceria pra sempre e ia comendo RAM num dia movimentado.
 const HISTORICO_MAX = 20;
+// Áudio mais longo que isso não é transcrito — pede pra resumir/digitar
+// em vez de gastar com uma transcrição grande (e demorada) de algo que
+// provavelmente nem é um pedido simples.
+const DURACAO_MAXIMA_AUDIO_SEGUNDOS = 90;
 // Depois de quanto tempo parado uma conversa é descartada da memória.
 const CONVERSA_TTL_MS = 6 * 60 * 60 * 1000;          // 6h se está tocando normal
 const CONVERSA_TTL_PAUSADA_MS = 48 * 60 * 60 * 1000; // 48h se está esperando atendente
@@ -320,26 +325,61 @@ app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const mensagem = evento?.data?.message?.conversation
+    let mensagem = evento?.data?.message?.conversation
       || evento?.data?.message?.extendedTextMessage?.text;
     const numero = evento?.data?.key?.remoteJid;
     const enviadaPorNos = evento?.data?.key?.fromMe;
     const ehGrupo = numero?.endsWith("@g.us");
 
+    if (!numero || enviadaPorNos || ehGrupo) {
+      return res.sendStatus(200);
+    }
+
+    // Áudio: só tenta transcrever se a empresa ligou essa opção (painel →
+    // Empresa). Grupo já foi filtrado acima, então isso não roda pra
+    // áudio de grupo. Se der tudo certo, "mensagem" vira o texto
+    // transcrito e segue pro MESMO caminho de uma mensagem digitada —
+    // nenhuma regra de pedido é duplicada.
+    const temAudio = Boolean(evento?.data?.message?.audioMessage);
+    let foiTranscricao = false;
+    if (temAudio && empresaDoWebhook.entenderAudio) {
+      const duracaoSegundos = evento?.data?.message?.audioMessage?.seconds || 0;
+      if (duracaoSegundos > DURACAO_MAXIMA_AUDIO_SEGUNDOS) {
+        await enviarMensagem(
+          nomeInstancia,
+          numero,
+          `Esse áudio ficou longo demais pra eu entender (mais de ${DURACAO_MAXIMA_AUDIO_SEGUNDOS}s) — pode resumir ou mandar por texto?`
+        );
+        return res.sendStatus(200);
+      }
+      try {
+        const { buffer, mimetype } = await baixarMidiaMensagem(nomeInstancia, evento.data);
+        const transcrito = (await transcreverAudio(buffer, mimetype) || "").trim();
+        if (transcrito) {
+          mensagem = transcrito;
+          foiTranscricao = true;
+          console.log(`[AUDIO] Empresa ${empresaId}, ${numero}: transcrito (${duracaoSegundos}s).`);
+        }
+      } catch (erro) {
+        // Nunca derruba o webhook por causa disso — cai no mesmo "não
+        // consigo entender" de sempre, como qualquer outra mídia.
+        console.warn(`[AUDIO] Empresa ${empresaId}, ${numero}: falha ao transcrever — ${erro.message}`);
+      }
+    }
+
+    // Mídia que ainda não sabemos tratar: imagem, vídeo, figurinha,
+    // documento — e áudio também, se a empresa não ligou "entender
+    // áudios" ou se a transcrição falhou/veio vazia (nunca fica em silêncio).
     const ehMidiaNaoSuportada = Boolean(
-      evento?.data?.message?.audioMessage
+      (temAudio && !foiTranscricao)
       || evento?.data?.message?.imageMessage
       || evento?.data?.message?.videoMessage
       || evento?.data?.message?.stickerMessage
       || evento?.data?.message?.documentMessage
     );
 
-    if (!numero || enviadaPorNos || ehGrupo) {
-      return res.sendStatus(200);
-    }
-
     if (ehMidiaNaoSuportada) {
-      const tipoMidia = evento?.data?.message?.audioMessage
+      const tipoMidia = temAudio
         ? "áudios"
         : evento?.data?.message?.stickerMessage
         ? "figurinhas"
@@ -369,6 +409,14 @@ app.post("/webhook/mensagem", autenticarWebhook, async (req, res) => {
       if (conversa.pausadaParaHumano) return;
 
       const resultado = await interpretarMensagem(empresaId, conversa.historico, mensagem);
+
+      // Começa a resposta repetindo o que a transcrição entendeu, pro
+      // cliente poder perceber e corrigir na hora se o áudio saiu errado
+      // (ex: ambiente barulhento). A confirmação do pedido em si continua
+      // sendo o fluxo de sempre, isso aqui é só transparência extra.
+      if (foiTranscricao) {
+        resultado.resposta_cliente = `Entendi: "${mensagem}"\n\n${resultado.resposta_cliente}`;
+      }
 
       conversa.historico.push({ role: "user", content: mensagem });
       conversa.historico.push({ role: "assistant", content: resultado.resposta_cliente });
