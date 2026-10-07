@@ -18,8 +18,10 @@ function linhaParaProduto(linha) {
 
 // Nunca confia cegamente na lista de tamanhos que chegou (do formulário,
 // ou da importação por foto) — mesmo princípio do resto do arquivo: nome
-// precisa ser texto não-vazio, preço precisa ser número >= 0.
-function sanitizarTamanhos(tamanhos) {
+// precisa ser texto não-vazio, preço precisa ser número >= 0. Exportada
+// porque catalogoImport.js usa a mesma regra pra sanitizar o que a IA
+// extraiu da foto do cardápio.
+export function sanitizarTamanhos(tamanhos) {
   if (!Array.isArray(tamanhos)) return [];
   return tamanhos
     .filter((t) => t && typeof t.nome === "string" && t.nome.trim() && typeof t.preco === "number" && t.preco >= 0)

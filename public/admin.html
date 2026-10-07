@@ -2514,7 +2514,9 @@ async function lerCardapioImportado(botao) {
 
 function renderizarListaImportacao() {
   const lista = document.getElementById('importar-cardapio-lista');
-  lista.innerHTML = itensCardapioImportado.map((item, i) => `
+  lista.innerHTML = itensCardapioImportado.map((item, i) => {
+    const temTamanhos = Array.isArray(item.tamanhos) && item.tamanhos.length > 0;
+    return `
     <div style="border:1px solid ${item.duvida ? 'var(--mustard)' : 'var(--line)'}; background:${item.jaExiste ? 'var(--paper-dim)' : 'var(--paper)'}; padding:12px; margin-bottom:8px; border-radius:2px;">
       <div style="display:flex; align-items:flex-start; gap:10px;">
         <input type="checkbox" ${item.selecionado ? 'checked' : ''} onchange="itensCardapioImportado[${i}].selecionado = this.checked" style="width:18px; height:18px; margin-top:6px; flex-shrink:0;" />
@@ -2523,19 +2525,32 @@ function renderizarListaImportacao() {
           ${item.duvida ? `<div style="font-size:12px; color:var(--flame); margin-bottom:6px;">⚠ ${esc(item.duvida)}</div>` : ''}
           <input type="text" value="${esc(item.nome)}" placeholder="Nome" oninput="itensCardapioImportado[${i}].nome = this.value" style="margin-bottom:6px; font-weight:600;" />
           <div class="linha" style="margin-bottom:6px;">
-            <div><input type="number" step="0.01" value="${item.preco ?? ''}" placeholder="Preço (obrigatório)" oninput="itensCardapioImportado[${i}].preco = this.value === '' ? null : parseFloat(this.value)" style="${item.preco == null ? 'border-color:var(--flame);' : ''}" /></div>
+            ${temTamanhos
+              ? `<div style="font-size:12px; color:var(--muted); padding-top:10px;">Tem tamanhos (abaixo) — sem preço único</div>`
+              : `<div><input type="number" step="0.01" value="${item.preco ?? ''}" placeholder="Preço (obrigatório)" oninput="itensCardapioImportado[${i}].preco = this.value === '' ? null : parseFloat(this.value)" style="${item.preco == null ? 'border-color:var(--flame);' : ''}" /></div>`}
             <div>
               <select onchange="itensCardapioImportado[${i}].categoria = this.value" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px;">
                 ${['comida', 'salada', 'bebida', 'sobremesa'].map((c) => `<option value="${c}" ${item.categoria === c ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
               </select>
             </div>
           </div>
-          <input type="text" value="${esc(item.descricao || '')}" placeholder="Ingredientes / descrição (opcional)" oninput="itensCardapioImportado[${i}].descricao = this.value" style="font-size:13px;" />
+          <input type="text" value="${esc(item.descricao || '')}" placeholder="Ingredientes / descrição (opcional)" oninput="itensCardapioImportado[${i}].descricao = this.value" style="font-size:13px; margin-bottom:8px;" />
+
+          <div style="font-size:11px; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; margin-bottom:4px;">Tamanhos (deixe vazio se o item tem um preço só)</div>
+          ${(item.tamanhos || []).map((t, j) => `
+            <div class="linha" style="margin-bottom:4px;">
+              <div><input type="text" value="${esc(t.nome)}" placeholder="Ex: G" oninput="itensCardapioImportado[${i}].tamanhos[${j}].nome = this.value" /></div>
+              <div style="flex:0 0 100px"><input type="number" step="0.01" value="${t.preco ?? ''}" placeholder="30.00" oninput="itensCardapioImportado[${i}].tamanhos[${j}].preco = this.value === '' ? null : parseFloat(this.value)" /></div>
+              <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="itensCardapioImportado[${i}].tamanhos.splice(${j},1); renderizarListaImportacao();" style="width:36px; height:36px; padding:0;">×</button></div>
+            </div>
+          `).join('')}
+          <button type="button" class="btn-secundario" onclick="(itensCardapioImportado[${i}].tamanhos ||= []).push({nome:'', preco: null}); renderizarListaImportacao();" style="font-size:12px; padding:6px 10px;">+ tamanho</button>
         </div>
         <button type="button" class="btn-secundario" onclick="itensCardapioImportado.splice(${i},1); renderizarListaImportacao();" style="width:32px; height:32px; padding:0; flex-shrink:0;">✕</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function confirmarImportacaoCardapio(botao) {
@@ -2544,9 +2559,18 @@ async function confirmarImportacaoCardapio(botao) {
     toast('Marque ao menos um item pra salvar.', 'erro');
     return;
   }
-  const semPreco = selecionados.find((item) => item.preco == null || isNaN(item.preco));
-  if (semPreco) {
-    toast(`Preencha o preço de "${semPreco.nome}" antes de salvar.`, 'erro');
+  // Item com tamanhos não precisa de preço único — mas cada tamanho
+  // precisa ter nome E preço preenchidos (mesma regra do cadastro manual).
+  const temTamanhosValidos = (item) =>
+    Array.isArray(item.tamanhos) && item.tamanhos.length > 0
+    && item.tamanhos.every((t) => t.nome && t.nome.trim() && typeof t.preco === 'number' && !isNaN(t.preco));
+
+  const invalido = selecionados.find((item) => {
+    if (Array.isArray(item.tamanhos) && item.tamanhos.length > 0) return !temTamanhosValidos(item);
+    return item.preco == null || isNaN(item.preco);
+  });
+  if (invalido) {
+    toast(`Preencha o preço de "${invalido.nome}" (ou os tamanhos dele) antes de salvar.`, 'erro');
     return;
   }
 
@@ -2564,6 +2588,7 @@ async function confirmarImportacaoCardapio(botao) {
         unidade: item.unidade || '',
         temMeiaPorcao: Boolean(item.temMeiaPorcao),
         precoMeia: item.temMeiaPorcao ? item.precoMeia : null,
+        tamanhos: item.tamanhos || [],
         adicionais: item.adicionais || [],
       };
     });
