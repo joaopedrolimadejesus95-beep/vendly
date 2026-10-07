@@ -22,6 +22,10 @@ describe("mesas", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" 
     empresa = await criarEmpresaCrua({ taxaServicoPercent: 0 });
     await salvarProduto(empresa, { id: "xb", nome: "X-Bacon", preco: 20, categoria: "comida", estoqueInicial: 10 });
     await salvarProduto(empresa, { id: "coca", nome: "Coca", preco: 10, categoria: "bebida", estoqueInicial: 50 });
+    await salvarProduto(empresa, {
+      id: "pz", nome: "Pizza Mussarela", categoria: "comida", estoqueInicial: 10,
+      tamanhos: [{ nome: "P", preco: 20 }, { nome: "G", preco: 30 }],
+    });
   });
   after(fecharBanco);
 
@@ -46,6 +50,23 @@ describe("mesas", { skip: !TEM_DB && "defina DATABASE_URL (banco descartável)" 
     assert.equal(mesa.itensAtuais[0].pessoa, "Lugar 1");
     assert.equal(mesa.itensAtuais[0].lancado, false);
     assert.equal(mesa.status, "ocupada");
+  });
+
+  test("item com tamanho: o nome do tamanho e o preço certo passam direto pra mesa e pro pedido fechado", async () => {
+    const m = await criarMesa(empresa, "1");
+    // O painel resolve o preço do tamanho escolhido ANTES de mandar pra cá
+    // (mesas.js confia no painel autenticado, igual já fazia pro preço
+    // normal) — o backend só precisa guardar o que veio.
+    await adicionarItemMesa(empresa, m.id, {
+      produto_id: "pz", nome: "Pizza Mussarela", tamanho: "G", quantidade: 2, preco_unitario: 30, adicionais: [],
+    });
+    const mesaAtual = (await listarMesas(empresa)).find((x) => x.numero === "1");
+    assert.equal(mesaAtual.itensAtuais[0].tamanho, "G");
+    assert.equal(mesaAtual.total, 60); // 2 x R$30
+
+    const pedido = await fecharMesa(empresa, m.id, { formaPagamento: "pix" });
+    assert.equal(pedido.itens[0].tamanho, "G");
+    assert.equal(pedido.total, 60);
   });
 
   test("editarItemMesa muda quantidade/observação/pessoa", async () => {

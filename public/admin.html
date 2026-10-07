@@ -734,6 +734,11 @@
           <div id="mesa-item-selecionado-nome" style="font-weight:600; font-size:16px; margin-bottom:2px;"></div>
           <div id="mesa-estoque-disponivel" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></div>
 
+          <div id="mesa-tamanho-selecao" style="display:none; margin-bottom:10px;">
+            <label>Tamanho</label>
+            <div id="mesa-tamanho-opcoes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+          </div>
+
           <div id="mesa-adicionais-lista" style="margin-bottom:10px;"></div>
           <div id="mesa-dica-lote" style="display:none; font-size:12px; color:var(--muted); margin-bottom:10px;">
             💡 Se só parte da quantidade leva o adicional, adicione em duas vezes.
@@ -1692,6 +1697,7 @@ async function criarMesasEmLoteUI() {
 
 let mesaProdutosDisponiveis = [];
 let mesaProdutoSelecionado = null;
+let mesaTamanhoSelecionado = null; // {nome, preco} do tamanho escolhido, ou null
 
 async function abrirModalMesa(mesaId) {
   mesaAtualId = mesaId;
@@ -1783,8 +1789,10 @@ function selecionarProdutoMesa(produtoId) {
   // Traz o bloco de configuração pra vista — antes ele aparecia embaixo da
   // lista e a pessoa precisava rolar pra achar.
   requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
-  document.getElementById('mesa-item-selecionado-nome').textContent =
-    `${mesaProdutoSelecionado.nome}${mesaProdutoSelecionado.unidade ? ` (${mesaProdutoSelecionado.unidade})` : ''} — ${formatarMoeda(mesaProdutoSelecionado.preco)}`;
+
+  mesaTamanhoSelecionado = null;
+  renderizarTamanhoMesa();
+  atualizarNomeItemMesaSelecionado();
   document.getElementById('mesa-item-observacao').value = '';
   document.getElementById('mesa-item-quantidade').value = '1';
   document.getElementById('mesa-item-quantidade').max = mesaProdutoSelecionado.estoqueAtual;
@@ -1808,6 +1816,45 @@ function selecionarProdutoMesa(produtoId) {
   }
 }
 
+// Mostra o preço certo no título do item sendo adicionado: o preço do
+// tamanho escolhido (ou "escolha o tamanho" se o produto tem tamanhos e
+// nenhum foi marcado ainda), ou o preço único de sempre.
+function atualizarNomeItemMesaSelecionado() {
+  const p = mesaProdutoSelecionado;
+  if (!p) return;
+  const base = `${p.nome}${p.unidade ? ` (${p.unidade})` : ''}`;
+  const temTamanhos = p.tamanhos && p.tamanhos.length > 0;
+  const precoTexto = temTamanhos
+    ? (mesaTamanhoSelecionado ? `${mesaTamanhoSelecionado.nome} · ${formatarMoeda(mesaTamanhoSelecionado.preco)}` : 'escolha o tamanho')
+    : formatarMoeda(p.preco);
+  document.getElementById('mesa-item-selecionado-nome').textContent = `${base} — ${precoTexto}`;
+}
+
+// Lista de botões de tamanho (PP/P/M/G etc.) — só aparece pra produto que
+// tem tamanhos cadastrados. Mesmo princípio do WhatsApp (Parte 2c): o
+// garçom escolhe, o preço certo daquele tamanho é usado, nunca o "a
+// partir de" que é só o valor de referência na listagem.
+function renderizarTamanhoMesa() {
+  const container = document.getElementById('mesa-tamanho-selecao');
+  const opcoes = document.getElementById('mesa-tamanho-opcoes');
+  const tamanhos = mesaProdutoSelecionado?.tamanhos || [];
+  if (tamanhos.length === 0) {
+    container.style.display = 'none';
+    opcoes.innerHTML = '';
+    return;
+  }
+  container.style.display = 'block';
+  opcoes.innerHTML = tamanhos.map((t, i) => `
+    <button type="button" class="segmentado-opcao ${mesaTamanhoSelecionado?.nome === t.nome ? 'ativo' : ''}" style="flex:0 0 auto;" onclick="selecionarTamanhoMesa(${i})">${esc(t.nome)} · ${formatarMoeda(t.preco)}</button>
+  `).join('');
+}
+
+function selecionarTamanhoMesa(indice) {
+  mesaTamanhoSelecionado = (mesaProdutoSelecionado?.tamanhos || [])[indice] || null;
+  renderizarTamanhoMesa();
+  atualizarNomeItemMesaSelecionado();
+}
+
 function ajustarQuantidadeMesa(delta) {
   const input = document.getElementById('mesa-item-quantidade');
   const max = mesaProdutoSelecionado?.estoqueAtual ?? 999;
@@ -1828,7 +1875,7 @@ function linhaItemMesa(item, indiceOriginal) {
     <div class="pedido-item" style="align-items:center;">
       <span class="qtd">${item.quantidade}x</span>
       <span class="nome">
-        ${esc(item.nome)}
+        ${esc(item.nome)}${item.tamanho ? ` (${esc(item.tamanho)})` : ''}
         ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
         ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
         ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
@@ -1963,8 +2010,14 @@ function editarItemMesaUI(indice) {
   bloco.style.display = 'block';
   requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
 
+  // O tamanho de um item já lançado não dá pra trocar por aqui (mesmo
+  // limite de preço/porção que o resto da edição) — só mostra qual foi
+  // escolhido, pra não confundir. Pra mudar o tamanho, remove e adiciona
+  // de novo.
+  mesaTamanhoSelecionado = null;
+  document.getElementById('mesa-tamanho-selecao').style.display = 'none';
   document.getElementById('mesa-item-selecionado-nome').textContent =
-    `Editando: ${prod.nome}${prod.unidade ? ` (${prod.unidade})` : ''} — ${formatarMoeda(prod.preco)}`;
+    `Editando: ${prod.nome}${prod.unidade ? ` (${prod.unidade})` : ''} — ${item.tamanho ? item.tamanho + ' · ' : ''}${formatarMoeda(item.preco_unitario)}`;
   document.getElementById('mesa-estoque-disponivel').textContent = `Máximo: ${maxEdicao}`;
   document.getElementById('mesa-item-observacao').value = item.observacao || '';
   document.getElementById('mesa-item-pessoa').value = item.pessoa || '';
@@ -2002,6 +2055,7 @@ function cancelarEdicaoItemMesa() {
 // Volta o bloco "Adicionar item" pro estado neutro (sem edição em curso).
 function resetBlocoItemMesa() {
   mesaProdutoSelecionado = null;
+  mesaTamanhoSelecionado = null;
   document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
   document.getElementById('mesa-busca-produto').value = '';
   document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
@@ -2011,6 +2065,15 @@ function resetBlocoItemMesa() {
 
 async function adicionarItemNaMesa() {
   if (!mesaProdutoSelecionado) return;
+
+  // Produto com tamanhos exige escolher um antes de adicionar — mesma
+  // regra de segurança da IA no WhatsApp (Parte 2c): nunca usa o "a
+  // partir de" como se fosse um preço de verdade.
+  const temTamanhos = mesaProdutoSelecionado.tamanhos && mesaProdutoSelecionado.tamanhos.length > 0;
+  if (temTamanhos && mesaItemEmEdicao == null && !mesaTamanhoSelecionado) {
+    toast('Escolha o tamanho antes de adicionar.', 'erro');
+    return;
+  }
 
   const quantidade = parseInt(document.getElementById('mesa-item-quantidade').value || '1', 10);
   const observacao = document.getElementById('mesa-item-observacao').value.trim();
@@ -2048,7 +2111,8 @@ async function adicionarItemNaMesa() {
     produto_id: mesaProdutoSelecionado.id,
     nome: mesaProdutoSelecionado.nome,
     quantidade,
-    preco_unitario: mesaProdutoSelecionado.preco,
+    preco_unitario: temTamanhos ? mesaTamanhoSelecionado.preco : mesaProdutoSelecionado.preco,
+    tamanho: temTamanhos ? mesaTamanhoSelecionado.nome : undefined,
     adicionais,
     observacao: observacao || undefined,
     pessoa: pessoa || undefined,
@@ -2287,7 +2351,7 @@ function renderizarListaPedidos(pedidos) {
           <div class="pedido-item">
             <span class="qtd">${item.quantidade}x</span>
             <span class="nome">
-              ${esc(item.nome)}${item.porcao === 'meia' ? ' (meia)' : ''}
+              ${esc(item.nome)}${item.porcao === 'meia' ? ' (meia)' : ''}${item.tamanho ? ` (${esc(item.tamanho)})` : ''}
               ${item.pessoa ? `<span class="badge-origem" style="margin-left:6px;">${esc(item.pessoa)}</span>` : ''}
               ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
               ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
