@@ -812,6 +812,11 @@
         <p style="color:var(--muted); font-size:14px; margin-bottom:10px;">
           Confira cada item antes de salvar. Itens com preço não identificado precisam ser preenchidos pra poderem ser salvos. Itens que já existem no seu cardápio vêm desmarcados.
         </p>
+        <div id="importar-cardapio-nicho-bloco" style="display:none; background:var(--paper-dim); border:1px solid var(--line); padding:10px 12px; margin-bottom:14px; border-radius:2px;">
+          <label style="margin-top:0;">Tipo de negócio (a IA deu esse palpite pelo cardápio)</label>
+          <input type="text" id="importar-cardapio-nicho" placeholder="Ex: Pizzaria" />
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">Deixe em branco se não quiser atualizar o tipo do seu negócio.</div>
+        </div>
         <div id="importar-cardapio-lista"></div>
         <div style="display:flex; gap:8px; margin-top:16px;">
           <button class="btn-secundario" style="flex:1;" onclick="fecharModalImportarCardapio()">Cancelar</button>
@@ -2547,6 +2552,8 @@ function removerTamanhoDaLista(indice) {
 function abrirModalImportarCardapio() {
   itensCardapioImportado = [];
   document.getElementById('importar-cardapio-arquivos').value = '';
+  document.getElementById('importar-cardapio-nicho-bloco').style.display = 'none';
+  document.getElementById('importar-cardapio-nicho').value = '';
   document.getElementById('importar-cardapio-passo-upload').style.display = 'block';
   document.getElementById('importar-cardapio-passo-revisao').style.display = 'none';
   document.getElementById('modal-importar-cardapio').style.display = 'flex';
@@ -2590,6 +2597,11 @@ async function lerCardapioImportado(botao) {
       jaExiste: nomesExistentes.has((item.nome || '').trim().toLowerCase()),
       selecionado: !nomesExistentes.has((item.nome || '').trim().toLowerCase()),
     }));
+
+    if (dados.nichoSugerido) {
+      document.getElementById('importar-cardapio-nicho-bloco').style.display = 'block';
+      document.getElementById('importar-cardapio-nicho').value = dados.nichoSugerido;
+    }
 
     document.getElementById('importar-cardapio-passo-upload').style.display = 'none';
     document.getElementById('importar-cardapio-passo-revisao').style.display = 'block';
@@ -2683,6 +2695,17 @@ async function confirmarImportacaoCardapio(botao) {
     if (!resposta.ok) {
       toast(dados.erro || 'Não foi possível salvar os itens.', 'erro');
       return;
+    }
+
+    // Tipo de negócio: só atualiza se o dono deixou algo preenchido nesse
+    // campo (a sugestão da IA, editada ou não) — campo em branco = não mexe.
+    const nicho = document.getElementById('importar-cardapio-nicho').value.trim();
+    if (nicho) {
+      await apiFetch('/api/empresa', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: nicho }),
+      });
     }
 
     fecharModalImportarCardapio();

@@ -52,8 +52,13 @@ test("com tamanhos, temMeiaPorcao da IA é ignorado (os dois mecanismos não se 
   assert.equal(item.precoMeia, null);
 });
 
-test("categoria inválida vira 'comida' (nunca passa um valor fora do enum pro banco)", () => {
-  const item = sanitizarItemExtraido({ nome: "X", preco: 10, categoria: "lanche" });
+test("categoria é texto livre: a IA pode criar uma categoria nova (ex: pra pizza, caldo, lanche)", () => {
+  const item = sanitizarItemExtraido({ nome: "X", preco: 10, categoria: "Pizzas Doces" });
+  assert.equal(item.categoria, "Pizzas Doces");
+});
+
+test("categoria vazia/ausente cai pro default 'comida'", () => {
+  const item = sanitizarItemExtraido({ nome: "X", preco: 10 });
   assert.equal(item.categoria, "comida");
 });
 

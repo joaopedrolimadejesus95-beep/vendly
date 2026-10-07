@@ -481,8 +481,8 @@ app.post("/api/cardapio/importar-preview", async (req, res) => {
   }
 
   try {
-    const itens = await extrairItensCardapio(req.files);
-    res.json({ itens });
+    const { itens, nichoSugerido } = await extrairItensCardapio(req.files);
+    res.json({ itens, nichoSugerido });
   } catch (erro) {
     res.status(500).json({ erro: erro.message || "Não foi possível ler o cardápio. Tente de novo." });
   }

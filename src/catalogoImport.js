@@ -7,11 +7,9 @@
 // (ver rota /api/cardapio/importar-confirmar em server.js).
 
 import Anthropic from "@anthropic-ai/sdk";
-import { sanitizarTamanhos } from "./catalog.js";
+import { sanitizarTamanhos, sanitizarCategoria } from "./catalog.js";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-const CATEGORIAS_VALIDAS = ["comida", "salada", "bebida", "sobremesa"];
 
 const FERRAMENTA_CARDAPIO = {
   name: "registrar_itens_cardapio",
@@ -19,6 +17,11 @@ const FERRAMENTA_CARDAPIO = {
   input_schema: {
     type: "object",
     properties: {
+      nicho_sugerido: {
+        type: "string",
+        description:
+          "Um palpite curto (1-3 palavras) do TIPO de negócio, olhando o cardápio inteiro — ex: 'Pizzaria', 'Hamburgueria', 'Lanchonete', 'Sorveteria', 'Restaurante'. Deixe vazio se o cardápio for muito variado/genérico pra dar um palpite confiável. É só uma SUGESTÃO que o dono confirma depois, não precisa ter certeza absoluta.",
+      },
       itens: {
         type: "array",
         description: "Um item por produto do cardápio encontrado nas imagens/PDF.",
@@ -31,7 +34,11 @@ const FERRAMENTA_CARDAPIO = {
               type: "number",
               description: "Preço da porção inteira, em reais. Só use isso se o item tem UM preço só — se tiver vários tamanhos (ex: pizza PP/P/M/G), deixe vazio e use 'tamanhos' em vez disso. NUNCA invente — se o preço estiver ilegível/cortado, deixe este campo de fora e explique em 'duvida'.",
             },
-            categoria: { type: "string", enum: CATEGORIAS_VALIDAS },
+            categoria: {
+              type: "string",
+              description:
+                "Nome da seção/categoria desse item. Use o nome da seção do próprio cardápio quando houver (ex: se o cardápio tem um título 'PIZZAS DOCES', use 'Pizzas Doces' — capitalizado, sem ficar em maiúsculo total). Mantenha o MESMO nome de categoria pra todos os itens da mesma seção (não varie 'Pizza' / 'Pizzas' / 'pizza' pros itens de uma seção só). Se o cardápio não tiver seções claras, use algo simples como Comida, Bebida ou Sobremesa.",
+            },
             unidade: { type: "string", description: "Ex: '350ml', '1kg'. Vazio se não se aplicar." },
             temMeiaPorcao: { type: "boolean" },
             precoMeia: { type: "number", description: "Preço da meia porção, só se temMeiaPorcao for true e o cardápio mostrar esse preço." },
@@ -78,8 +85,13 @@ REGRAS:
 - NUNCA invente preço. Se não conseguir ler um preço com confiança, deixe o
   campo "preco" de fora desse item e explique o motivo em "duvida" (ex:
   "preço cortado na foto").
-- Categoria: escolha entre comida, salada, bebida ou sobremesa — a que
-  melhor descreve o item, mesmo que o cardápio use outro nome de seção.
+- Categoria: use o nome da seção do cardápio (ex: "PIZZAS", "PIZZAS DOCES",
+  "CALDOS", "LANCHES", "BEBIDAS") capitalizado normalmente, mantendo o MESMO
+  nome pra todos os itens da mesma seção. Cardápio sem seção clara: use algo
+  simples tipo "Comida", "Bebida" ou "Sobremesa".
+- Além dos itens, dê um palpite curto do TIPO de negócio ("nicho_sugerido"),
+  olhando o cardápio inteiro (ex: cardápio cheio de pizza = "Pizzaria").
+  Deixe vazio se não der pra dizer com alguma confiança.
 - Se dois preços aparecem pro mesmo item e são claramente "porção inteira"
   e "meia porção" (ex: "inteira R$40 / meia R$25"), use preco = inteira,
   temMeiaPorcao = true, precoMeia = meia.
@@ -101,7 +113,7 @@ const EXTENSOES_PERMITIDAS = {
 
 /**
  * @param {Array<{buffer: Buffer, mimetype: string}>} arquivos - até 5 imagens OU 1 PDF
- * @returns {Promise<Array<object>>} itens extraídos, SEM salvar nada
+ * @returns {Promise<{itens: Array<object>, nichoSugerido: string}>} SEM salvar nada
  */
 export async function extrairItensCardapio(arquivos) {
   if (!arquivos || arquivos.length === 0) {
@@ -143,7 +155,10 @@ export async function extrairItensCardapio(arquivos) {
     throw new Error("Não consegui ler o cardápio dessas imagens. Tente fotos mais nítidas.");
   }
 
-  return (blocoFerramenta.input.itens || []).map(sanitizarItemExtraido);
+  return {
+    itens: (blocoFerramenta.input.itens || []).map(sanitizarItemExtraido),
+    nichoSugerido: String(blocoFerramenta.input.nicho_sugerido || "").trim().slice(0, 60),
+  };
 }
 
 // Mesmo princípio das camadas de proteção do ai.js: nunca confia cegamente
@@ -160,7 +175,7 @@ export function sanitizarItemExtraido(item) {
     // Com tamanhos, o preço único não se aplica — zera pra não confundir a
     // tela de revisão (mesma regra de catalog.js: quem manda é "tamanhos").
     preco: temTamanhos ? null : precoValido ? item.preco : null,
-    categoria: CATEGORIAS_VALIDAS.includes(item.categoria) ? item.categoria : "comida",
+    categoria: sanitizarCategoria(item.categoria),
     unidade: String(item.unidade || "").trim().slice(0, 50),
     temMeiaPorcao: !temTamanhos && Boolean(item.temMeiaPorcao) && precoMeiaValido,
     precoMeia: !temTamanhos && Boolean(item.temMeiaPorcao) && precoMeiaValido ? item.precoMeia : null,

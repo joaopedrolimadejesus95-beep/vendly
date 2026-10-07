@@ -30,7 +30,9 @@ export function sanitizarTamanhos(tamanhos) {
 
 // Categoria é texto livre (ver catalogoFormatado) — mas nunca vazio
 // (senão o produto sumiria do agrupamento) nem absurdamente longo.
-function sanitizarCategoria(categoria) {
+// Exportada: catalogoImport.js usa a mesma regra pra sanitizar a
+// categoria que a IA cria ao ler a foto do cardápio.
+export function sanitizarCategoria(categoria) {
   return (typeof categoria === "string" ? categoria.trim().slice(0, 60) : "") || "comida";
 }
 
