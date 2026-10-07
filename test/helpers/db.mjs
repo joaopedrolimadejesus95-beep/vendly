@@ -1,8 +1,22 @@
 // Helper dos testes de integração. Usa o Postgres apontado por DATABASE_URL
 // — que DEVE ser um banco descartável (ex: vendly_test), nunca o de produção.
+import "dotenv/config";
 import { pool, inicializarBancoDeDados } from "../../src/db.js";
 
 export const TEM_DB = Boolean(process.env.DATABASE_URL);
+
+// Trava de segurança: os testes fazem TRUNCATE nas tabelas a cada execução
+// (ver limparBanco abaixo) — sem essa checagem, rodar "npm run test:db" com
+// o .env de produção apagaria TODOS os dados de verdade sem aviso nenhum.
+// Exige que o nome do banco no DATABASE_URL contenha "test".
+if (TEM_DB && !/test/i.test(process.env.DATABASE_URL)) {
+  throw new Error(
+    'DATABASE_URL não parece ser um banco de teste (o nome não contém "test"). ' +
+    "Os testes de integração APAGAM todos os dados a cada execução (TRUNCATE) — " +
+    "nunca aponte isso pro banco de produção. Use um banco descartável à parte " +
+    "(ex: .../vendly_test) só pra rodar os testes."
+  );
+}
 
 let jaInicializou = false;
 
