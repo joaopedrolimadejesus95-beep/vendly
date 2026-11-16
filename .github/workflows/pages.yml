@@ -1,0 +1,27 @@
+name: Deploy Landing Page to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish public/ to gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TREE=$(git rev-parse HEAD:public)
+          COMMIT=$(git commit-tree "$TREE" -m "deploy: update GitHub Pages from main")
+          git push -f origin "$COMMIT:refs/heads/gh-pages"
