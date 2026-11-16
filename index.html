@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vendly — Comanda Digital e Atendimento Automático no WhatsApp para Restaurantes</title>
+<meta name="description" content="Sistema de comanda digital e atendimento automático no WhatsApp para restaurantes: controle de mesas, pedidos e estoque em um só painel. Teste grátis por 7 dias." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="theme-color" content="#1a1816" />
+<link rel="canonical" href="https://meuvendly.com.br/" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+<!-- Open Graph (link bonito quando compartilhado no WhatsApp, Instagram, etc) -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://meuvendly.com.br/" />
+<meta property="og:site_name" content="Vendly" />
+<meta property="og:title" content="Vendly — Seu restaurante vende. A Vendly organiza o resto." />
+<meta property="og:description" content="WhatsApp + Mesas + Pedidos + Estoque, tudo em um único painel. Teste grátis por 7 dias." />
+<meta property="og:image" content="https://meuvendly.com.br/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Vendly — painel de atendimento pra restaurantes" />
+<meta property="og:locale" content="pt_BR" />
+
+<!-- Twitter/X Card (mesmo princípio do Open Graph) -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Vendly — Seu restaurante vende. A Vendly organiza o resto." />
+<meta name="twitter:description" content="WhatsApp + Mesas + Pedidos + Estoque, tudo em um único painel. Teste grátis por 7 dias." />
+<meta name="twitter:image" content="https://meuvendly.com.br/og-image.png" />
+
+<!-- Dados estruturados (Schema.org) — ajudam o Google a entender o que é
+     o site e podem gerar resultado rico (FAQ expansível, preço) na busca. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Vendly",
+  "url": "https://meuvendly.com.br/",
+  "image": "https://meuvendly.com.br/og-image.png",
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "Sistema para gestão de restaurantes",
+  "operatingSystem": "Web",
+  "description": "Sistema para restaurantes com atendimento automático por IA no WhatsApp, controle de mesas, pedidos e estoque em um único painel.",
+  "inLanguage": "pt-BR",
+  "offers": [
+    { "@type": "Offer", "name": "Vendly Mesas", "price": "79", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" },
+    { "@type": "Offer", "name": "Vendly Base", "price": "150", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" },
+    { "@type": "Offer", "name": "Vendly Pro", "price": "199", "priceCurrency": "BRL", "url": "https://meuvendly.com.br/#preco" }
+  ],
+  "provider": {
+    "@type": "Organization",
+    "name": "Vendly",
+    "url": "https://meuvendly.com.br/",
+    "logo": "https://meuvendly.com.br/og-image.png",
+    "areaServed": "BR",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "telephone": "+55-44-99987-4707",
+      "url": "https://wa.me/5544999874707",
+      "availableLanguage": "Portuguese"
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "O Vendly funciona pelo WhatsApp?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Nos planos Base e Pro, a Vendly usa IA pra atender clientes pelo WhatsApp e transformar conversas em pedidos." } },
+    { "@type": "Question", "name": "Preciso ficar respondendo os clientes?", "acceptedAnswer": { "@type": "Answer", "text": "Não. A IA cuida dos pedidos dentro das regras configuradas no sistema, e encaminha pra você as situações que precisam de atendimento humano." } },
+    { "@type": "Question", "name": "A IA pode inventar produtos ou preços?", "acceptedAnswer": { "@type": "Answer", "text": "Não. O sistema usa o cardápio que você cadastrou pra responder. Totais e cálculos importantes são conferidos pelo sistema, não confiados só à IA." } },
+    { "@type": "Question", "name": "O Vendly também funciona pra atendimento presencial?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O plano Mesas organiza pedidos presenciais e mesas, mesmo sem usar WhatsApp." } },
+    { "@type": "Question", "name": "Posso usar WhatsApp e Mesas juntos?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O plano Pro reúne os dois módulos num único painel." } },
+    { "@type": "Question", "name": "Preciso instalar algum programa?", "acceptedAnswer": { "@type": "Answer", "text": "Depende da configuração do seu restaurante (ex: impressora). A configuração é acompanhada, pra deixar tudo funcionando certinho." } },
+    { "@type": "Question", "name": "Posso cancelar quando quiser?", "acceptedAnswer": { "@type": "Answer", "text": "Sim, não existe fidelidade." } },
+    { "@type": "Question", "name": "Posso testar antes de contratar?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. Você pode testar o Vendly gratuitamente por 7 dias." } },
+    { "@type": "Question", "name": "E se eu precisar de ajuda?", "acceptedAnswer": { "@type": "Answer", "text": "Você fala direto com a gente pelo WhatsApp." } }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1816;
+    --paper: #faf6ef;
+    --paper-dim: #f0ead9;
+    --flame: #d84315;
+    --flame-dark: #b8380f;
+    --mustard: #e0a733;
+    --herb: #4a7c59;
+    --line: #ded5c2;
+    --muted: #8a8073;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-body);
+    background: var(--paper-dim);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  img, svg { display: block; max-width: 100%; }
+  a { color: inherit; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--flame);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  /* ---- NAV ---- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(26,24,22,0.96);
+    backdrop-filter: blur(6px);
+    color: var(--paper);
+  }
+  nav .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; }
+  .nav-links a { text-decoration: none; opacity: 0.75; transition: opacity 0.2s; }
+  .nav-links a:hover { opacity: 1; }
+  .nav-cta {
+    background: var(--flame);
+    color: var(--paper);
+    padding: 9px 18px;
+    border-radius: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  @media (max-width: 720px) { .nav-links { display: none; } }
+
+  /* ---- HERO ---- */
+  .hero {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 90px 0 70px;
+    overflow: hidden;
+  }
+  .hero .wrap {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items: center;
+  }
+  @media (max-width: 880px) { .hero .wrap { grid-template-columns: 1fr; } }
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.08;
+    margin-bottom: 20px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--flame);
+  }
+  .hero p.lede {
+    font-size: 18px;
+    color: rgba(250,246,239,0.72);
+    max-width: 460px;
+    margin-bottom: 32px;
+  }
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--flame);
+    color: var(--paper);
+    padding: 14px 26px;
+    border-radius: 2px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--flame-dark); }
+  .btn-ghost {
+    border: 1px solid rgba(250,246,239,0.3);
+    color: var(--paper);
+    padding: 14px 26px;
+    border-radius: 2px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .btn-ghost:hover { border-color: var(--paper); }
+
+  /* Selo de "a gente cadastra seu cardápio pra você" — mata a preguiça do
+     onboarding, que é o maior gargalo de SaaS pra restaurante. */
+  .oferta-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    background: rgba(74,124,89,0.16);
+    border: 1px solid var(--herb);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 10px 14px;
+    border-radius: 4px;
+    max-width: 440px;
+    width: fit-content;
+    text-align: left;
+  }
+  .oferta-badge .selo-emoji { font-size: 15px; flex-shrink: 0; }
+  .oferta-badge b { color: var(--mustard); font-weight: 700; }
+  /* Sobre o fundo laranja do CTA final: caixa escura sólida com texto
+     claro — dark-sobre-laranja não dava contraste pra ler. */
+  .oferta-badge.escura { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .oferta-badge.escura b { color: var(--mustard); }
+
+  /* ---- HERO DEMO (signature element: WhatsApp -> ticket) ---- */
+  .demo-stage {
+    position: relative;
+    min-height: 420px;
+  }
+  .phone {
+    background: #0e0d0c;
+    border: 6px solid #2a2723;
+    border-radius: 28px;
+    width: 280px;
+    margin: 0 auto;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.45);
+  }
+  .phone-screen {
+    background: #e9e2d0;
+    min-height: 400px;
+    padding: 16px 12px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bubble {
+    max-width: 78%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: var(--font-body);
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  /* A sequência só anima quando .demo-stage tem .playing — o JS remove e
+     recoloca essa classe a cada ~13s pra a demo rodar em loop, feito um GIF. */
+  .demo-stage.playing .bubble { animation: bubbleIn 0.5s ease forwards; }
+  /* Texto ESCURO nas bolhas — sem isso elas herdavam o creme claro do hero
+     e ficavam ilegíveis (creme sobre branco / creme sobre verde claro). */
+  .bubble.in { background: #fff; color: #1a1816; align-self: flex-start; border-bottom-left-radius: 2px; }
+  .bubble.out { background: #d9f2c4; color: #17331a; align-self: flex-end; border-bottom-right-radius: 2px; }
+  @keyframes bubbleIn { to { opacity: 1; transform: translateY(0); } }
+  .b1 { animation-delay: 0.4s; }
+  .b2 { animation-delay: 1.6s; }
+  .b3 { animation-delay: 2.9s; }
+  .b4 { animation-delay: 3.8s; }
+
+  .ticket-pop {
+    position: absolute;
+    right: -40px;
+    bottom: -30px;
+    width: 190px;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 14px 14px 18px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    opacity: 0;
+    transform: translateY(20px) rotate(3deg);
+  }
+  .demo-stage.playing .ticket-pop { animation: ticketIn 0.6s ease forwards; animation-delay: 4.7s; }
+  @keyframes ticketIn { to { opacity: 1; transform: translateY(0) rotate(3deg); } }
+  .ticket-pop .t-head { text-align: center; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.03em; }
+  .ticket-pop .t-line { border-top: 1px dashed #c9bfab; margin: 6px 0; }
+  .ticket-pop .t-total { text-align: right; font-weight: 700; margin-top: 6px; }
+  .ticket-pop .t-stamp {
+    margin-top: 8px;
+    text-align: center;
+    background: var(--herb);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 3px 0;
+    opacity: 0;
+  }
+  .demo-stage.playing .ticket-pop .t-stamp { animation: bubbleIn 0.4s ease forwards; animation-delay: 5.6s; }
+  .demo-loop-nota {
+    position: absolute; left: 0; right: 0; bottom: -8px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: rgba(250,246,239,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bubble, .ticket-pop, .ticket-pop .t-stamp { animation: none !important; opacity: 1; transform: none; }
+  }
+
+  /* ---- SECTIONS shared ---- */
+  section { padding: 84px 0; }
+  .section-head { max-width: 560px; margin-bottom: 48px; }
+  .section-head h2 { font-size: clamp(26px, 3.4vw, 36px); }
+
+  /* ---- COMO FUNCIONA ---- */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  @media (max-width: 800px) { .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 28px 24px;
+  }
+  .step .num {
+    font-family: var(--font-mono);
+    color: var(--flame);
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .step h3 { font-size: 19px; margin-bottom: 10px; }
+  .step p { color: var(--muted); font-size: 14.5px; }
+
+  /* ---- DEMO CONVERSATION SECTION ---- */
+  .demo-section { background: var(--ink); color: var(--paper); }
+  .demo-section .eyebrow { color: var(--mustard); }
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  @media (max-width: 880px) { .demo-grid { grid-template-columns: 1fr; } }
+  .chat-static { display: flex; flex-direction: column; gap: 10px; }
+  .chat-static .bubble { animation: none; opacity: 1; transform: none; position: static; }
+  .chat-static .bubble.in { background: rgba(250,246,239,0.08); color: var(--paper); }
+  .chat-static .bubble.out { background: var(--herb); color: #fff; }
+
+  .receipt {
+    background: var(--paper);
+    color: var(--ink);
+    padding: 24px 22px 30px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    max-width: 300px;
+    margin: 0 auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  }
+  .receipt .r-head { text-align: center; font-weight: 700; font-size: 15px; text-transform: uppercase; }
+  .receipt .r-sub { text-align: center; color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+  .receipt .r-line { border-top: 1px dashed #c9bfab; margin: 10px 0; }
+  .receipt .r-item { display: flex; justify-content: space-between; margin: 3px 0; }
+  .receipt .r-total { display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-top: 8px; }
+  .receipt .r-status { text-align: center; margin-top: 12px; background: var(--herb); color: #fff; padding: 5px; font-weight: 700; letter-spacing: 0.04em; }
+
+  /* ---- FEATURES ---- */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  @media (max-width: 800px) { .features { grid-template-columns: 1fr; } }
+  .feature {
+    background: var(--paper);
+    padding: 26px 22px;
+  }
+  .feature .icon { font-size: 22px; margin-bottom: 12px; }
+  .feature h3 { font-size: 16px; margin-bottom: 8px; }
+  .feature p { color: var(--muted); font-size: 13.5px; }
+
+  /* ---- PRICING ---- */
+  .pricing-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .pricing-wrap { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; } }
+  .price-card {
+    background: var(--ink);
+    color: var(--paper);
+    width: 100%;
+    padding: 36px 28px;
+    position: relative;
+    border: 1px solid rgba(250,246,239,0.15);
+  }
+  .price-card.destaque {
+    border: 1px solid var(--flame);
+    transform: scale(1.03);
+  }
+  @media (max-width: 880px) { .price-card.destaque { transform: none; } }
+  .price-badge {
+    position: absolute; top: -13px; left: 28px;
+    background: var(--flame);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    text-transform: uppercase;
+  }
+  .price-card h3 { font-size: 19px; margin-bottom: 6px; }
+  .price-card .price-value {
+    font-family: var(--font-mono);
+    font-size: 36px;
+    font-weight: 700;
+    margin: 16px 0 4px;
+  }
+  .price-card .price-value span { font-size: 15px; color: rgba(250,246,239,0.55); font-weight: 400; }
+  .price-card .price-desc { color: rgba(250,246,239,0.6); font-size: 13.5px; margin-bottom: 22px; min-height: 40px; }
+  .price-list { list-style: none; margin-bottom: 24px; }
+  .price-list li {
+    padding: 8px 0;
+    border-bottom: 1px dotted rgba(250,246,239,0.15);
+    font-size: 13.5px;
+    display: flex;
+    gap: 10px;
+  }
+  .price-list li::before { content: "✓"; color: var(--herb); font-weight: 700; }
+  .price-card .btn-primary { display: block; text-align: center; width: 100%; font-size: 14px; padding: 12px 20px; }
+  .price-card .btn-ghost { display: block; text-align: center; width: 100%; font-size: 14px; padding: 12px 20px; box-sizing: border-box; }
+  .price-note { text-align: center; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .price-note a { color: var(--flame); text-decoration: underline; }
+
+  /* ---- CTA FINAL ---- */
+  .cta-final {
+    background: var(--flame);
+    color: var(--paper);
+    text-align: center;
+    padding: 80px 0;
+  }
+  .cta-final h2 { font-size: clamp(26px, 3.6vw, 38px); margin-bottom: 14px; }
+  .cta-final p { max-width: 480px; margin: 0 auto 28px; color: rgba(250,246,239,0.85); }
+  .cta-final .btn-primary { background: var(--ink); }
+  .cta-final .btn-primary:hover { background: #000; }
+
+  /* ---- FOOTER ---- */
+  footer {
+    background: var(--ink);
+    color: rgba(250,246,239,0.5);
+    padding: 32px 0;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* ---- PROVA / PAINEL REAL ---- */
+  .prova-linha { text-align: center; font-family: var(--font-mono); font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 40px; }
+  .mockup-painel {
+    background: var(--ink);
+    max-width: 720px;
+    margin: 0 auto;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .mockup-topo { background: #0e0d0c; padding: 14px 18px; color: var(--paper); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .mockup-corpo { background: var(--paper); padding: 20px; }
+  .mockup-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .mockup-stat { background: var(--paper-dim); border: 1px solid var(--line); padding: 12px 10px; }
+  .mockup-stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; font-family: var(--font-mono); }
+  .mockup-stat .val { font-family: var(--font-mono); font-weight: 700; font-size: 16px; margin-top: 4px; }
+  .mockup-linha-pedido { display: flex; justify-content: space-between; align-items: center; background: var(--paper-dim); border: 1px solid var(--line); padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+  .mockup-badge { font-family: var(--font-mono); font-size: 10px; padding: 2px 7px; border-radius: 20px; background: #fdecdf; color: var(--flame); text-transform: uppercase; }
+  .mockup-badge.mesa { background: #e6f0e9; color: var(--herb); }
+
+  /* ---- O PROBLEMA ---- */
+  .problema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  @media (max-width: 880px) { .problema-grid { grid-template-columns: 1fr; } }
+  .dor-lista { list-style: none; }
+  .dor-lista li { padding: 10px 0 10px 28px; position: relative; color: var(--muted); font-size: 15px; border-bottom: 1px dotted var(--line); }
+  .dor-lista li::before { content: "✕"; position: absolute; left: 0; color: var(--flame); font-weight: 700; }
+  .fluxo-solucao { list-style: none; }
+  .fluxo-solucao li { padding: 12px 16px; background: var(--paper); border-left: 3px solid var(--herb); margin-bottom: 10px; font-size: 14.5px; }
+  .fluxo-solucao li b { color: var(--herb); }
+
+  /* ---- WHATSAPP + MESAS ---- */
+  .canais-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: rgba(250,246,239,0.12); border: 1px solid rgba(250,246,239,0.12); margin-bottom: 32px; }
+  @media (max-width: 880px) { .canais-grid { grid-template-columns: repeat(2, 1fr); } }
+  .canal-item { background: var(--ink); padding: 22px 16px; }
+  .canal-item .icone { font-size: 22px; margin-bottom: 10px; }
+  .canal-item h3 { font-size: 14px; margin-bottom: 6px; text-transform: uppercase; }
+  .canal-item p { font-size: 12.5px; color: rgba(250,246,239,0.6); }
+  .frase-grande { text-align: center; font-family: var(--font-display); font-size: clamp(20px, 3vw, 28px); max-width: 640px; margin: 0 auto; }
+
+  /* ---- BENEFÍCIOS (4 grandes) ---- */
+  .beneficios-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 880px) { .beneficios-grid { grid-template-columns: 1fr; } }
+  .beneficio { background: var(--paper); border: 1px solid var(--line); padding: 30px 26px; }
+  .beneficio .icone { font-size: 28px; margin-bottom: 14px; }
+  .beneficio h3 { font-size: 19px; margin-bottom: 8px; }
+  .beneficio p { color: var(--muted); font-size: 14.5px; }
+
+  /* ---- TESTE GRÁTIS ---- */
+  .teste-gratis-box { background: var(--ink); color: var(--paper); text-align: center; padding: 56px 32px; max-width: 620px; margin: 0 auto; }
+  .teste-gratis-box h2 { font-size: clamp(24px, 3vw, 32px); margin-bottom: 12px; }
+  .teste-gratis-box p { color: rgba(250,246,239,0.7); margin-bottom: 26px; max-width: 460px; margin-inline: auto; }
+
+  /* ---- FAQ ---- */
+  .faq-lista { max-width: 720px; margin: 0 auto; }
+  .faq-item { border-bottom: 1px solid var(--line); padding: 20px 0; }
+  .faq-item h3 { font-size: 16px; margin-bottom: 8px; }
+  .faq-item p { color: var(--muted); font-size: 14.5px; }
+
+  /* ---- CUSTO DE FAZER MANUAL ---- */
+  .fluxo-dor { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 36px; }
+  .fluxo-dor .item { background: var(--paper); border: 1px solid var(--line); padding: 10px 20px; font-size: 14px; color: var(--muted); }
+  .fluxo-dor .seta { color: var(--flame); font-size: 18px; }
+  .fluxo-solucao-final { text-align: center; font-family: var(--font-display); font-size: clamp(20px, 3vw, 26px); }
+
+  /* ---- ÍCONES (SVG monocromático — sem emoji) ---- */
+  .canal-item .icone svg { width: 22px; height: 22px; color: var(--mustard); }
+  .beneficio .icone svg { width: 28px; height: 28px; color: var(--flame); }
+  .oferta-badge .selo-ico { width: 16px; height: 16px; flex-shrink: 0; color: var(--herb); margin-top: 1px; }
+  .oferta-badge.escura .selo-ico { color: var(--mustard); }
+  .price-badge svg { display: inline-block; width: 12px; height: 12px; fill: currentColor; vertical-align: -1px; margin-right: 4px; }
+  .wa-glyph { display: inline-block; width: 15px; height: 15px; fill: currentColor; vertical-align: -2px; margin-right: 7px; }
+  .canal-item .icone svg, .beneficio .icone svg { display: inline-block; }
+
+  /* ---- BOTÃO FLUTUANTE DO WHATSAPP ---- */
+  .wa-float {
+    position: fixed; right: 20px; bottom: 20px; z-index: 200;
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #25d366; color: #fff;
+    padding: 13px 20px 13px 16px;
+    border-radius: 999px;
+    text-decoration: none; font-weight: 600; font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .wa-float:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(0,0,0,0.34); }
+  .wa-float svg { width: 22px; height: 22px; fill: #fff; flex-shrink: 0; }
+  @media (max-width: 600px) {
+    .wa-float { padding: 15px; right: 16px; bottom: 16px; }
+    .wa-float .wa-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/>
+    </symbol>
+    <symbol id="ic-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9h18l-1-3H4L3 9Z"/><path d="M6 9v10M18 9v10M4 9h16"/>
+    </symbol>
+    <symbol id="ic-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>
+    </symbol>
+    <symbol id="ic-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>
+    </symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 21h18"/><path d="M6 21v-7M12 21V6M18 21v-4"/>
+    </symbol>
+    <symbol id="ic-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>
+    </symbol>
+    <symbol id="ic-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 12v9H4v-9M2 7h20v5H2zM12 22V7M12 7S10.5 3 8 3 5 7 5 7M12 7s1.5-4 4-4 3 4 3 4"/>
+    </symbol>
+    <symbol id="ic-star" viewBox="0 0 24 24"><path d="m12 2 2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.8 6.1 20.2l1.2-6.6L2.5 9l6.6-.9L12 2Z"/></symbol>
+    <symbol id="ic-wa" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.6-6.1c-.25-.13-1.5-.74-1.73-.82-.23-.09-.4-.13-.57.13-.17.25-.65.82-.8.99-.15.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.66-1.25-1.48-1.4-1.73-.15-.25-.02-.39.11-.51.11-.11.25-.29.38-.44.13-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.57-1.37-.78-1.87-.2-.49-.41-.42-.57-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.6.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.43.53.6.19 1.15.16 1.58.1.48-.07 1.5-.61 1.71-1.2.21-.59.21-1.1.15-1.2-.06-.11-.23-.17-.48-.3Z"/></symbol>
+  </defs>
+</svg>
+
+<nav>
+  <div class="wrap">
+    <div class="logo">Vendly</div>
+    <div class="nav-links">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#preco">Planos</a>
+      <a href="#faq">FAQ</a>
+      <a href="admin.html">Já sou cliente</a>
+    </div>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="nav-cta"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Atendimento automático via WhatsApp + Mesas</span>
+      <h1>Seu restaurante vende. <em>A Vendly</em> organiza o resto.</h1>
+      <p class="lede">Atenda pedidos no WhatsApp, gerencie suas mesas e acompanhe tudo em um só lugar. Sem planilhas. Sem pedidos perdidos. Sem ficar respondendo as mesmas perguntas o dia inteiro.</p>
+      <div class="hero-ctas">
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
+        <a href="#como-funciona" class="btn-ghost">Ver como funciona ↓</a>
+      </div>
+      <div class="oferta-badge" style="margin-top:18px;">
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
+        <span>No teste grátis, <b>a gente cadastra seu cardápio inicial pra você</b> — você só manda a foto ou o link do cardápio e já começa recebendo pedido.</span>
+      </div>
+      <div style="margin-top:14px; font-size:12.5px; color:rgba(250,246,239,0.55); font-family:var(--font-mono);">Sem fidelidade • Configuração acompanhada • Cancele quando quiser</div>
+    </div>
+    <div class="demo-stage playing">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="bubble in b1">oi, quero 2 x-bacon e uma coca</div>
+          <div class="bubble out b2">Show! 2x X-Bacon + 1x Coca-Cola. Total R$50,80. Confirma?</div>
+          <div class="bubble in b3">sim</div>
+          <div class="bubble out b4">Pedido confirmado. Já vamos preparar.</div>
+        </div>
+      </div>
+      <div class="ticket-pop">
+        <div class="t-head">Pedido #1042</div>
+        <div class="t-line"></div>
+        2x X-Bacon<br>1x Coca-Cola
+        <div class="t-line"></div>
+        <div class="t-total">R$50,80</div>
+        <div class="t-stamp">ENVIADO À COZINHA</div>
+      </div>
+      <div class="demo-loop-nota">cliente manda no WhatsApp → vira pedido → sai a comanda</div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-bottom:0;">
+  <div class="wrap">
+    <div class="prova-linha">Feito para a rotina real de restaurantes — WhatsApp + Mesas + Pedidos + Estoque + Impressão, tudo conectado em um único sistema.</div>
+    <div class="mockup-painel">
+      <div class="mockup-topo"><span>Vendly</span><span style="font-size:11px; opacity:0.6;">Painel do restaurante</span></div>
+      <div class="mockup-corpo">
+        <div class="mockup-stats">
+          <div class="mockup-stat"><div class="lbl">Faturamento hoje</div><div class="val" style="color:var(--flame);">R$534,80</div></div>
+          <div class="mockup-stat"><div class="lbl">Pedidos hoje</div><div class="val">18</div></div>
+          <div class="mockup-stat"><div class="lbl">Mesas ocupadas</div><div class="val" style="color:var(--herb);">7/12</div></div>
+        </div>
+        <div class="mockup-linha-pedido"><span>Pedido #152 <span class="mockup-badge mesa">Mesa 04</span></span><span>R$70,80</span></div>
+        <div class="mockup-linha-pedido"><span>Pedido #153 <span class="mockup-badge">WhatsApp</span></span><span>R$34,90</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">O problema</span>
+      <h2>Seu restaurante não deveria depender da correria.</h2>
+    </div>
+    <div class="problema-grid">
+      <div>
+        <ul class="dor-lista">
+          <li>Pedidos chegando no WhatsApp</li>
+          <li>Garçom anotando pedido no papel</li>
+          <li>Cozinha tentando entender a comanda</li>
+          <li>Estoque sendo controlado de cabeça</li>
+          <li>No final do dia, ninguém sabe exatamente quanto vendeu</li>
+        </ul>
+      </div>
+      <div>
+        <ul class="fluxo-solucao">
+          <li><b>WhatsApp → Pedido automático.</b> A IA entende o cliente e transforma a conversa em pedido.</li>
+          <li><b>Mesa → Pedido organizado.</b> O garçom lança o pedido direto pelo celular ou tablet.</li>
+          <li><b>Pedido → Cozinha.</b> A comanda pode ser enviada automaticamente pra impressão.</li>
+          <li><b>Venda → Estoque.</b> O estoque acompanha os pedidos, sem controle manual.</li>
+          <li><b>Tudo → Dashboard.</b> Você acompanha a operação inteira num único lugar.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">O fluxo</span>
+      <h2>Comece em poucos minutos</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <h3>Cadastre seu restaurante</h3>
+        <p>Adiciona seu cardápio, preços e configurações direto no painel — sem precisar de ninguém técnico.</p>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <h3>Conecte seu WhatsApp</h3>
+        <p>A Vendly começa a atender seus clientes automaticamente, sem trocar de número.</p>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <h3>Comece a receber pedidos</h3>
+        <p>Os pedidos chegam organizados no painel e podem seguir direto pra cozinha.</p>
+      </div>
+    </div>
+    <p style="text-align:center; color:var(--muted); margin-top:28px; font-size:14px;">Você não precisa ser técnico pra usar o Vendly.</p>
+  </div>
+</section>
+
+<section class="demo-section" id="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Na prática</span>
+      <h2>Veja o Vendly trabalhando por você</h2>
+      <p style="color:rgba(250,246,239,0.65); margin-top:10px;">Seu cliente manda uma mensagem normalmente. A Vendly entende, consulta seu cardápio e transforma a conversa em um pedido.</p>
+    </div>
+    <div class="demo-grid">
+      <div class="chat-static">
+        <div class="bubble in">oi, quero 2 x-bacon e uma coca</div>
+        <div class="bubble out">Show! 2x X-Bacon + 1x Coca-Cola. Total R$50,80. Confirma?</div>
+        <div class="bubble in">sim</div>
+        <div class="bubble out">Pedido confirmado. Já vamos preparar tudo.</div>
+      </div>
+      <div class="receipt">
+        <div class="r-head">Hamburgueria do Zé</div>
+        <div class="r-sub">Pedido #1042 — via WhatsApp</div>
+        <div class="r-line"></div>
+        <div class="r-item"><span>2x X-Bacon</span><span>R$45,80</span></div>
+        <div class="r-item"><span>1x Coca-Cola</span><span>R$5,00</span></div>
+        <div class="r-line"></div>
+        <div class="r-total"><span>Total</span><span>R$50,80</span></div>
+        <div class="r-status">Confirmado</div>
+      </div>
+    </div>
+    <p style="text-align:center; margin-top:32px; color:rgba(250,246,239,0.6); font-size:14.5px;">E você não precisa ficar olhando o WhatsApp.</p>
+  </div>
+</section>
+
+<section style="background: var(--ink); color: var(--paper);">
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center; max-width:600px;">
+      <span class="eyebrow" style="color:var(--mustard);">Dois canais, um painel</span>
+      <h2>Do WhatsApp ao salão. Tudo conectado.</h2>
+    </div>
+    <div class="canais-grid">
+      <div class="canal-item">
+        <div class="icone"><svg><use href="#ic-chat"/></svg></div>
+        <h3>WhatsApp</h3>
+        <p>Seu cliente faz o pedido conversando normalmente.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone"><svg><use href="#ic-table"/></svg></div>
+        <h3>Mesas</h3>
+        <p>Seu garçom registra pedidos direto na mesa.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone"><svg><use href="#ic-receipt"/></svg></div>
+        <h3>Pedidos</h3>
+        <p>Tudo chega ao mesmo painel.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone"><svg><use href="#ic-box"/></svg></div>
+        <h3>Estoque</h3>
+        <p>Os pedidos usam o mesmo estoque.</p>
+      </div>
+      <div class="canal-item">
+        <div class="icone"><svg><use href="#ic-chart"/></svg></div>
+        <h3>Vendas</h3>
+        <p>Você acompanha tudo em tempo real.</p>
+      </div>
+    </div>
+    <div class="frase-grande">Não importa de onde veio o pedido. Você vê tudo no mesmo lugar.</div>
+  </div>
+</section>
+
+<section id="recursos">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Por que o Vendly?</span>
+      <h2>Menos trabalho. Mais controle.</h2>
+    </div>
+    <div class="beneficios-grid">
+      <div class="beneficio">
+        <div class="icone"><svg><use href="#ic-bolt"/></svg></div>
+        <h3>Atendimento automático</h3>
+        <p>A IA atende seus clientes pelo WhatsApp e entende pedidos em português natural — sem inventar produto ou preço fora do cardápio.</p>
+      </div>
+      <div class="beneficio">
+        <div class="icone"><svg><use href="#ic-table"/></svg></div>
+        <h3>Salão organizado</h3>
+        <p>Garçons lançam pedidos direto nas mesas, pelo celular ou tablet, sem depender de papel.</p>
+      </div>
+      <div class="beneficio">
+        <div class="icone"><svg><use href="#ic-box"/></svg></div>
+        <h3>Estoque conectado</h3>
+        <p>Cada pedido — do WhatsApp ou da mesa — reflete no mesmo estoque automaticamente.</p>
+      </div>
+      <div class="beneficio">
+        <div class="icone"><svg><use href="#ic-chart"/></svg></div>
+        <h3>Tudo em um painel</h3>
+        <p>Pedidos, mesas, vendas e atendimento, tudo num único lugar — sem sistemas separados.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background: var(--paper);">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Sem complicação técnica</span>
+      <h2>Cadastrar seu cardápio leva minutos, não dias</h2>
+    </div>
+    <div class="steps" style="margin-bottom: 40px;">
+      <div class="step">
+        <div class="num">01</div>
+        <h3>Nome e preço</h3>
+        <p>Digita o nome do produto, o preço, e pronto — sem planilha, sem sistema complicado.</p>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <h3>Ingredientes e adicionais</h3>
+        <p>Descreve o que vem no prato. Quer oferecer bacon extra ou meia porção? É só marcar.</p>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <h3>A IA já aprendeu</h3>
+        <p>No mesmo instante, sua IA já sabe responder qualquer cliente sobre esse produto.</p>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:center;">
+      <div style="background:var(--paper-dim); border:1px solid var(--line); max-width:340px; width:100%; padding:20px;">
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:14px;">Adicionar produto</div>
+        <div style="background:white; border:1px solid var(--line); padding:10px 12px; font-size:14px; margin-bottom:10px;">X-Bacon</div>
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <div style="background:white; border:1px solid var(--line); padding:10px 12px; font-size:14px; flex:1;">R$22,90</div>
+          <div style="background:white; border:1px solid var(--line); padding:10px 12px; font-size:14px; flex:1;">Estoque: 50</div>
+        </div>
+        <div style="background:white; border:1px solid var(--line); padding:10px 12px; font-size:13px; color: var(--muted); margin-bottom:14px;">pão, hambúrguer, queijo, bacon</div>
+        <div style="background:var(--flame); color:white; text-align:center; padding:10px; font-size:13px; font-weight:600;">Salvar produto</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="preco">
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center;">
+      <span class="eyebrow">Assinatura</span>
+      <h2>Escolha o Vendly ideal pro seu restaurante</h2>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">Testado com restaurante real, em uso todos os dias.</p>
+    </div>
+    <div class="pricing-wrap">
+      <div class="price-card">
+        <h3>Vendly Mesas</h3>
+        <p class="price-desc">Para restaurantes que querem organizar o atendimento presencial.</p>
+        <div class="price-value">R$79<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Módulo de Mesas</li>
+          <li>Pedidos presenciais/balcão</li>
+          <li>Impressão automática de comanda</li>
+          <li>Histórico completo por mesa</li>
+          <li>Painel de vendas em tempo real</li>
+        </ul>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20testar%20o%20plano%20Mesas" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero testar</a>
+      </div>
+
+      <div class="price-card destaque">
+        <span class="price-badge"><svg><use href="#ic-star"/></svg>Mais escolhido</span>
+        <h3>Vendly Pro</h3>
+        <p class="price-desc">Leve WhatsApp + Mesas juntos por R$199/mês, em vez de R$229 separados.</p>
+        <div class="price-value">R$199<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Tudo do plano Base</li>
+          <li>Tudo do plano Mesas</li>
+          <li>WhatsApp com IA + atendimento presencial</li>
+          <li>Um único painel pra tudo</li>
+        </ul>
+        <div class="oferta-badge" style="font-size:11.5px; margin-bottom:14px; padding:8px 12px;">
+          <svg class="selo-ico"><use href="#ic-gift"/></svg>
+          <span>No teste, <b>a gente monta seu cardápio inicial</b> pra você.</span>
+        </div>
+        <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20Pro%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
+      </div>
+
+      <div class="price-card">
+        <h3>Vendly Base</h3>
+        <p class="price-desc">Para quem quer automatizar o atendimento pelo WhatsApp.</p>
+        <div class="price-value">R$150<span>/mês</span></div>
+        <ul class="price-list">
+          <li>Atendimento por IA ilimitado</li>
+          <li>Cardápio, adicionais e meia porção</li>
+          <li>Controle de estoque</li>
+          <li>Painel de vendas em tempo real</li>
+          <li>Transferência pra atendente humano</li>
+        </ul>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20testar%20o%20plano%20Base" class="btn-ghost" style="border-color: rgba(250,246,239,0.3); color: var(--paper);">Quero testar</a>
+      </div>
+    </div>
+    <div class="price-note">Sem fidelidade. Cancele quando quiser.</div>
+  </div>
+</section>
+
+<section style="background: var(--paper-dim);">
+  <div class="wrap">
+    <div class="teste-gratis-box">
+      <span class="eyebrow" style="color:var(--mustard);">Teste sem compromisso</span>
+      <h2>Teste o Vendly por 7 dias</h2>
+      <p>Veja na prática como funciona no seu restaurante antes de decidir.</p>
+      <div class="oferta-badge" style="margin:0 auto 24px;">
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
+        <span>Manda a foto do seu cardápio e <b>a gente cadastra pra você</b> — você não digita nada.</span>
+      </div>
+      <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante.%20Posso%20mandar%20a%20foto%20do%20meu%20card%C3%A1pio%3F" class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Quero testar grátis</a>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="background: var(--paper);">
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center;">
+      <span class="eyebrow">Dúvidas</span>
+      <h2>Perguntas frequentes</h2>
+    </div>
+    <div class="faq-lista">
+      <div class="faq-item">
+        <h3>O Vendly funciona pelo WhatsApp?</h3>
+        <p>Sim. Nos planos Base e Pro, a Vendly usa IA pra atender clientes pelo WhatsApp e transformar conversas em pedidos.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Preciso ficar respondendo os clientes?</h3>
+        <p>Não. A IA cuida dos pedidos dentro das regras configuradas no sistema, e encaminha pra você as situações que precisam de atendimento humano.</p>
+      </div>
+      <div class="faq-item">
+        <h3>A IA pode inventar produtos ou preços?</h3>
+        <p>Não. O sistema usa o cardápio que você cadastrou pra responder. Totais e cálculos importantes são conferidos pelo sistema, não confiados só à IA.</p>
+      </div>
+      <div class="faq-item">
+        <h3>O Vendly também funciona pra atendimento presencial?</h3>
+        <p>Sim. O plano Mesas organiza pedidos presenciais e mesas, mesmo sem usar WhatsApp.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso usar WhatsApp e Mesas juntos?</h3>
+        <p>Sim. O plano Pro reúne os dois módulos num único painel.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Preciso instalar algum programa?</h3>
+        <p>Depende da configuração do seu restaurante (ex: impressora). A configuração é acompanhada, pra deixar tudo funcionando certinho.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso cancelar quando quiser?</h3>
+        <p>Sim, não existe fidelidade.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Posso testar antes de contratar?</h3>
+        <p>Sim. Você pode testar o Vendly gratuitamente por 7 dias.</p>
+      </div>
+      <div class="faq-item">
+        <h3>E se eu precisar de ajuda?</h3>
+        <p>Você fala direto com a gente pelo WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head" style="margin-inline:auto; text-align:center;">
+      <span class="eyebrow">Antes de decidir</span>
+      <h2>Quanto custa continuar fazendo tudo manualmente?</h2>
+    </div>
+    <div class="fluxo-dor">
+      <div class="item">Pedidos perdidos</div>
+      <div class="seta">↓</div>
+      <div class="item">Clientes esperando</div>
+      <div class="seta">↓</div>
+      <div class="item">Funcionário respondendo WhatsApp o dia todo</div>
+      <div class="seta">↓</div>
+      <div class="item">Erros de pedido</div>
+      <div class="seta">↓</div>
+      <div class="item">Estoque desatualizado</div>
+      <div class="seta">↓</div>
+      <div class="item">Dono tentando controlar tudo sozinho</div>
+    </div>
+    <div class="fluxo-solucao-final">O Vendly coloca tudo em um só lugar.</div>
+  </div>
+</section>
+
+<section class="cta-final">
+  <div class="wrap">
+    <h2>Seu restaurante pode começar a operar melhor hoje.</h2>
+    <p>A gente cadastra seu cardápio inicial, conecta seus canais de atendimento, e você já começa recebendo pedido — sem trabalho de configuração.</p>
+    <div style="display:flex; justify-content:center; margin-bottom:22px;">
+      <div class="oferta-badge escura">
+        <svg class="selo-ico"><use href="#ic-gift"/></svg>
+        <span><b>Cardápio inicial por nossa conta</b> no teste de 7 dias.</span>
+      </div>
+    </div>
+    <a href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20testar%20o%20Vendly%20por%207%20dias%20no%20meu%20restaurante." class="btn-primary"><svg class="wa-glyph"><use href="#ic-wa"/></svg>Testar grátis por 7 dias</a>
+    <div style="margin-top:16px;"><a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20com%20algu%C3%A9m%20antes%20de%20come%C3%A7ar" style="font-size:13px; color:rgba(250,246,239,0.8); text-decoration:underline;">Falar com alguém antes de começar</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Vendly — feito pra quem vende de verdade.</div>
+</footer>
+
+<a class="wa-float" href="https://wa.me/5544999874707?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Vendly%20pro%20meu%20restaurante." target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-wa"/></svg>
+  <span class="wa-label">Falar no WhatsApp</span>
+</a>
+
+<script>
+  // Deixa a demo do topo rodando em loop, feito um GIF — reinicia as
+  // animações CSS a cada ~13s (tempo da sequência inteira + respiro).
+  (function () {
+    var stage = document.querySelector('.demo-stage');
+    if (!stage) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setInterval(function () {
+      stage.classList.remove('playing');
+      void stage.offsetWidth; // força um reflow pra as animações reiniciarem
+      stage.classList.add('playing');
+    }, 13000);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,3126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vendly — Painel</title>
+<!-- Painel de login/gestão do cliente — nunca deve aparecer no Google
+     (o robots.txt já bloqueia o crawl; isso é uma segunda trava). -->
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1816;
+    --paper: #faf6ef;
+    --paper-dim: #f0ead9;
+    --flame: #d84315;
+    --mustard: #e0a733;
+    --herb: #4a7c59;
+    --line: #ded5c2;
+    --muted: #8a8073;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    background: var(--paper-dim);
+    color: var(--ink);
+    margin: 0;
+    padding: 0 0 80px;
+  }
+  .topo {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 20px 0;
+  }
+  .topo h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 2px;
+  }
+  .topo .empresa-nome {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    opacity: 0.65;
+    margin-bottom: 16px;
+  }
+
+  .abas {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .abas::-webkit-scrollbar { display: none; }
+  .aba {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    text-align: center;
+    padding: 12px 10px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(250, 246, 239, 0.55);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    user-select: none;
+  }
+  .aba.ativa {
+    color: var(--paper);
+    border-bottom-color: var(--flame);
+  }
+
+  .badge-contagem {
+    display: none;
+    background: var(--flame);
+    color: white;
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-left: 3px;
+    vertical-align: top;
+  }
+  .badge-contagem.visivel { display: inline-block; }
+
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px; }
+  .painel { display: none; }
+  .painel.ativa { display: block; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 28px 0 12px;
+  }
+  h2:first-child { margin-top: 0; }
+
+  .mesa-produto-item {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mesa-produto-item:hover { background: var(--paper-dim); }
+  .mesa-produto-item.selecionado { background: #fdecdf; font-weight: 600; }
+  .mesa-produto-item.esgotado { opacity: 0.5; cursor: not-allowed; }
+
+  /* Seletor de categoria (Comida/Bebida/Sobremesa) — parecido com os
+     segmented controls do iOS, fácil de usar no celular. */
+  /* Tela de login com identidade de "comanda" — perfuração no topo,
+     como um ticket de verdade, em vez de um cartão genérico boiando. */
+  .ticket-login {
+    position: relative;
+    max-width: 380px;
+    width: 100%;
+    background: var(--paper);
+    box-shadow: 0 25px 70px rgba(0,0,0,0.4);
+  }
+  .ticket-login-furos {
+    height: 14px;
+    background-image: radial-gradient(circle at 10px 7px, var(--ink) 6px, transparent 6.5px);
+    background-size: 24px 14px;
+    background-repeat: repeat-x;
+    background-color: var(--paper);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--flame);
+    font-weight: 700;
+  }
+
+  .segmentado { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+  .segmentado-opcao {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 90px;
+    padding: 10px 4px;
+    font-size: 13px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 2px;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  .segmentado-opcao.ativo { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* Versão compacta — usada onde os botões são só ícone/palavra curta,
+     sempre numa linha só (ex: filtro de categoria na busca de mesa). */
+  .segmentado-compacto .segmentado-opcao { flex: 1 1 0; min-width: 0; padding: 8px 1px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .categoria-titulo {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px dotted var(--line);
+  }
+  .categoria-titulo:first-child { margin-top: 0; }
+
+  /* Contador de quantidade com botões grandes — pensado pro atendente
+     usar no celular, sem precisar acertar um alvo pequeno. */
+  .mesa-stepper { display: flex; align-items: stretch; gap: 8px; }
+  .mesa-stepper-btn {
+    width: 52px;
+    flex-shrink: 0;
+    font-size: 22px;
+    font-weight: 700;
+    background: var(--paper-dim);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .mesa-stepper-btn:active { background: var(--flame); color: white; }
+  .mesa-stepper input[type="number"] {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    -moz-appearance: textfield;
+  }
+  .mesa-stepper input[type="number"]::-webkit-outer-spin-button,
+  .mesa-stepper input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .mesa-adicional-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13.5px;
+  }
+
+  /* Divisórias das 3 partes do modal de mesa: Comanda / Adicionar item /
+     Fechar conta — deixa claro onde termina uma e começa a outra. */
+  .mesa-secao-titulo {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .mesa-secao-titulo:first-of-type { margin-top: 0; }
+
+  /* Cabeçalho de cada pessoa/lugar na comanda, com o subtotal dela. */
+  .mesa-grupo-pessoa {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--paper-dim);
+    padding: 5px 8px;
+    margin: 12px 0 4px;
+    border-radius: 2px;
+  }
+  .mesa-grupo-pessoa:first-child { margin-top: 0; }
+
+  /* Chips de "quem pediu" — toque rápido pra reusar um lugar já criado. */
+  .mesa-pessoa-chip {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+  }
+  .mesa-pessoa-chip.ativo { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .grade-mesas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .mesa-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--herb);
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .mesa-card:hover { transform: translateY(-2px); }
+  .mesa-card.ocupada { border-top-color: var(--flame); }
+  .mesa-card .mesa-numero { font-family: var(--font-display); font-weight: 600; font-size: 18px; text-transform: uppercase; }
+  .mesa-card .mesa-status { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 4px; }
+  .mesa-card.ocupada .mesa-status { color: var(--flame); }
+  .mesa-card .mesa-total { font-family: var(--font-mono); font-size: 13px; font-weight: 700; margin-top: 6px; }
+
+  .badge-origem {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 20px;
+    margin-left: 6px;
+    background: var(--paper-dim);
+    color: var(--muted);
+  }
+  .badge-origem.mesa { background: #fdecdf; color: var(--flame); }
+
+  .grade-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .stat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 14px;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a8073;
+    margin-bottom: 4px;
+  }
+  .stat-valor {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 20px;
+  }
+  .stat-valor.flame { color: var(--flame); }
+  .stat-valor.herb { color: var(--herb); }
+
+  .ranking-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 14px;
+  }
+  .ranking-item:last-child { border-bottom: none; }
+  .ranking-pos {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--flame);
+    width: 20px;
+  }
+  .ranking-nome { flex: 1; }
+  .ranking-qtd { font-family: var(--font-mono); color: #8a8073; font-size: 13px; }
+
+  .pedido-ticket {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .pedido-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #8a8073;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 8px;
+  }
+  .pedido-item {
+    display: flex;
+    font-size: 14px;
+    padding: 2px 0;
+  }
+  .pedido-item .qtd { font-family: var(--font-mono); width: 28px; color: var(--flame); font-weight: 700; }
+  .pedido-item .nome { flex: 1; }
+  .pedido-total {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+
+  .vazio {
+    text-align: center;
+    padding: 32px 20px;
+    color: #a49b8c;
+    font-size: 14px;
+    border: 1px dashed var(--line);
+    border-radius: 2px;
+  }
+  .vazio .vazio-icone { display: block; font-size: 26px; margin-bottom: 8px; opacity: 0.7; }
+
+  .atendimento-card {
+    background: var(--paper);
+    border: 1px solid var(--mustard);
+    border-left: 4px solid var(--flame);
+    border-radius: 2px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .atendimento-numero { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+  .atendimento-horario { font-family: var(--font-mono); font-size: 11px; color: #8a8073; }
+  .atendimento-mensagem { font-size: 13px; margin: 8px 0; color: var(--ink); font-style: italic; }
+
+  @keyframes pulsar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pulsando { animation: pulsar 1s ease-in-out infinite; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .produto {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--line);
+  }
+  .produto:last-child { border-bottom: none; }
+  .produto-info { flex: 1; min-width: 0; }
+  .produto-linha-nome {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .produto-nome { font-weight: 600; font-size: 15px; }
+  .produto-leader {
+    flex: 1;
+    border-bottom: 1px dotted #c9bfab;
+    margin-bottom: 4px;
+  }
+  .produto-preco { font-family: var(--font-mono); font-weight: 700; color: var(--flame); font-size: 14px; }
+  .produto-descricao { font-size: 12px; color: #8a8073; margin-top: 2px; }
+  .produto-estoque { font-family: var(--font-mono); font-size: 11px; color: var(--herb); margin-top: 4px; }
+  .produto-estoque.baixo { color: var(--flame); }
+  .produto-indisponivel { opacity: 0.45; }
+  .produto-adicionais { font-size: 11px; color: var(--mustard); margin-top: 4px; font-family: var(--font-mono); }
+
+  .adicional-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--paper-dim);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 4px 10px 4px 12px;
+    font-size: 12px;
+    margin: 4px 6px 4px 0;
+  }
+  .adicional-tag .remover-tag {
+    cursor: pointer;
+    color: var(--flame);
+    font-weight: 700;
+    background: none;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .botoes-produto { display: flex; gap: 6px; flex-shrink: 0; }
+  button {
+    border: none;
+    border-radius: 2px;
+    padding: 7px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: var(--font-body);
+  }
+  .btn-principal {
+    background: var(--flame);
+    color: white;
+    width: 100%;
+    padding: 13px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-radius: 2px;
+  }
+  .btn-secundario { background: var(--paper-dim); color: var(--ink); }
+  .btn-remover { background: #f9e4dc; color: var(--flame); }
+
+  label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: #8a8073; margin: 12px 0 5px; }
+  input[type="text"], input[type="number"], input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    font-size: 15px;
+    font-family: var(--font-body);
+    background: white;
+  }
+  .linha { display: flex; gap: 8px; }
+  .linha > div { flex: 1; }
+
+  .toggle-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 14px;
+  }
+  .toggle-linha:last-child { border-bottom: none; }
+  input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--flame); }
+
+  /* Toast — substitui os alertas feios do navegador por uma notificação
+     no estilo da marca, que desaparece sozinha. */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 20px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    z-index: 300;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    max-width: 90vw;
+    text-align: center;
+  }
+  #toast.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.erro { background: var(--flame); }
+  #toast.sucesso { background: var(--herb); }
+
+  /* Confirmação estilizada — substitui o confirm() feio do navegador. */
+  #modal-confirmar {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,24,22,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #modal-confirmar .caixa {
+    background: var(--paper);
+    max-width: 360px;
+    width: 100%;
+    padding: 26px 24px;
+    border-radius: 3px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+  #modal-confirmar .caixa p { font-size: 15px; line-height: 1.5; margin-bottom: 20px; }
+  #modal-confirmar .botoes { display: flex; gap: 10px; }
+  #modal-confirmar .botoes button { flex: 1; padding: 11px; }
+
+  /* Botões desabilitados durante uma ação (evita clique duplo/erro) */
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  /* Um pouco mais de vida nos elementos interativos, sem exagero */
+  .btn-principal, .btn-secundario, .btn-remover, .nav-cta {
+    transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
+  }
+  .btn-principal:active, .btn-secundario:active { transform: scale(0.98); }
+  .card { transition: box-shadow 0.15s ease; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--flame) !important;
+    box-shadow: 0 0 0 3px rgba(216,67,21,0.12);
+  }
+</style>
+</head>
+<body>
+
+<div id="tela-login" style="display:flex; min-height:100vh; align-items:center; justify-content:center; background:var(--ink); background-image: radial-gradient(rgba(250,246,239,0.04) 1px, transparent 1px); background-size: 16px 16px; padding:20px;">
+  <div class="ticket-login">
+    <div class="ticket-login-furos"></div>
+    <div style="padding:36px 28px 30px;">
+      <span class="eyebrow" style="display:inline-block; margin-bottom:10px;">Painel do restaurante</span>
+      <div style="font-family:var(--font-display); font-weight:700; font-size:26px; text-transform:uppercase; letter-spacing:0.02em; margin-bottom:4px;">Vendly</div>
+      <div style="color:var(--muted); font-size:13px; margin-bottom:22px; padding-bottom:20px; border-bottom:1px dashed var(--line);">Entre com o login do seu restaurante</div>
+
+      <label>Usuário</label>
+      <input type="text" id="login-usuario" placeholder="seu-usuario" autocomplete="username" />
+
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') fazerLogin(document.querySelector('#tela-login .btn-principal'))" />
+
+      <button class="btn-principal" style="width:100%; margin-top:16px;" onclick="fazerLogin(this)">Entrar</button>
+      <div id="login-erro" style="color:var(--flame); font-size:13px; margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app-principal" style="display:none;">
+
+<div class="topo">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h1>Vendly</h1>
+      <div class="empresa-nome" id="topo-empresa-nome">carregando...</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button onclick="document.getElementById('modal-tutorial').style.display='flex'" style="background:transparent;border:1px solid rgba(250,246,239,0.3);color:var(--paper);padding:7px 12px;font-size:12px;border-radius:2px;">Tutorial</button>
+      <a href="https://wa.me/5544999874707?text=Oi!%20Preciso%20de%20ajuda%20com%20o%20Vendly" target="_blank" style="background:var(--herb);color:white;padding:7px 12px;font-size:12px;border-radius:2px;text-decoration:none;white-space:nowrap;">Fale conosco</a>
+      <button onclick="fazerLogout()" style="background:transparent;border:1px solid rgba(250,246,239,0.3);color:var(--paper);padding:7px 12px;font-size:12px;border-radius:2px;">Sair</button>
+    </div>
+  </div>
+  <div class="abas">
+    <div class="aba ativa" data-aba="vendas" onclick="mudarAba('vendas')">Visão geral</div>
+    <div class="aba" data-aba="mesas" onclick="mudarAba('mesas')">Mesas</div>
+    <div class="aba" data-aba="atendimentos" onclick="mudarAba('atendimentos')">
+      Atendimentos <span class="badge-contagem" id="badge-atendimentos"></span>
+    </div>
+    <div class="aba" data-aba="cardapio" onclick="mudarAba('cardapio')">Cardápio</div>
+    <div class="aba" data-aba="equipe" onclick="mudarAba('equipe')">Equipe</div>
+    <div class="aba" data-aba="whatsapp" onclick="mudarAba('whatsapp')">WhatsApp</div>
+    <div class="aba" data-aba="regras" onclick="mudarAba('regras')">Configurações</div>
+  </div>
+</div>
+
+<main>
+
+  <section class="painel ativa" id="painel-vendas">
+    <div class="segmentado segmentado-compacto" id="periodo-stats" style="margin-bottom:12px;">
+      <button type="button" class="segmentado-opcao ativo" data-valor="hoje" onclick="mudarPeriodoStats('hoje')">Hoje</button>
+      <button type="button" class="segmentado-opcao" data-valor="semana" onclick="mudarPeriodoStats('semana')">7 dias</button>
+      <button type="button" class="segmentado-opcao" data-valor="mes" onclick="mudarPeriodoStats('mes')">Este mês</button>
+    </div>
+    <div class="grade-stats">
+      <div class="stat">
+        <div class="stat-label" id="stat-label-faturamento">💰 Faturamento hoje</div>
+        <div class="stat-valor flame" id="stat-faturamento-periodo">R$0,00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label" id="stat-label-pedidos">🧾 Pedidos hoje</div>
+        <div class="stat-valor" id="stat-pedidos-periodo">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">📊 Ticket médio (geral)</div>
+        <div class="stat-valor" id="stat-ticket-medio">R$0,00</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">📦 Total de pedidos</div>
+        <div class="stat-valor herb" id="stat-total-pedidos">0</div>
+      </div>
+      <div class="stat" id="stat-mesas-card" style="display:none;">
+        <div class="stat-label">🪑 Mesas ocupadas</div>
+        <div class="stat-valor herb" id="stat-mesas-ocupadas">0/0</div>
+      </div>
+    </div>
+
+    <div id="secao-operacao-agora" style="display:none;">
+      <h2>Operação agora</h2>
+      <div id="lista-operacao-agora"></div>
+    </div>
+
+    <h2>Mais vendidos</h2>
+    <div class="card" id="lista-ranking"></div>
+
+    <h2>Pedidos recentes</h2>
+    <div class="segmentado segmentado-compacto" id="pedidos-filtro-origem" style="margin-bottom:12px;">
+      <button type="button" class="segmentado-opcao ativo" data-valor="todos" onclick="filtrarPedidosRecentes('todos')">Todos</button>
+      <button type="button" class="segmentado-opcao" data-valor="whatsapp" onclick="filtrarPedidosRecentes('whatsapp')">WhatsApp</button>
+      <button type="button" class="segmentado-opcao" data-valor="mesa" onclick="filtrarPedidosRecentes('mesa')">Mesas</button>
+    </div>
+    <div id="lista-pedidos"></div>
+  </section>
+
+  <section class="painel" id="painel-atendimentos">
+    <h2>Aguardando atendente</h2>
+    <div id="lista-atendimentos"></div>
+  </section>
+
+  <section class="painel" id="painel-mesas">
+    <h2>Mesas</h2>
+
+    <input type="text" id="mesa-filtro-numero" placeholder="Buscar mesa pelo número/nome..." oninput="filtrarGradeMesas()" style="margin-bottom:12px;" />
+
+    <div class="card" style="margin-bottom:14px;">
+      <label>Buscar pedido por item (ex: alcatra)</label>
+      <div class="linha">
+        <input type="text" id="mesa-busca-item-termo" placeholder="Nome do item..." />
+        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="buscarPedidosPorItem()">Buscar</button>
+      </div>
+      <div id="mesa-busca-item-resultado" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="lista-mesas" class="grade-mesas"></div>
+
+    <div class="card" id="card-adicionar-mesa">
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Adicionar mesa</strong>
+      <label>Número ou nome da mesa</label>
+      <div class="linha">
+        <input type="text" id="mesa-novo-numero" placeholder="Ex: 5, Balcão, Área externa 2" />
+        <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesaNova(this)">Adicionar</button>
+      </div>
+
+      <div style="border-top:1px dashed var(--line); margin:16px 0 12px; padding-top:12px;">
+        <label>Ou criar várias numeradas de uma vez</label>
+        <div class="linha">
+          <input type="number" id="mesa-lote-de" placeholder="De (ex: 1)" min="1" />
+          <input type="number" id="mesa-lote-ate" placeholder="Até (ex: 50)" min="1" />
+          <button class="btn-secundario" style="flex: 0 0 auto;" onclick="criarMesasEmLoteUI()">Criar</button>
+        </div>
+        <div id="mesa-lote-status" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="modal-mesa" onclick="if(event.target===this) fecharModalMesa()" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); max-width:440px; width:100%; max-height:88vh; overflow-y:auto; padding:22px; border-radius:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 id="modal-mesa-titulo" style="margin:0;">Mesa</h2>
+        <button onclick="fecharModalMesa()" class="btn-secundario" style="width:40px; height:40px; padding:0; font-size:18px; line-height:1; flex-shrink:0;">✕</button>
+      </div>
+
+      <div class="mesa-secao-titulo">Comanda</div>
+      <div id="modal-mesa-itens" style="margin-bottom:14px;"></div>
+
+      <button class="btn-principal" id="btn-lancar-pedido" style="width:100%; margin-bottom:6px; display:none;" onclick="lancarPedidoAtual(this)">🧾 Lançar pedido pra cozinha</button>
+
+      <div class="mesa-secao-titulo">Adicionar item</div>
+      <div class="card" style="margin-bottom:12px;">
+        <label>Quem pediu? <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(opcional — pra separar por pessoa e dividir a conta)</span></label>
+        <input type="text" id="mesa-item-pessoa" placeholder="Ex: Lugar 1, João, Aniversariante..." maxlength="40" style="margin-bottom:6px;" />
+        <div id="mesa-pessoas-chips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+
+        <label>Buscar produto</label>
+        <input type="text" id="mesa-busca-produto" placeholder="Digite pra buscar..." oninput="filtrarProdutosMesa()" style="margin-bottom:8px;" />
+        <div class="segmentado segmentado-compacto" id="mesa-categoria-filtro" style="margin-bottom:10px;"></div>
+        <div id="mesa-lista-produtos" style="max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
+
+        <div id="mesa-item-selecionado-bloco" style="display:none; background:var(--paper-dim); border:1px solid var(--line); border-radius:2px; padding:12px; margin-top:8px;">
+          <div id="mesa-item-selecionado-nome" style="font-weight:600; font-size:16px; margin-bottom:2px;"></div>
+          <div id="mesa-estoque-disponivel" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></div>
+
+          <div id="mesa-tamanho-selecao" style="display:none; margin-bottom:10px;">
+            <label>Tamanho</label>
+            <div id="mesa-tamanho-opcoes" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+          </div>
+
+          <div id="mesa-adicionais-lista" style="margin-bottom:10px;"></div>
+          <div id="mesa-dica-lote" style="display:none; font-size:12px; color:var(--muted); margin-bottom:10px;">
+            💡 Se só parte da quantidade leva o adicional, adicione em duas vezes.
+          </div>
+
+          <label>Observação (opcional)</label>
+          <input type="text" id="mesa-item-observacao" placeholder="Ex: sem cebola, bem passado..." style="margin-bottom:12px;" />
+
+          <label>Quantidade</label>
+          <div class="mesa-stepper">
+            <button type="button" class="mesa-stepper-btn" onclick="ajustarQuantidadeMesa(-1)">−</button>
+            <input type="number" id="mesa-item-quantidade" value="1" min="1" inputmode="numeric" />
+            <button type="button" class="mesa-stepper-btn" onclick="ajustarQuantidadeMesa(1)">+</button>
+          </div>
+
+          <button class="btn-principal" id="btn-add-item-mesa" style="width:100%; margin-top:14px; padding:14px;" onclick="adicionarItemNaMesa()">Adicionar à comanda</button>
+          <button class="btn-secundario" id="btn-cancelar-edicao-item" style="width:100%; margin-top:8px; display:none;" onclick="cancelarEdicaoItemMesa()">Cancelar edição</button>
+        </div>
+      </div>
+
+      <div class="mesa-secao-titulo">Fechar conta</div>
+      <div style="font-family:var(--font-mono); font-size:14px; margin:6px 0 14px;">
+        <div style="display:flex; justify-content:space-between; padding:3px 0;">
+          <span>Subtotal</span>
+          <span id="mesa-fech-subtotal">R$0,00</span>
+        </div>
+        <div id="mesa-fech-taxa-linha" style="display:none; justify-content:space-between; align-items:center; padding:3px 0;">
+          <label style="display:flex; align-items:center; gap:6px; margin:0; text-transform:none; letter-spacing:0; font-weight:400; color:var(--ink); font-size:14px;">
+            <input type="checkbox" id="mesa-fech-taxa-on" checked onchange="recalcularFechamentoMesa()" style="width:18px; height:18px;" />
+            Taxa de serviço (<span id="mesa-fech-taxa-pct">10</span>%)
+          </label>
+          <span id="mesa-fech-taxa-valor">R$0,00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 0;">
+          <span style="white-space:nowrap;">Desconto (R$)</span>
+          <input type="number" id="mesa-fech-desconto" value="0" min="0" step="0.01" inputmode="decimal" oninput="recalcularFechamentoMesa()" style="max-width:110px; text-align:right; padding:6px;" />
+        </div>
+        <input type="text" id="mesa-fech-desconto-motivo" placeholder="Motivo do desconto (opcional)" maxlength="200" style="margin-top:4px; display:none;" />
+        <div style="display:flex; justify-content:space-between; font-weight:700; font-size:17px; border-top:1px solid var(--line); margin-top:8px; padding-top:8px;">
+          <span>Total</span>
+          <span id="mesa-fech-total">R$0,00</span>
+        </div>
+      </div>
+
+      <label>Forma de pagamento</label>
+      <select id="mesa-forma-pagamento" style="width:100%; padding:10px; border:1px solid var(--line); border-radius:2px; font-size:15px; margin-bottom:14px;">
+        <option value="pix">Pix</option>
+        <option value="dinheiro">Dinheiro</option>
+        <option value="cartão">Cartão</option>
+      </select>
+
+      <button class="btn-principal" style="width:100%;" onclick="fecharMesaAtual(this)">Fechar mesa e cobrar</button>
+
+      <div style="border-top:1px dashed var(--line); margin-top:20px; padding-top:14px;">
+        <button onclick="alternarHistoricoMesa()" class="btn-secundario" style="width:100%;" id="btn-toggle-historico-mesa">Ver histórico desta mesa</button>
+        <div id="historico-mesa-lista" style="display:none; margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-importar-cardapio" onclick="if(event.target===this) fecharModalImportarCardapio()" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); max-width:560px; width:100%; max-height:88vh; overflow-y:auto; padding:22px; border-radius:2px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h2 style="margin:0;">Importar cardápio</h2>
+        <button onclick="fecharModalImportarCardapio()" class="btn-secundario" style="width:40px; height:40px; padding:0; font-size:18px; line-height:1; flex-shrink:0;">✕</button>
+      </div>
+
+      <div id="importar-cardapio-passo-upload">
+        <p style="color:var(--muted); font-size:14px; margin-bottom:14px;">
+          Envie até 5 fotos do cardápio impresso (ou 1 PDF). A IA lê os itens e você revisa tudo antes de salvar — nada é cadastrado sem sua confirmação.
+        </p>
+        <input type="file" id="importar-cardapio-arquivos" accept="image/jpeg,image/png,application/pdf" multiple style="margin-bottom:14px;" />
+        <button class="btn-principal" id="btn-ler-cardapio" style="width:100%;" onclick="lerCardapioImportado(this)">Ler cardápio</button>
+      </div>
+
+      <div id="importar-cardapio-passo-revisao" style="display:none;">
+        <p style="color:var(--muted); font-size:14px; margin-bottom:10px;">
+          Confira cada item antes de salvar. Itens com preço não identificado precisam ser preenchidos pra poderem ser salvos. Itens que já existem no seu cardápio vêm desmarcados.
+        </p>
+        <div id="importar-cardapio-nicho-bloco" style="display:none; background:var(--paper-dim); border:1px solid var(--line); padding:10px 12px; margin-bottom:14px; border-radius:2px;">
+          <label style="margin-top:0;">Tipo de negócio (a IA deu esse palpite pelo cardápio)</label>
+          <input type="text" id="importar-cardapio-nicho" placeholder="Ex: Pizzaria" />
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">Deixe em branco se não quiser atualizar o tipo do seu negócio.</div>
+        </div>
+        <div id="importar-cardapio-lista"></div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button class="btn-secundario" style="flex:1;" onclick="fecharModalImportarCardapio()">Cancelar</button>
+          <button class="btn-principal" style="flex:1;" id="btn-confirmar-importacao" onclick="confirmarImportacaoCardapio(this)">Salvar selecionados</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="painel" id="painel-cardapio">
+    <h2>Produtos</h2>
+    <button class="btn-secundario" style="margin-bottom:14px;" onclick="abrirModalImportarCardapio()">Importar cardápio por foto</button>
+    <div id="lista-produtos"></div>
+
+    <div class="card">
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Adicionar / editar produto</strong>
+      <label>Categoria <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(crie a que fizer sentido pro seu cardápio — ex: Pizzas, Caldos, Lanches)</span></label>
+      <input type="text" id="produto-categoria" list="lista-categorias-existentes" placeholder="Ex: Comida, Bebida, Pizzas..." />
+      <datalist id="lista-categorias-existentes"></datalist>
+
+      <label>Nome</label>
+      <input type="text" id="produto-nome" placeholder="Ex: X-Bacon" />
+
+      <div id="produto-foto-bloco" style="display:none; margin-top:10px; margin-bottom:10px;">
+        <label>Foto do produto</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img id="produto-foto-preview" src="" alt="Foto do produto" style="display:none; width:72px; height:72px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0;" />
+          <div style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;">
+            <input type="file" id="produto-foto-arquivo" accept="image/jpeg,image/png" onchange="enviarFotoProduto()" />
+            <button type="button" class="btn-secundario" id="btn-remover-foto-produto" style="display:none; width:fit-content;" onclick="removerFotoProdutoAtual()">Remover foto</button>
+          </div>
+        </div>
+      </div>
+      <div id="produto-foto-aviso-novo" style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+        Salve o produto primeiro — depois disso dá pra adicionar uma foto.
+      </div>
+
+      <label>Unidade (opcional)</label>
+      <input type="text" id="produto-unidade" placeholder="Ex: 350ml, 1kg, un — deixa claro se é bebida/peso" />
+
+      <div class="linha">
+        <div>
+          <label id="produto-preco-label">Preço (R$)</label>
+          <input type="number" id="produto-preco" step="0.01" placeholder="22.90" />
+        </div>
+        <div>
+          <label>Estoque</label>
+          <input type="number" id="produto-estoque" placeholder="50" />
+        </div>
+      </div>
+
+      <label>Ingredientes / descrição <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(quanto mais detalhe, melhor a IA responde — ex: tipo de carne, tipo de queijo)</span></label>
+      <input type="text" id="produto-descricao" placeholder="Ex: pão brioche, hambúrguer de carne bovina 150g, queijo cheddar, bacon defumado" />
+
+      <div class="toggle-linha">
+        <span>Tem opção de meia porção?</span>
+        <input type="checkbox" id="produto-tem-meia" onchange="document.getElementById('linha-preco-meia').style.display = this.checked ? 'block' : 'none'" />
+      </div>
+      <div id="linha-preco-meia" style="display:none">
+        <label>Preço da meia porção (R$)</label>
+        <input type="number" id="produto-preco-meia" step="0.01" placeholder="Ex: 12.50" />
+      </div>
+
+      <label>Tamanhos com preços diferentes (opcional) <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">— ex: pizza "PP/P/M/G", bebida "lata/garrafa". Se usar isso, o campo Preço acima vira só informativo (o menor tamanho).</span></label>
+      <div id="lista-tamanhos-form"></div>
+      <div class="linha" style="margin-top:6px">
+        <div><input type="text" id="tamanho-nome" placeholder="Ex: Grande" /></div>
+        <div style="flex:0 0 90px"><input type="number" id="tamanho-preco" step="0.01" placeholder="30.00" /></div>
+        <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="adicionarTamanhoNaLista()">+</button></div>
+      </div>
+
+      <label>Adicionais (opcional)</label>
+      <div id="lista-adicionais-form"></div>
+      <div class="linha" style="margin-top:6px">
+        <div><input type="text" id="adicional-nome" placeholder="Ex: Bacon extra" /></div>
+        <div style="flex:0 0 90px"><input type="number" id="adicional-preco" step="0.01" placeholder="5.00" /></div>
+        <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="adicionarAdicionalNaLista()">+</button></div>
+      </div>
+
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarProduto()">Salvar produto</button>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-regras">
+    <h2>Empresa</h2>
+    <div class="card">
+      <label>Nome do estabelecimento</label>
+      <input type="text" id="empresa-nome" />
+
+      <label>Tipo de negócio <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(a IA se apresenta usando isso — ex: "pizzaria", "hamburgueria")</span></label>
+      <input type="text" id="empresa-tipo" placeholder="Ex: pizzaria, hamburgueria, restaurante" />
+
+      <label>Endereço do restaurante (mostrado para retirada)</label>
+      <input type="text" id="empresa-endereco" placeholder="Ex: Rua das Flores, 123 - Centro" />
+    </div>
+
+    <h2>Cardápio digital</h2>
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Uma página pública onde o cliente monta o pedido e manda pro seu WhatsApp — sem precisar de conta nem instalar nada.</div>
+
+      <label>Endereço do cardápio <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(só letras minúsculas, números e hífen)</span></label>
+      <input type="text" id="empresa-slug" placeholder="Ex: pizzaria-do-ze" oninput="atualizarPreviaSlug()" />
+      <div id="empresa-slug-previa" style="font-size:12.5px;color:var(--muted);margin-top:5px;"></div>
+
+      <label>Número de WhatsApp pra receber os pedidos <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(com DDD e código do país, só números)</span></label>
+      <input type="text" id="empresa-numero-whatsapp" placeholder="Ex: 5544999998888" />
+
+      <div class="toggle-linha" style="margin-top:14px;">
+        <span>Oferecer o cardápio digital no início da conversa do WhatsApp?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Quando o cliente manda só um "oi" numa conversa nova, o bot avisa que ele também pode montar o pedido pelo cardápio digital. Precisa do endereço do cardápio preenchido acima.</div>
+        </span>
+        <input type="checkbox" id="empresa-oferece-cardapio-digital" />
+      </div>
+    </div>
+
+    <h2>Funcionamento</h2>
+    <div class="card">
+      <label>Dias que funciona</label>
+      <div class="toggle-linha"><span>Domingo</span><input type="checkbox" class="dia-funcionamento" value="domingo" /></div>
+      <div class="toggle-linha"><span>Segunda</span><input type="checkbox" class="dia-funcionamento" value="segunda" /></div>
+      <div class="toggle-linha"><span>Terça</span><input type="checkbox" class="dia-funcionamento" value="terca" /></div>
+      <div class="toggle-linha"><span>Quarta</span><input type="checkbox" class="dia-funcionamento" value="quarta" /></div>
+      <div class="toggle-linha"><span>Quinta</span><input type="checkbox" class="dia-funcionamento" value="quinta" /></div>
+      <div class="toggle-linha"><span>Sexta</span><input type="checkbox" class="dia-funcionamento" value="sexta" /></div>
+      <div class="toggle-linha"><span>Sábado</span><input type="checkbox" class="dia-funcionamento" value="sabado" /></div>
+
+      <label>Horário de funcionamento (deixe em branco para não verificar)</label>
+      <div class="linha">
+        <div>
+          <label style="margin-top:0">Abre às</label>
+          <input type="text" id="empresa-horario-abertura" placeholder="18:00" />
+        </div>
+        <div>
+          <label style="margin-top:0">Fecha às</label>
+          <input type="text" id="empresa-horario-fechamento" placeholder="23:30" />
+        </div>
+      </div>
+    </div>
+
+    <h2>Pedidos e pagamento</h2>
+    <div class="card">
+      <div class="toggle-linha">
+        <span>Fazer entrega?</span>
+        <input type="checkbox" id="empresa-entrega" />
+      </div>
+      <div class="toggle-linha">
+        <span>Exigir pagamento antes de confirmar?</span>
+        <input type="checkbox" id="empresa-pagamento-antecipado" />
+      </div>
+      <div class="toggle-linha">
+        <span>Entender áudios no WhatsApp?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">A IA transcreve o áudio e trata como se o cliente tivesse digitado. Desligado: continua pedindo pra escrever.</div>
+        </span>
+        <input type="checkbox" id="empresa-entender-audio" />
+      </div>
+
+      <label>Formas de pagamento aceitas</label>
+      <div class="toggle-linha"><span>Pix</span><input type="checkbox" id="pag-pix" /></div>
+      <div class="toggle-linha"><span>Dinheiro</span><input type="checkbox" id="pag-dinheiro" /></div>
+      <div class="toggle-linha"><span>Cartão</span><input type="checkbox" id="pag-cartao" /></div>
+
+      <div class="toggle-linha">
+        <span>Cobrar taxa de serviço nas mesas?
+          <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Some ao fechar a mesa. Dá pra tirar ou ajustar na hora do fechamento.</div>
+        </span>
+        <input type="checkbox" id="empresa-taxa-servico-on" onchange="document.getElementById('linha-taxa-servico').style.display = this.checked ? 'block' : 'none';" />
+      </div>
+      <div id="linha-taxa-servico" style="display:none;">
+        <label>Percentual da taxa (%)</label>
+        <input type="number" id="empresa-taxa-servico-percent" step="0.5" min="0" max="100" placeholder="10" />
+      </div>
+
+      <button class="btn-principal" style="margin-top:14px; width:100%;" onclick="salvarEmpresa()">Salvar configurações</button>
+    </div>
+
+    <h2>Segurança</h2>
+    <div class="card">
+      <div style="font-size:13px;color:#8a8073;margin-bottom:10px;">Pra trocar sua senha, informe a atual e a nova.</div>
+
+      <label>Senha atual</label>
+      <input type="password" id="senha-atual" />
+
+      <label>Nova senha</label>
+      <input type="password" id="senha-nova" placeholder="Pelo menos 4 caracteres" />
+
+      <button class="btn-principal" style="margin-top:14px" onclick="salvarSenha()">Trocar senha</button>
+      <div id="senha-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
+    </div>
+
+    <h2>Impressão</h2>
+    <div class="card">
+      <strong style="font-family: var(--font-display); text-transform: uppercase; font-size: 13px; letter-spacing: 0.03em;">Impressora principal</strong>
+      <div style="font-size:12px; color:var(--muted); margin:4px 0 8px;">É a impressora que recebe todas as comandas do restaurante. Preencha o IP dela na rede (o programa de impressão precisa desses dados).</div>
+
+      <label>Nome (opcional)</label>
+      <input type="text" id="impressora-nome" placeholder="Ex: Caixa, Cozinha, Balcão" />
+
+      <div class="linha">
+        <div>
+          <label>IP na rede</label>
+          <input type="text" id="impressora-ip" placeholder="Ex: 192.168.1.50" inputmode="decimal" />
+        </div>
+        <div style="flex:0 0 110px;">
+          <label>Porta</label>
+          <input type="number" id="impressora-porta" placeholder="9100" />
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">A maioria das impressoras térmicas usa a porta <b>9100</b> — se não sabe, deixe assim.</div>
+
+      <div style="border-top:1px dashed var(--line); margin-top:18px; padding-top:14px;">
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-top:0;">
+          <span>Separar por estação (avançado)
+            <div style="font-weight:400; font-size:12px; color:var(--muted); margin-top:2px; text-transform:none; letter-spacing:0;">Se o restaurante tem impressoras diferentes por setor, o pedido sai numa via pra cada uma: cozinha (comida/sobremesa), saladas e bar (bebida) — só as que tiverem item.</div>
+          </span>
+          <input type="checkbox" id="empresa-separar-bebida" style="flex-shrink:0; margin-left:12px; width:20px; height:20px;" onchange="document.getElementById('secao-ips-impressora').style.display = this.checked ? 'block' : 'none';" />
+        </label>
+
+        <div id="secao-ips-impressora" style="display:none; margin-top:14px;">
+          <label>IP — impressora da Cozinha</label>
+          <input type="text" id="ip-impressora-cozinha" placeholder="Vazio = usa a principal" inputmode="decimal" />
+
+          <label>IP — impressora das Saladas</label>
+          <input type="text" id="ip-impressora-salada" placeholder="Vazio = usa a principal" inputmode="decimal" />
+
+          <label>IP — impressora do Bar</label>
+          <input type="text" id="ip-impressora-bar" placeholder="Vazio = usa a principal" inputmode="decimal" />
+        </div>
+      </div>
+    </div>
+
+    <h2>Plano</h2>
+    <div class="card">
+      <div id="plano-info"></div>
+    </div>
+
+    <h2>Cancelar</h2>
+
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Se você está pensando em cancelar, adoraríamos saber o motivo — isso nos ajuda a melhorar.</div>
+      <label>O que podemos melhorar? (opcional)</label>
+      <input type="text" id="feedback-cancelamento" placeholder="Conta pra gente o que aconteceu..." />
+      <button onclick="cancelarComFeedback()" class="btn-remover" style="width:100%;margin-top:14px;padding:13px;">Quero cancelar</button>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-equipe">
+    <h2>Equipe</h2>
+    <div id="equipe-conteudo">
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Contas de funcionário (garçom, caixa) — só conseguem usar a aba de Mesas, sem acesso ao resto do painel.</div>
+        <div id="lista-atendentes" style="margin-bottom:16px;"></div>
+
+        <label>Nome</label>
+        <input type="text" id="atendente-nome" placeholder="Ex: Pedro" />
+        <label>Login</label>
+        <input type="text" id="atendente-login" placeholder="Ex: pedro" />
+        <label>Senha</label>
+        <input type="password" id="atendente-senha" placeholder="Pelo menos 4 caracteres" />
+        <button class="btn-secundario" style="width:100%;margin-top:14px;" onclick="criarAtendenteNovo()">Adicionar atendente</button>
+        <div id="atendente-erro" style="color:var(--flame);font-size:13px;margin-top:8px;"></div>
+      </div>
+    </div>
+    <div id="equipe-bloqueio" style="display:none;">
+      <div class="card" style="text-align:center; padding:36px 20px;">
+        <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+        <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">Equipe</div>
+        <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Contas de atendente são exclusivas dos planos Mesas e Pro.</div>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20contas%20de%20atendente" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com Mesas</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-whatsapp">
+    <h2>Conexão com o WhatsApp</h2>
+    <div id="whatsapp-conteudo">
+      <div class="card" style="text-align:center">
+        <div id="whatsapp-status" style="font-family:var(--font-mono);font-size:13px;margin-bottom:14px;">Verificando conexão...</div>
+        <div id="whatsapp-qrcode"></div>
+        <button class="btn-principal" id="btn-conectar-whatsapp" onclick="conectarWhatsapp()" style="margin-top:14px">Conectar WhatsApp</button>
+        <button class="btn-remover" id="btn-desconectar-whatsapp" onclick="desconectarWhatsapp()" style="margin-top:8px;width:100%;display:none">Desconectar</button>
+      </div>
+    </div>
+    <div id="whatsapp-bloqueio" style="display:none;">
+      <div class="card" style="text-align:center; padding:36px 20px;">
+        <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+        <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">WhatsApp</div>
+        <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Base e Pro — deixe a IA atender seus clientes automaticamente pelo WhatsApp.</div>
+        <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20os%20planos%20com%20WhatsApp" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com WhatsApp</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<div id="modal-confirmar">
+  <div class="caixa">
+    <p id="modal-confirmar-texto"></p>
+    <div class="botoes">
+      <button class="btn-secundario" onclick="_confirmarResolver(false)">Cancelar</button>
+      <button class="btn-remover" onclick="_confirmarResolver(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-tutorial" style="display:none; position:fixed; inset:0; background:rgba(26,24,22,0.85); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--paper); max-width:420px; width:100%; max-height:80vh; overflow-y:auto; padding:24px; border-radius:2px;">
+    <h2 style="margin-bottom:16px;">Como usar o Vendly</h2>
+    <div style="font-size:14px; line-height:1.7;">
+      <div style="background:var(--paper-dim); border:1px solid var(--line); border-radius:2px; padding:12px 14px; margin-bottom:16px;">
+        <b>Primeiros passos:</b>
+        <ol style="margin:6px 0 0; padding-left:20px;">
+          <li>Monte o <b>Cardápio</b> (com descrição bem detalhada).</li>
+          <li>Em <b>Configurações</b>, preencha endereço, horário e formas de pagamento.</li>
+          <li>Crie suas <b>Mesas</b> e/ou conecte o <b>WhatsApp</b>.</li>
+        </ol>
+      </div>
+      <p style="margin-bottom:12px;"><b>Visão geral</b> — faturamento, ticket médio, mesas ocupadas agora e o histórico de pedidos (WhatsApp e mesas).</p>
+      <p style="margin-bottom:12px;"><b>Mesas</b> — abra uma mesa, adicione os itens, mande pra cozinha em "Lançar pedido" e feche a conta no fim. Dá pra criar as mesas em lote (ex: da 1 até 50).</p>
+      <p style="margin-bottom:12px;"><b>Atendimentos</b> — clientes que a IA transferiu pra você (reclamação, pedido de desconto, etc). Responda pelo WhatsApp normal e depois clique em "devolver pra IA".</p>
+      <p style="margin-bottom:12px;"><b>Cardápio</b> — cadastre, edite ou remova produtos. Quanto mais detalhe na descrição (tipo de carne, tipo de queijo), melhor a IA responde os clientes.</p>
+      <p style="margin-bottom:12px;"><b>Equipe</b> — contas de garçom/caixa: só enxergam a aba Mesas, sem acesso ao resto do painel.</p>
+      <p style="margin-bottom:12px;"><b>WhatsApp</b> — conecte o número do restaurante escaneando o QR code.</p>
+      <p style="margin-bottom:12px;"><b>Configurações</b> — nome do restaurante, endereço, horário de funcionamento, formas de pagamento, impressão e a senha do painel.</p>
+    </div>
+    <button onclick="document.getElementById('modal-tutorial').style.display='none'" class="btn-principal" style="width:100%; margin-top:12px;">Entendi</button>
+  </div>
+</div>
+
+<script>
+let produtoEmEdicao = null;
+let planoAtual = 'base';
+let empresaTaxaServicoPercent = 0;
+let pedidosRecentesAtuais = [];
+let adicionaisFormAtual = [];
+let tamanhosFormAtual = [];
+let itensCardapioImportado = [];
+let contagemAtendimentosAnterior = 0;
+let contagemPedidosAnterior = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
+let ultimoStatusWhatsapp = null; // null = ainda não sabemos, evita notificar no primeiro carregamento
+
+// Envolve o fetch normal, adicionando o token de login automaticamente
+// em toda chamada de API, e voltando pra tela de login se a sessão
+// expirar ou for inválida (resposta 401).
+async function apiFetch(url, opcoes = {}) {
+  const token = localStorage.getItem('vendly_token');
+  const cabecalhos = { ...(opcoes.headers || {}) };
+  if (token) cabecalhos['Authorization'] = `Bearer ${token}`;
+
+  const resposta = await fetch(url, { ...opcoes, headers: cabecalhos });
+
+  if (resposta.status === 401 && url !== '/api/login') {
+    localStorage.removeItem('vendly_token');
+    mostrarTelaLogin();
+    throw new Error('Sessão expirada');
+  }
+  return resposta;
+}
+
+function mostrarTelaLogin() {
+  document.getElementById('tela-login').style.display = 'flex';
+  document.getElementById('app-principal').style.display = 'none';
+}
+
+function mostrarApp() {
+  document.getElementById('tela-login').style.display = 'none';
+  document.getElementById('app-principal').style.display = 'block';
+}
+
+async function fazerLogin(botao) {
+  const login = document.getElementById('login-usuario').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erroDiv = document.getElementById('login-erro');
+  erroDiv.textContent = '';
+
+  if (!login || !senha) {
+    erroDiv.textContent = 'Preencha login e senha.';
+    return;
+  }
+
+  await comBotaoDesabilitado(botao, 'Entrando...', async () => {
+    try {
+      const resposta = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login, senha }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        erroDiv.textContent = dados.erro || 'Não foi possível entrar.';
+        return;
+      }
+      localStorage.setItem('vendly_token', dados.token);
+      mostrarApp();
+      iniciarApp();
+    } catch (e) {
+      erroDiv.textContent = 'Erro de conexão. Tente de novo.';
+    }
+  });
+}
+
+function fazerLogout() {
+  localStorage.removeItem('vendly_token');
+  mostrarTelaLogin();
+}
+
+// Pede permissão pra notificação do navegador assim que a página abre.
+if ("Notification" in window && Notification.permission === "default") {
+  Notification.requestPermission();
+}
+
+function tocarBip() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) { /* navegador sem suporte a áudio, ignora */ }
+}
+
+function notificar(titulo, corpo) {
+  tocarBip();
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(titulo, { body: corpo, icon: undefined });
+  }
+}
+
+// Mesma matriz de funcionalidades do servidor — os 3 planos não são uma
+// escada, são combinações diferentes (ver src/auth.js pra explicação completa).
+const MATRIZ_PLANOS = {
+  mesas: { whatsapp: false, mesas: true },
+  base: { whatsapp: true, mesas: false },
+  pro: { whatsapp: true, mesas: true },
+};
+function temFuncionalidade(funcionalidade) {
+  return Boolean(MATRIZ_PLANOS[planoAtual]?.[funcionalidade]);
+}
+
+// Informação real do plano — nada inventado, reflete exatamente a matriz
+// de funcionalidades que o backend também usa pra travar cada rota.
+const INFO_PLANOS = {
+  mesas: { nome: 'Vendly Mesas', preco: 'R$79/mês', recursos: ['Módulo de Mesas', 'Pedidos presenciais/balcão', 'Impressão automática de comanda', 'Painel de vendas'] },
+  base: { nome: 'Vendly Base', preco: 'R$150/mês', recursos: ['Atendimento por IA no WhatsApp', 'Cardápio, adicionais e meia porção', 'Controle de estoque', 'Painel de vendas'] },
+  pro: { nome: 'Vendly Pro', preco: 'R$199/mês', recursos: ['Tudo do plano Base', 'Tudo do plano Mesas', 'Um único painel pra tudo'] },
+};
+
+function renderizarInfoPlano() {
+  const info = INFO_PLANOS[planoAtual] || INFO_PLANOS.base;
+  document.getElementById('plano-info').innerHTML = `
+    <div style="font-family:var(--font-display); font-size:19px; text-transform:uppercase; margin-bottom:2px;">${info.nome}</div>
+    <div style="font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--flame); margin-bottom:14px;">${info.preco}</div>
+    <ul style="list-style:none; padding:0; margin:0;">
+      ${info.recursos.map(r => `<li style="padding:6px 0; border-bottom:1px dotted var(--line); font-size:14px;">✓ ${r}</li>`).join('')}
+    </ul>
+    <div style="margin-top:14px; font-size:12px; color:var(--muted);">Quer mudar de plano? Chama no <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20falar%20sobre%20meu%20plano%20Vendly" target="_blank" style="color:var(--flame);">WhatsApp de suporte</a>.</div>
+  `;
+}
+
+function mudarAba(nome) {
+  document.querySelectorAll('.aba').forEach(a => a.classList.toggle('ativa', a.dataset.aba === nome));
+  document.querySelectorAll('.painel').forEach(p => p.classList.remove('ativa'));
+  document.getElementById('painel-' + nome).classList.add('ativa');
+
+  if (nome === 'whatsapp') {
+    if (temFuncionalidade('whatsapp')) {
+      document.getElementById('whatsapp-conteudo').style.display = 'block';
+      document.getElementById('whatsapp-bloqueio').style.display = 'none';
+      verificarStatusWhatsapp();
+    } else {
+      document.getElementById('whatsapp-conteudo').style.display = 'none';
+      document.getElementById('whatsapp-bloqueio').style.display = 'block';
+    }
+  }
+
+  if (nome === 'mesas') {
+    if (temFuncionalidade('mesas')) {
+      carregarMesas();
+    } else {
+      mostrarBloqueioMesas();
+    }
+  }
+
+  if (nome === 'equipe') {
+    if (temFuncionalidade('mesas')) {
+      document.getElementById('equipe-conteudo').style.display = 'block';
+      document.getElementById('equipe-bloqueio').style.display = 'none';
+      carregarAtendentes();
+    } else {
+      document.getElementById('equipe-conteudo').style.display = 'none';
+      document.getElementById('equipe-bloqueio').style.display = 'block';
+    }
+  }
+}
+
+function mostrarBloqueioMesas() {
+  document.getElementById('lista-mesas').innerHTML = `
+    <div class="card" style="grid-column: 1 / -1; text-align:center; padding:36px 20px;">
+      <div style="font-size:32px; margin-bottom:10px;">🔒</div>
+      <div style="font-family:var(--font-display); font-size:17px; text-transform:uppercase; margin-bottom:6px;">Mesas</div>
+      <div style="font-size:14px; color:var(--muted); margin-bottom:18px; max-width:320px; margin-inline:auto;">Disponível nos planos Mesas e Pro — atenda pedido presencial com a mesma facilidade do WhatsApp.</div>
+      <a href="https://wa.me/5544999874707?text=Oi!%20Quero%20saber%20mais%20sobre%20o%20m%C3%B3dulo%20de%20Mesas" target="_blank" class="btn-principal" style="display:inline-block; text-decoration:none; white-space:nowrap;">Conhecer os planos com Mesas</a>
+    </div>
+  `;
+  // Esconde o formulário de "adicionar mesa" também — não faz sentido
+  // deixar cadastrar mesa se o plano nem dá acesso a usar elas.
+  document.getElementById('card-adicionar-mesa').style.display = 'none';
+}
+
+function formatarMoeda(valor) {
+  return 'R$' + Number(valor || 0).toFixed(2).replace('.', ',');
+}
+
+// Escapa texto antes de jogar dentro de innerHTML. Vários campos aqui vêm
+// de fora (mensagem do cliente no WhatsApp, endereço, observação de item,
+// nome de produto/mesa/atendente) — sem escapar, um cliente conseguiria
+// injetar HTML/script no painel do restaurante (XSS armazenado).
+function esc(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function carregarTudo() {
+  const [empresaResp, produtosResp, pedidosResp, atendimentosResp] = await Promise.all([
+    apiFetch('/api/empresa').then(r => r.json()),
+    apiFetch('/api/produtos').then(r => r.json()),
+    apiFetch('/api/pedidos').then(r => r.json()),
+    apiFetch('/api/atendimentos').then(r => r.json()),
+  ]);
+
+  document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
+  planoAtual = empresaResp.plano || 'base';
+  renderizarInfoPlano();
+  document.getElementById('empresa-nome').value = empresaResp.nome || '';
+  document.getElementById('empresa-tipo').value = empresaResp.tipo || '';
+  document.getElementById('empresa-endereco').value = empresaResp.endereco || '';
+  document.getElementById('empresa-slug').value = empresaResp.slug || '';
+  document.getElementById('empresa-numero-whatsapp').value = empresaResp.numeroWhatsapp || '';
+  document.getElementById('empresa-oferece-cardapio-digital').checked = !!empresaResp.ofereceCardapioDigital;
+  atualizarPreviaSlug();
+  document.getElementById('empresa-entrega').checked = !!empresaResp.aceitaEntrega;
+  document.getElementById('empresa-pagamento-antecipado').checked = !!empresaResp.exigePagamentoAntecipado;
+  document.getElementById('empresa-entender-audio').checked = !!empresaResp.entenderAudio;
+  empresaTaxaServicoPercent = Number(empresaResp.taxaServicoPercent) || 0;
+  document.getElementById('empresa-taxa-servico-on').checked = empresaTaxaServicoPercent > 0;
+  document.getElementById('linha-taxa-servico').style.display = empresaTaxaServicoPercent > 0 ? 'block' : 'none';
+  document.getElementById('empresa-taxa-servico-percent').value = empresaTaxaServicoPercent > 0 ? empresaTaxaServicoPercent : '';
+  document.getElementById('empresa-separar-bebida').checked = !!empresaResp.separarBebidaComanda;
+  document.getElementById('secao-ips-impressora').style.display = empresaResp.separarBebidaComanda ? 'block' : 'none';
+  const impr = empresaResp.impressoras || {};
+  const imprPrincipal = impr.principal || {};
+  document.getElementById('impressora-nome').value = imprPrincipal.nome || '';
+  document.getElementById('impressora-ip').value = imprPrincipal.ip || '';
+  document.getElementById('impressora-porta').value = imprPrincipal.porta || '';
+  document.getElementById('ip-impressora-cozinha').value = impr.cozinha || '';
+  document.getElementById('ip-impressora-salada').value = impr.salada || '';
+  document.getElementById('ip-impressora-bar').value = impr.bar || '';
+  document.getElementById('pag-pix').checked = (empresaResp.formasPagamento || []).includes('pix');
+  document.getElementById('pag-dinheiro').checked = (empresaResp.formasPagamento || []).includes('dinheiro');
+  document.getElementById('pag-cartao').checked = (empresaResp.formasPagamento || []).includes('cartão');
+  document.querySelectorAll('.dia-funcionamento').forEach((el) => {
+    el.checked = (empresaResp.diasFuncionamento || []).includes(el.value);
+  });
+  document.getElementById('empresa-horario-abertura').value = empresaResp.horarioAbertura || '';
+  document.getElementById('empresa-horario-fechamento').value = empresaResp.horarioFechamento || '';
+
+  renderizarProdutos(produtosResp.produtos, produtosResp.estoque);
+  processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+
+  // "Operação agora" (mesas ocupadas com tempo) só faz sentido pra quem
+  // tem o módulo de Mesas — reaproveita os mesmos dados de sempre.
+  if (temFuncionalidade('mesas')) {
+    document.getElementById('stat-mesas-card').style.display = 'block';
+    document.getElementById('secao-operacao-agora').style.display = 'block';
+    carregarOperacaoAgora();
+  } else {
+    document.getElementById('stat-mesas-card').style.display = 'none';
+    document.getElementById('secao-operacao-agora').style.display = 'none';
+  }
+}
+
+async function carregarOperacaoAgora() {
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const ocupadas = mesas.filter(m => m.status === 'ocupada');
+
+  document.getElementById('stat-mesas-ocupadas').textContent = `${ocupadas.length}/${mesas.length}`;
+
+  const lista = document.getElementById('lista-operacao-agora');
+  if (ocupadas.length === 0) {
+    lista.innerHTML = vazioHtml('🪑', 'Nenhuma mesa ocupada no momento.');
+    return;
+  }
+  lista.innerHTML = ocupadas.map(m => {
+    const minutos = m.abertaEm ? Math.max(0, Math.round((Date.now() - new Date(m.abertaEm).getTime()) / 60000)) : null;
+    return `
+    <div class="pedido-ticket" style="cursor:pointer;" onclick="mudarAba('mesas'); setTimeout(() => abrirModalMesa(${m.id}), 100);">
+      <div class="pedido-cabecalho">
+        <span>Mesa ${esc(m.numero)}<span class="badge-origem mesa">Ocupada</span></span>
+        <span>${minutos !== null ? `há ${minutos} min` : ''}</span>
+      </div>
+      <div class="pedido-total">
+        <span>${m.itensAtuais.length} ${m.itensAtuais.length === 1 ? 'item' : 'itens'}</span>
+        <span>${formatarMoeda(m.total)}</span>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+async function carregarAtendentes() {
+  const { atendentes } = await apiFetch('/api/atendentes').then(r => r.json());
+  const lista = document.getElementById('lista-atendentes');
+  if (atendentes.length === 0) {
+    lista.innerHTML = vazioHtml('👤', 'Nenhum atendente cadastrado ainda.');
+    return;
+  }
+  lista.innerHTML = atendentes.map(a => `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="nome">${esc(a.nome)} <span style="color:var(--muted);font-size:12px;">(${esc(a.login)})</span></span>
+      <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerAtendenteExistente(${a.id})">remover</button>
+    </div>
+  `).join('');
+}
+
+async function criarAtendenteNovo() {
+  const nome = document.getElementById('atendente-nome').value.trim();
+  const login = document.getElementById('atendente-login').value.trim();
+  const senha = document.getElementById('atendente-senha').value;
+  const erroDiv = document.getElementById('atendente-erro');
+  erroDiv.textContent = '';
+
+  if (!nome || !login || !senha) {
+    erroDiv.textContent = 'Preenche nome, login e senha.';
+    return;
+  }
+
+  const resp = await apiFetch('/api/atendentes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, login, senha }),
+  });
+  if (!resp.ok) {
+    const dados = await resp.json();
+    erroDiv.textContent = dados.erro || 'Não foi possível criar o atendente.';
+    return;
+  }
+
+  document.getElementById('atendente-nome').value = '';
+  document.getElementById('atendente-login').value = '';
+  document.getElementById('atendente-senha').value = '';
+  mostrarSalvo();
+  carregarAtendentes();
+}
+
+async function removerAtendenteExistente(id) {
+  if (!(await confirmarAcao('Remover esse atendente? Ele não vai mais conseguir entrar no painel.'))) return;
+  await apiFetch(`/api/atendentes/${id}`, { method: 'DELETE' });
+  carregarAtendentes();
+}
+
+// Roda a cada 5 segundos para as notificações "ao vivo" — busca só vendas e
+// atendimentos, sem tocar nos campos de formulário (nome, endereço, produto em
+// edição). Isso evita um bug real: o campo "voltava" pro valor antigo enquanto
+// alguém tentava editar, porque a atualização automática sobrescrevia tudo.
+async function atualizarVendasEAtendimentos() {
+  const [pedidosResp, atendimentosResp] = await Promise.all([
+    apiFetch('/api/pedidos').then(r => r.json()),
+    apiFetch('/api/atendimentos').then(r => r.json()),
+  ]);
+  processarVendasEAtendimentos(pedidosResp, atendimentosResp);
+  verificarStatusWhatsappSilencioso();
+}
+
+// Roda junto com as notificações de venda/atendimento, mas sem mexer na
+// tela — só avisa (som + notificação) se o WhatsApp desconectar sozinho
+// no meio do expediente, pra alguém perceber rápido e reconectar.
+async function verificarStatusWhatsappSilencioso() {
+  try {
+    const resp = await apiFetch('/api/whatsapp/status').then(r => r.json());
+    if (ultimoStatusWhatsapp === 'open' && resp.estado !== 'open') {
+      notificar('WhatsApp desconectado! ⚠️', 'O atendimento parou de funcionar — vá na aba WhatsApp para reconectar.');
+    }
+    ultimoStatusWhatsapp = resp.estado;
+  } catch (e) {
+    // Se nem der pra checar, não interrompe o resto do painel.
+  }
+}
+
+function processarVendasEAtendimentos(pedidosResp, atendimentosResp) {
+  renderizarVendas(pedidosResp.pedidos, pedidosResp.estatisticas);
+  renderizarAtendimentos(atendimentosResp.pendentes);
+
+  // Notifica quando algo NOVO aparece — nunca no primeiro carregamento da página.
+  if (contagemPedidosAnterior !== null && pedidosResp.estatisticas.totalPedidos > contagemPedidosAnterior) {
+    notificar('Novo pedido! 🍔', `Total de hoje: ${pedidosResp.estatisticas.pedidosHoje} pedidos`);
+  }
+  contagemPedidosAnterior = pedidosResp.estatisticas.totalPedidos;
+
+  if (atendimentosResp.pendentes.length > contagemAtendimentosAnterior) {
+    notificar('Cliente precisa de atendente 🙋', 'Alguém está esperando uma resposta na aba Atendimentos');
+  }
+  contagemAtendimentosAnterior = atendimentosResp.pendentes.length;
+
+  const badge = document.getElementById('badge-atendimentos');
+  badge.textContent = atendimentosResp.pendentes.length;
+  badge.classList.toggle('visivel', atendimentosResp.pendentes.length > 0);
+  badge.classList.toggle('pulsando', atendimentosResp.pendentes.length > 0);
+}
+
+// Verifica de novo a cada 5 segundos, pra funcionar como notificação "ao vivo" —
+// mas SEM mexer nos formulários que a pessoa possa estar editando.
+// (o setInterval só começa de verdade depois do login, dentro de iniciarApp())
+
+function renderizarAtendimentos(pendentes) {
+  const lista = document.getElementById('lista-atendimentos');
+  if (pendentes.length === 0) {
+    lista.innerHTML = vazioHtml('✅', 'Nenhum cliente esperando atendente no momento.');
+    return;
+  }
+  lista.innerHTML = pendentes.map(a => `
+    <div class="atendimento-card">
+      <div class="atendimento-numero">${esc(a.numero.replace('@s.whatsapp.net', ''))}</div>
+      <div class="atendimento-horario">${new Date(a.horario).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="atendimento-mensagem">"${esc(a.ultimaMensagem)}"</div>
+      <button class="btn-secundario" onclick="devolverParaIA('${esc(a.numero)}')">Já respondi — devolver pra IA</button>
+    </div>
+  `).join('');
+}
+
+async function devolverParaIA(numero) {
+  await apiFetch(`/api/atendimentos/${encodeURIComponent(numero)}/devolver`, { method: 'POST' });
+  carregarTudo();
+}
+
+async function excluirPedido(id) {
+  if (!(await confirmarAcao(`Excluir o pedido #${id}? Essa ação não pode ser desfeita.`))) return;
+  await apiFetch(`/api/pedidos/${id}`, { method: 'DELETE' });
+  mostrarSalvo();
+  carregarTudo();
+}
+
+async function cancelarPedido(id) {
+  if (!(await confirmarAcao(`Cancelar o pedido #${id}? O estoque volta, o pedido sai do faturamento e uma comanda de cancelamento é enviada pra cozinha. O pedido continua no histórico, marcado como cancelado.`))) return;
+  const resp = await apiFetch(`/api/pedidos/${id}/cancelar`, { method: 'POST' });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível cancelar o pedido.', 'erro');
+    return;
+  }
+  toast('Pedido cancelado ✓', 'sucesso');
+  carregarTudo();
+}
+
+// --- Mesas ---
+let mesaAtualId = null;
+
+async function carregarMesas() {
+  document.getElementById('card-adicionar-mesa').style.display = 'block';
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const lista = document.getElementById('lista-mesas');
+  if (mesas.length === 0) {
+    lista.innerHTML = vazioHtml('🪑', 'Nenhuma mesa cadastrada ainda. Adicione a primeira abaixo.');
+    return;
+  }
+  lista.innerHTML = mesas.map(m => `
+    <div class="mesa-card ${m.status}" data-numero="${esc(m.numero.toLowerCase())}" onclick="abrirModalMesa(${m.id})">
+      <div class="mesa-numero">${esc(m.numero)}</div>
+      <div class="mesa-status">${m.status === 'ocupada' ? 'Ocupada' : 'Livre'}</div>
+      ${m.status === 'ocupada' ? `<div class="mesa-total">${formatarMoeda(m.total)}</div>` : ''}
+    </div>
+  `).join('');
+  // Reaplica o filtro de busca, já que a lista acabou de ser redesenhada
+  // (isso roda de novo a cada 5s, então sem isso o filtro "sumiria" sozinho).
+  filtrarGradeMesas();
+}
+
+// Filtro simples, direto no navegador — não precisa perguntar pro
+// servidor toda vez que a pessoa digita uma letra.
+function filtrarGradeMesas() {
+  const termo = document.getElementById('mesa-filtro-numero').value.trim().toLowerCase();
+  document.querySelectorAll('.mesa-card').forEach((card) => {
+    const bate = !termo || card.dataset.numero.includes(termo);
+    card.style.display = bate ? '' : 'none';
+  });
+}
+
+async function buscarPedidosPorItem() {
+  const termo = document.getElementById('mesa-busca-item-termo').value.trim();
+  const resultado = document.getElementById('mesa-busca-item-resultado');
+  if (!termo) {
+    resultado.innerHTML = '';
+    return;
+  }
+
+  const { abertas, fechadas } = await apiFetch(`/api/mesas/busca?termo=${encodeURIComponent(termo)}`).then(r => r.json());
+
+  let html = '';
+
+  if (abertas.length === 0) {
+    html += vazioHtml('🔍', `Nenhuma mesa aberta com "${termo}" no momento.`);
+  } else {
+    html += `<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">MESAS ABERTAS COM ESSE ITEM</div>`;
+    html += abertas.map(m => `
+      <div class="pedido-item" style="align-items:center;cursor:pointer;" onclick="abrirModalMesa(${m.id})">
+        <span class="nome">Mesa ${esc(m.numero)}</span>
+        <span style="color:var(--flame);font-size:12px;">Ver mesa →</span>
+      </div>
+    `).join('');
+  }
+
+  html += `<button class="btn-secundario" style="width:100%;margin-top:12px;" onclick="mostrarPedidosFechadosPorItem('${esc(termo).replace(/'/g, "\\'")}')">Ver também pedidos já fechados</button>`;
+  html += `<div id="mesa-busca-item-fechados"></div>`;
+
+  resultado.innerHTML = html;
+}
+
+async function mostrarPedidosFechadosPorItem(termo) {
+  const { fechadas } = await apiFetch(`/api/mesas/busca?termo=${encodeURIComponent(termo)}`).then(r => r.json());
+  const div = document.getElementById('mesa-busca-item-fechados');
+  if (!div) return;
+
+  if (fechadas.length === 0) {
+    div.innerHTML = vazioHtml('🔍', `Nenhum pedido fechado encontrado com "${termo}".`);
+    return;
+  }
+
+  div.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:10px 0 6px;">PEDIDOS JÁ FECHADOS</div>` +
+    fechadas.map(p => `
+      <div class="pedido-item" style="align-items:center;">
+        <span class="nome">Mesa ${esc(p.mesaNumero)} — Pedido #${p.id}</span>
+        <span style="font-size:12px;color:var(--muted);">${new Date(p.dataHora).toLocaleDateString('pt-BR')}</span>
+      </div>
+    `).join('');
+}
+
+let historicoMesaCarregado = false;
+async function alternarHistoricoMesa() {
+  const div = document.getElementById('historico-mesa-lista');
+  const aberto = div.style.display !== 'none';
+
+  if (aberto) {
+    div.style.display = 'none';
+    document.getElementById('btn-toggle-historico-mesa').textContent = 'Ver histórico desta mesa';
+    return;
+  }
+
+  div.style.display = 'block';
+  document.getElementById('btn-toggle-historico-mesa').textContent = 'Esconder histórico';
+
+  const { pedidos } = await apiFetch(`/api/mesas/${mesaAtualId}/historico`).then(r => r.json());
+  if (pedidos.length === 0) {
+    div.innerHTML = vazioHtml('🧾', 'Essa mesa ainda não tem pedido fechado no histórico.');
+    return;
+  }
+  div.innerHTML = pedidos.map(p => `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="nome">Pedido #${p.id} — ${formatarMoeda(p.total)}</span>
+      <span style="font-size:12px;color:var(--muted);">${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+    </div>
+  `).join('');
+}
+
+async function criarMesaNova(botao) {
+  const numero = document.getElementById('mesa-novo-numero').value.trim();
+  if (!numero) { toast('Digite o número ou nome da mesa.', 'erro'); return; }
+  await comBotaoDesabilitado(botao, 'Adicionando...', async () => {
+    const resp = await apiFetch('/api/mesas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numero }),
+    });
+    if (!resp.ok) {
+      const dados = await resp.json();
+      toast(dados.erro || 'Não foi possível criar a mesa.', 'erro');
+      return;
+    }
+    document.getElementById('mesa-novo-numero').value = '';
+    mostrarSalvo();
+    carregarMesas();
+  });
+}
+
+async function criarMesasEmLoteUI() {
+  const de = parseInt(document.getElementById('mesa-lote-de').value, 10);
+  const ate = parseInt(document.getElementById('mesa-lote-ate').value, 10);
+  const statusDiv = document.getElementById('mesa-lote-status');
+  statusDiv.textContent = '';
+
+  if (!de || !ate || ate < de) {
+    statusDiv.textContent = 'Preenche um intervalo válido (ex: de 1 até 50).';
+    return;
+  }
+
+  const resp = await apiFetch('/api/mesas/lote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ de, ate }),
+  });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    statusDiv.textContent = dados.erro || 'Não foi possível criar as mesas.';
+    return;
+  }
+
+  statusDiv.textContent = `${dados.criadas} mesa(s) nova(s) criada(s). ${(ate - de + 1) - dados.criadas > 0 ? 'As demais já existiam.' : ''}`;
+  document.getElementById('mesa-lote-de').value = '';
+  document.getElementById('mesa-lote-ate').value = '';
+  mostrarSalvo();
+  carregarMesas();
+}
+
+let mesaProdutosDisponiveis = [];
+let mesaProdutoSelecionado = null;
+let mesaTamanhoSelecionado = null; // {nome, preco} do tamanho escolhido, ou null
+
+async function abrirModalMesa(mesaId) {
+  mesaAtualId = mesaId;
+  const { mesas } = await apiFetch('/api/mesas').then(r => r.json());
+  const mesa = mesas.find(m => m.id === mesaId);
+  if (!mesa) return;
+
+  document.getElementById('modal-mesa-titulo').textContent = `Mesa ${mesa.numero}`;
+  renderizarItensMesa(mesa);
+
+  // Busca o cardápio real, pra usar na busca/seleção de produto — junto
+  // com o estoque, pra já mostrar "restam X" antes de tentar adicionar
+  // (em vez da pessoa só descobrir depois de um erro).
+  const { produtos, disponivel } = await apiFetch('/api/produtos').then(r => r.json());
+  mesaProdutosDisponiveis = produtos
+    .filter(p => p.disponivel !== false)
+    .map(p => ({ ...p, estoqueAtual: disponivel[p.id] ?? 0 }));
+  document.getElementById('mesa-busca-produto').value = '';
+  document.getElementById('mesa-item-pessoa').value = '';
+  categoriaFiltroMesa = 'todos';
+  renderizarFiltroCategoriaMesa();
+  mesaProdutoSelecionado = null;
+  mesaItemEmEdicao = null;
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+  // Fechamento zerado a cada abertura de mesa.
+  document.getElementById('mesa-fech-taxa-on').checked = true;
+  document.getElementById('mesa-fech-desconto').value = '0';
+  document.getElementById('mesa-fech-desconto-motivo').value = '';
+  filtrarProdutosMesa();
+
+  document.getElementById('modal-mesa').style.display = 'flex';
+}
+
+let categoriaFiltroMesa = 'todos';
+let mesaCategoriasFiltro = []; // categorias distintas do cardápio atual, na ordem mostrada nos botões
+
+// Categoria é texto livre — os botões de filtro são montados a partir das
+// categorias que o cardápio desse restaurante realmente tem, em vez de uma
+// lista fixa. Usa índice em vez do nome direto no onclick porque o nome é
+// texto livre (poderia ter aspas e quebrar o atributo inline).
+function renderizarFiltroCategoriaMesa() {
+  mesaCategoriasFiltro = [...new Set(mesaProdutosDisponiveis.map(p => (p.categoria || 'comida').trim() || 'comida'))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const container = document.getElementById('mesa-categoria-filtro');
+  container.innerHTML = [
+    `<button type="button" class="segmentado-opcao ${categoriaFiltroMesa === 'todos' ? 'ativo' : ''}" onclick="filtrarPorCategoriaMesa('todos')">Todos</button>`,
+    ...mesaCategoriasFiltro.map((c, i) => `<button type="button" class="segmentado-opcao ${categoriaFiltroMesa === c ? 'ativo' : ''}" onclick="filtrarPorCategoriaMesaIndice(${i})">${esc(c.charAt(0).toUpperCase() + c.slice(1))}</button>`),
+  ].join('');
+}
+
+function filtrarPorCategoriaMesaIndice(indice) {
+  filtrarPorCategoriaMesa(mesaCategoriasFiltro[indice]);
+}
+
+function filtrarPorCategoriaMesa(valor) {
+  categoriaFiltroMesa = valor;
+  renderizarFiltroCategoriaMesa();
+  filtrarProdutosMesa();
+}
+
+function filtrarProdutosMesa() {
+  const termo = document.getElementById('mesa-busca-produto').value.trim().toLowerCase();
+  const lista = document.getElementById('mesa-lista-produtos');
+
+  let encontrados = termo
+    ? mesaProdutosDisponiveis.filter(p => p.nome.toLowerCase().includes(termo))
+    : mesaProdutosDisponiveis;
+
+  if (categoriaFiltroMesa !== 'todos') {
+    encontrados = encontrados.filter(p => (p.categoria || 'comida') === categoriaFiltroMesa);
+  }
+
+  if (encontrados.length === 0) {
+    lista.innerHTML = vazioHtml('🔍', 'Nenhum produto encontrado.');
+    return;
+  }
+
+  lista.innerHTML = encontrados.map(p => {
+    const esgotado = p.estoqueAtual <= 0;
+    return `
+    <div class="mesa-produto-item ${mesaProdutoSelecionado?.id === p.id ? 'selecionado' : ''} ${esgotado ? 'esgotado' : ''}" onclick="${esgotado ? '' : `selecionarProdutoMesa('${esc(p.id)}')`}">
+      <span>${esc(p.nome)}${p.unidade ? ` <span style="color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${esgotado ? ' <span style="color:var(--flame);font-size:11px;">— ESGOTADO</span>' : ''}</span>
+      <span>${formatarMoeda(p.preco)}</span>
+    </div>
+  `;
+  }).join('');
+}
+
+function selecionarProdutoMesa(produtoId) {
+  mesaProdutoSelecionado = mesaProdutosDisponiveis.find(p => p.id === produtoId);
+  if (!mesaProdutoSelecionado) return;
+
+  // Escolher um produto novo cancela qualquer edição de item que estivesse
+  // em curso — o bloco volta a ser "adicionar".
+  mesaItemEmEdicao = null;
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+
+  filtrarProdutosMesa(); // re-renderiza pra destacar o selecionado
+
+  const bloco = document.getElementById('mesa-item-selecionado-bloco');
+  bloco.style.display = 'block';
+  // Traz o bloco de configuração pra vista — antes ele aparecia embaixo da
+  // lista e a pessoa precisava rolar pra achar.
+  requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+
+  mesaTamanhoSelecionado = null;
+  renderizarTamanhoMesa();
+  atualizarNomeItemMesaSelecionado();
+  document.getElementById('mesa-item-observacao').value = '';
+  document.getElementById('mesa-item-quantidade').value = '1';
+  document.getElementById('mesa-item-quantidade').max = mesaProdutoSelecionado.estoqueAtual;
+  document.getElementById('mesa-estoque-disponivel').textContent = `Disponível: ${mesaProdutoSelecionado.estoqueAtual}`;
+
+  const adicionaisDiv = document.getElementById('mesa-adicionais-lista');
+  const adicionais = mesaProdutoSelecionado.adicionais || [];
+  const dicaLote = document.getElementById('mesa-dica-lote');
+  if (adicionais.length === 0) {
+    adicionaisDiv.innerHTML = '';
+    dicaLote.style.display = 'none';
+  } else {
+    adicionaisDiv.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Adicionais</div>` +
+      adicionais.map(a => `
+        <label class="mesa-adicional-linha">
+          <input type="checkbox" class="mesa-adicional-checkbox" value="${esc(a.id)}" data-nome="${esc(a.nome)}" data-preco="${esc(a.preco)}" />
+          ${esc(a.nome)} (+${formatarMoeda(a.preco)})
+        </label>
+      `).join('');
+    dicaLote.style.display = 'block';
+  }
+}
+
+// Mostra o preço certo no título do item sendo adicionado: o preço do
+// tamanho escolhido (ou "escolha o tamanho" se o produto tem tamanhos e
+// nenhum foi marcado ainda), ou o preço único de sempre.
+function atualizarNomeItemMesaSelecionado() {
+  const p = mesaProdutoSelecionado;
+  if (!p) return;
+  const base = `${p.nome}${p.unidade ? ` (${p.unidade})` : ''}`;
+  const temTamanhos = p.tamanhos && p.tamanhos.length > 0;
+  const precoTexto = temTamanhos
+    ? (mesaTamanhoSelecionado ? `${mesaTamanhoSelecionado.nome} · ${formatarMoeda(mesaTamanhoSelecionado.preco)}` : 'escolha o tamanho')
+    : formatarMoeda(p.preco);
+  document.getElementById('mesa-item-selecionado-nome').textContent = `${base} — ${precoTexto}`;
+}
+
+// Lista de botões de tamanho (PP/P/M/G etc.) — só aparece pra produto que
+// tem tamanhos cadastrados. Mesmo princípio do WhatsApp (Parte 2c): o
+// garçom escolhe, o preço certo daquele tamanho é usado, nunca o "a
+// partir de" que é só o valor de referência na listagem.
+function renderizarTamanhoMesa() {
+  const container = document.getElementById('mesa-tamanho-selecao');
+  const opcoes = document.getElementById('mesa-tamanho-opcoes');
+  const tamanhos = mesaProdutoSelecionado?.tamanhos || [];
+  if (tamanhos.length === 0) {
+    container.style.display = 'none';
+    opcoes.innerHTML = '';
+    return;
+  }
+  container.style.display = 'block';
+  opcoes.innerHTML = tamanhos.map((t, i) => `
+    <button type="button" class="segmentado-opcao ${mesaTamanhoSelecionado?.nome === t.nome ? 'ativo' : ''}" style="flex:0 0 auto;" onclick="selecionarTamanhoMesa(${i})">${esc(t.nome)} · ${formatarMoeda(t.preco)}</button>
+  `).join('');
+}
+
+function selecionarTamanhoMesa(indice) {
+  mesaTamanhoSelecionado = (mesaProdutoSelecionado?.tamanhos || [])[indice] || null;
+  renderizarTamanhoMesa();
+  atualizarNomeItemMesaSelecionado();
+}
+
+function ajustarQuantidadeMesa(delta) {
+  const input = document.getElementById('mesa-item-quantidade');
+  const max = mesaProdutoSelecionado?.estoqueAtual ?? 999;
+  const novoValor = Math.max(1, Math.min(max, (parseInt(input.value, 10) || 1) + delta));
+  input.value = novoValor;
+}
+
+function subtotalItemMesa(item) {
+  const add = (item.adicionais || []).reduce((s, a) => s + (a.preco || 0), 0);
+  return ((item.preco_unitario || 0) + add) * (item.quantidade || 0);
+}
+
+// Uma linha de item da comanda. O índice é o da posição ORIGINAL no array
+// da mesa — é o que "remover" precisa, mesmo quando os itens aparecem
+// reagrupados por pessoa.
+function linhaItemMesa(item, indiceOriginal) {
+  return `
+    <div class="pedido-item" style="align-items:center;">
+      <span class="qtd">${item.quantidade}x</span>
+      <span class="nome">
+        ${esc(item.nome)}${item.tamanho ? ` (${esc(item.tamanho)})` : ''}
+        ${item.lancado ? '<span class="badge-origem" style="margin-left:6px;">✓ na cozinha</span>' : '<span class="badge-origem mesa" style="margin-left:6px;">novo</span>'}
+        ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
+        ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
+      </span>
+      <span style="display:flex; gap:4px; flex-shrink:0;">
+        ${item.lancado ? '' : `<button class="btn-secundario" style="padding:4px 8px;font-size:11px;" onclick="editarItemMesaUI(${indiceOriginal})">editar</button>`}
+        <button class="btn-remover" style="padding:4px 8px;font-size:11px;" onclick="removerItemDaMesa(${indiceOriginal})">remover</button>
+      </span>
+    </div>`;
+}
+
+let mesaModalAtual = null;     // última mesa renderizada no modal (pra re-render sem refetch)
+let mesaItemEmEdicao = null;   // índice do item da comanda em edição, ou null
+
+function renderizarItensMesa(mesa) {
+  mesaModalAtual = mesa;
+  const div = document.getElementById('modal-mesa-itens');
+  const itens = mesa.itensAtuais || [];
+
+  if (itens.length === 0) {
+    div.innerHTML = vazioHtml('🧾', 'Nenhum item na comanda ainda.');
+  } else if (!itens.some(it => (it.pessoa || '').trim() !== '')) {
+    // Ninguém marcou "quem pediu" — mostra a lista simples de sempre.
+    div.innerHTML = itens.map((item, i) => linhaItemMesa(item, i)).join('');
+  } else {
+    // Tem pelo menos um item com pessoa — agrupa por pessoa, com subtotal
+    // de cada uma (é o que serve pra dividir a conta na hora de fechar).
+    const grupos = new Map();
+    itens.forEach((item, i) => {
+      const chave = (item.pessoa || '').trim() || '__sem__';
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push({ item, i });
+    });
+    const partes = [];
+    for (const [chave, lista] of grupos) {
+      const nome = chave === '__sem__' ? 'Sem lugar definido' : chave;
+      const subtotal = lista.reduce((s, x) => s + subtotalItemMesa(x.item), 0);
+      partes.push(`<div class="mesa-grupo-pessoa"><span>${esc(nome)}</span><span>${formatarMoeda(subtotal)}</span></div>`);
+      partes.push(lista.map(x => linhaItemMesa(x.item, x.i)).join(''));
+    }
+    div.innerHTML = partes.join('');
+  }
+
+  recalcularFechamentoMesa();
+
+  // O botão de "lançar pedido" só aparece se tiver item novo (ainda não
+  // mandado pra cozinha) — sem isso, clicar nele não faria nada.
+  const temItemNovo = itens.some((item) => !item.lancado);
+  document.getElementById('btn-lancar-pedido').style.display = temItemNovo ? 'block' : 'none';
+
+  renderizarPessoasChipsMesa(itens);
+}
+
+// Recalcula o resumo do fechamento (subtotal → taxa → desconto → total).
+// Roda toda vez que a comanda muda e a cada mexida nos campos de taxa/desconto.
+function recalcularFechamentoMesa() {
+  const subtotal = mesaModalAtual ? Number(mesaModalAtual.total) || 0 : 0;
+
+  const taxaLinha = document.getElementById('mesa-fech-taxa-linha');
+  const temTaxa = empresaTaxaServicoPercent > 0;
+  taxaLinha.style.display = temTaxa ? 'flex' : 'none';
+  document.getElementById('mesa-fech-taxa-pct').textContent = empresaTaxaServicoPercent;
+
+  const aplicarTaxa = temTaxa && document.getElementById('mesa-fech-taxa-on').checked;
+  const taxaValor = aplicarTaxa ? Math.round(subtotal * empresaTaxaServicoPercent) / 100 : 0;
+
+  let desconto = parseFloat(document.getElementById('mesa-fech-desconto').value) || 0;
+  desconto = Math.min(subtotal + taxaValor, Math.max(0, Math.round(desconto * 100) / 100));
+
+  const total = Math.round((subtotal + taxaValor - desconto) * 100) / 100;
+
+  document.getElementById('mesa-fech-subtotal').textContent = formatarMoeda(subtotal);
+  document.getElementById('mesa-fech-taxa-valor').textContent = formatarMoeda(taxaValor);
+  document.getElementById('mesa-fech-total').textContent = formatarMoeda(total);
+  document.getElementById('mesa-fech-desconto-motivo').style.display = desconto > 0 ? 'block' : 'none';
+}
+
+// Chips das pessoas/lugares já usados nesta comanda — um toque preenche o
+// campo "quem pediu" pra adicionar mais itens pra mesma pessoa sem digitar
+// de novo.
+function renderizarPessoasChipsMesa(itens) {
+  const wrap = document.getElementById('mesa-pessoas-chips');
+  if (!wrap) return;
+  const pessoas = [...new Set((itens || []).map(it => (it.pessoa || '').trim()).filter(Boolean))];
+  const atual = (document.getElementById('mesa-item-pessoa').value || '').trim();
+  wrap.innerHTML = pessoas.map(p =>
+    `<button type="button" class="mesa-pessoa-chip ${p === atual ? 'ativo' : ''}" onclick="selecionarPessoaMesa('${esc(p).replace(/'/g, "\\'")}')">${esc(p)}</button>`
+  ).join('');
+}
+
+function selecionarPessoaMesa(nome) {
+  document.getElementById('mesa-item-pessoa').value = nome;
+  document.querySelectorAll('#mesa-pessoas-chips .mesa-pessoa-chip').forEach(b => {
+    b.classList.toggle('ativo', b.textContent === nome);
+  });
+}
+
+async function lancarPedidoAtual(botao) {
+  await comBotaoDesabilitado(botao, 'Enviando...', async () => {
+    const resp = await apiFetch(`/api/mesas/${mesaAtualId}/lancar`, { method: 'POST' });
+    const dados = await resp.json();
+    if (!resp.ok) {
+      toast(dados.erro || 'Não foi possível lançar o pedido.', 'erro');
+      return;
+    }
+    renderizarItensMesa(dados.mesa);
+    toast(`${dados.itensLancados} item(ns) enviado(s) pra cozinha ✓`, 'sucesso');
+    carregarMesas();
+  });
+}
+
+// Abre o bloco "Adicionar item" já preenchido com um item que JÁ está na
+// comanda, pra editar (quantidade, observação, quem pediu, adicionais).
+// Só aparece pra item que ainda não foi lançado pra cozinha.
+function editarItemMesaUI(indice) {
+  const item = (mesaModalAtual?.itensAtuais || [])[indice];
+  if (!item) return;
+  mesaItemEmEdicao = indice;
+
+  // Acha o produto real no cardápio carregado; se foi apagado do cardápio,
+  // monta um mínimo só pra conseguir editar quantidade/observação/pessoa.
+  let prod = mesaProdutosDisponiveis.find(p => p.id === item.produto_id);
+  if (!prod) {
+    prod = { id: item.produto_id, nome: item.nome, preco: item.preco_unitario, unidade: '', adicionais: [], estoqueAtual: 9999 };
+  }
+  mesaProdutoSelecionado = prod;
+  // Quanto dá pra subir a quantidade: o disponível de agora + o que este
+  // item já ocupava (a edição "devolve" a quantidade atual antes de checar).
+  const maxEdicao = (prod.estoqueAtual ?? 9999) + item.quantidade;
+
+  const bloco = document.getElementById('mesa-item-selecionado-bloco');
+  bloco.style.display = 'block';
+  requestAnimationFrame(() => bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+
+  // O tamanho de um item já lançado não dá pra trocar por aqui (mesmo
+  // limite de preço/porção que o resto da edição) — só mostra qual foi
+  // escolhido, pra não confundir. Pra mudar o tamanho, remove e adiciona
+  // de novo.
+  mesaTamanhoSelecionado = null;
+  document.getElementById('mesa-tamanho-selecao').style.display = 'none';
+  document.getElementById('mesa-item-selecionado-nome').textContent =
+    `Editando: ${prod.nome}${prod.unidade ? ` (${prod.unidade})` : ''} — ${item.tamanho ? item.tamanho + ' · ' : ''}${formatarMoeda(item.preco_unitario)}`;
+  document.getElementById('mesa-estoque-disponivel').textContent = `Máximo: ${maxEdicao}`;
+  document.getElementById('mesa-item-observacao').value = item.observacao || '';
+  document.getElementById('mesa-item-pessoa').value = item.pessoa || '';
+  const qtdInput = document.getElementById('mesa-item-quantidade');
+  qtdInput.value = item.quantidade;
+  qtdInput.max = maxEdicao;
+
+  const adicionaisDiv = document.getElementById('mesa-adicionais-lista');
+  const disponiveis = prod.adicionais || [];
+  const escolhidos = new Set((item.adicionais || []).map(a => a.id || a.nome));
+  const dicaLote = document.getElementById('mesa-dica-lote');
+  if (disponiveis.length === 0) {
+    adicionaisDiv.innerHTML = '';
+    dicaLote.style.display = 'none';
+  } else {
+    adicionaisDiv.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Adicionais</div>` +
+      disponiveis.map(a => `
+        <label class="mesa-adicional-linha">
+          <input type="checkbox" class="mesa-adicional-checkbox" value="${esc(a.id)}" data-nome="${esc(a.nome)}" data-preco="${esc(a.preco)}" ${escolhidos.has(a.id) || escolhidos.has(a.nome) ? 'checked' : ''} />
+          ${esc(a.nome)} (+${formatarMoeda(a.preco)})
+        </label>
+      `).join('');
+    dicaLote.style.display = 'block';
+  }
+
+  document.getElementById('btn-add-item-mesa').textContent = 'Salvar alterações';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'block';
+}
+
+function cancelarEdicaoItemMesa() {
+  mesaItemEmEdicao = null;
+  resetBlocoItemMesa();
+}
+
+// Volta o bloco "Adicionar item" pro estado neutro (sem edição em curso).
+function resetBlocoItemMesa() {
+  mesaProdutoSelecionado = null;
+  mesaTamanhoSelecionado = null;
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('mesa-busca-produto').value = '';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+  filtrarProdutosMesa();
+}
+
+async function adicionarItemNaMesa() {
+  if (!mesaProdutoSelecionado) return;
+
+  // Produto com tamanhos exige escolher um antes de adicionar — mesma
+  // regra de segurança da IA no WhatsApp (Parte 2c): nunca usa o "a
+  // partir de" como se fosse um preço de verdade.
+  const temTamanhos = mesaProdutoSelecionado.tamanhos && mesaProdutoSelecionado.tamanhos.length > 0;
+  if (temTamanhos && mesaItemEmEdicao == null && !mesaTamanhoSelecionado) {
+    toast('Escolha o tamanho antes de adicionar.', 'erro');
+    return;
+  }
+
+  const quantidade = parseInt(document.getElementById('mesa-item-quantidade').value || '1', 10);
+  const observacao = document.getElementById('mesa-item-observacao').value.trim();
+  const pessoa = document.getElementById('mesa-item-pessoa').value.trim();
+  const adicionais = Array.from(document.querySelectorAll('.mesa-adicional-checkbox:checked')).map(el => ({
+    id: el.value,
+    nome: el.dataset.nome,
+    preco: parseFloat(el.dataset.preco),
+  }));
+
+  let resp, mesa;
+
+  if (mesaItemEmEdicao != null) {
+    // --- Editando um item que já está na comanda ---
+    resp = await apiFetch(`/api/mesas/${mesaAtualId}/item/${mesaItemEmEdicao}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantidade, observacao, pessoa, adicionais }),
+    });
+    mesa = await resp.json();
+    if (!resp.ok) {
+      toast(mesa.erro || 'Não foi possível salvar a alteração.', 'erro');
+      return;
+    }
+    mesaItemEmEdicao = null;
+    renderizarItensMesa(mesa);
+    toast('Item atualizado ✓', 'sucesso');
+    resetBlocoItemMesa();
+    carregarMesas();
+    return;
+  }
+
+  // --- Adicionando um item novo ---
+  const item = {
+    produto_id: mesaProdutoSelecionado.id,
+    nome: mesaProdutoSelecionado.nome,
+    quantidade,
+    preco_unitario: temTamanhos ? mesaTamanhoSelecionado.preco : mesaProdutoSelecionado.preco,
+    tamanho: temTamanhos ? mesaTamanhoSelecionado.nome : undefined,
+    adicionais,
+    observacao: observacao || undefined,
+    pessoa: pessoa || undefined,
+  };
+
+  resp = await apiFetch(`/api/mesas/${mesaAtualId}/item`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  mesa = await resp.json();
+
+  if (!resp.ok) {
+    toast(mesa.erro || 'Não foi possível adicionar esse item.', 'erro');
+    return;
+  }
+
+  renderizarItensMesa(mesa);
+  toast('Item adicionado à comanda ✓', 'sucesso');
+
+  // Limpa só a seleção de produto — mantém "quem pediu" preenchido pra
+  // adicionar vários itens da mesma pessoa sem redigitar.
+  resetBlocoItemMesa();
+  carregarMesas();
+}
+
+async function removerItemDaMesa(indice) {
+  const resp = await apiFetch(`/api/mesas/${mesaAtualId}/item/${indice}`, { method: 'DELETE' });
+  const mesa = await resp.json();
+  renderizarItensMesa(mesa);
+  carregarMesas();
+}
+
+async function fecharMesaAtual(botao) {
+  const formaPagamento = document.getElementById('mesa-forma-pagamento').value;
+  const aplicarTaxa = empresaTaxaServicoPercent > 0 && document.getElementById('mesa-fech-taxa-on').checked;
+  const desconto = parseFloat(document.getElementById('mesa-fech-desconto').value) || 0;
+  const descontoMotivo = document.getElementById('mesa-fech-desconto-motivo').value.trim();
+  await comBotaoDesabilitado(botao, 'Fechando...', async () => {
+    const resp = await apiFetch(`/api/mesas/${mesaAtualId}/fechar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formaPagamento, aplicarTaxa, desconto, descontoMotivo }),
+    });
+    if (!resp.ok) {
+      const dados = await resp.json();
+      toast(dados.erro || 'Não foi possível fechar a mesa.', 'erro');
+      return;
+    }
+    fecharModalMesa();
+    mostrarSalvo();
+    carregarMesas();
+    // Um atendente não tem permissão pra ver Vendas/Atendimentos — só
+    // recarrega o painel inteiro se for o dono, senão só as mesas mesmo.
+    if (tipoUsuario === 'empresa') {
+      carregarTudo();
+    }
+  });
+}
+
+function fecharModalMesa() {
+  document.getElementById('modal-mesa').style.display = 'none';
+  mesaAtualId = null;
+  mesaProdutoSelecionado = null;
+  mesaItemEmEdicao = null;
+  mesaModalAtual = null;
+  document.getElementById('mesa-item-pessoa').value = '';
+  document.getElementById('mesa-pessoas-chips').innerHTML = '';
+  document.getElementById('mesa-item-selecionado-bloco').style.display = 'none';
+  document.getElementById('btn-add-item-mesa').textContent = 'Adicionar à comanda';
+  document.getElementById('btn-cancelar-edicao-item').style.display = 'none';
+  // Reseta o histórico pra não ficar "grudado" quando abrir outra mesa.
+  document.getElementById('historico-mesa-lista').style.display = 'none';
+  document.getElementById('historico-mesa-lista').innerHTML = '';
+  document.getElementById('btn-toggle-historico-mesa').textContent = 'Ver histórico desta mesa';
+}
+
+async function salvarSenha() {
+  const senhaAtual = document.getElementById('senha-atual').value;
+  const novaSenha = document.getElementById('senha-nova').value;
+  const erroDiv = document.getElementById('senha-erro');
+  erroDiv.textContent = '';
+
+  const resp = await apiFetch('/api/senha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ senhaAtual, novaSenha }),
+  });
+
+  if (!resp.ok) {
+    const dados = await resp.json();
+    erroDiv.textContent = dados.erro || 'Erro ao salvar a senha.';
+    return;
+  }
+
+  document.getElementById('senha-atual').value = '';
+  document.getElementById('senha-nova').value = '';
+  mostrarSalvo();
+}
+
+async function verificarStatusWhatsapp() {
+  const statusDiv = document.getElementById('whatsapp-status');
+  const btnConectar = document.getElementById('btn-conectar-whatsapp');
+  const btnDesconectar = document.getElementById('btn-desconectar-whatsapp');
+  try {
+    const resp = await apiFetch('/api/whatsapp/status').then(r => r.json());
+    if (resp.estado === 'open') {
+      statusDiv.innerHTML = '🟢 WhatsApp conectado e funcionando';
+      btnConectar.style.display = 'none';
+      btnDesconectar.style.display = 'block';
+      document.getElementById('whatsapp-qrcode').innerHTML = '';
+    } else {
+      statusDiv.innerHTML = '🔴 WhatsApp não conectado';
+      btnConectar.style.display = 'block';
+      btnDesconectar.style.display = 'none';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = '⚠️ Não consegui verificar (confira se a Evolution API está rodando)';
+  }
+}
+
+async function conectarWhatsapp() {
+  const statusDiv = document.getElementById('whatsapp-status');
+  const qrDiv = document.getElementById('whatsapp-qrcode');
+  statusDiv.innerHTML = 'Gerando QR code...';
+  try {
+    const resp = await apiFetch('/api/whatsapp/conectar', { method: 'POST' }).then(r => r.json());
+    if (resp.qrcode) {
+      statusDiv.innerHTML = 'Abra o WhatsApp do restaurante → Aparelhos conectados → Conectar um aparelho, e escaneie:';
+      qrDiv.innerHTML = `<img src="${resp.qrcode}" style="max-width:250px;margin-top:10px" />`;
+      // Confere de novo em alguns segundos, pra atualizar sozinho quando conectar.
+      setTimeout(verificarStatusWhatsapp, 6000);
+    } else {
+      statusDiv.innerHTML = 'Não recebi o QR code. Tenta de novo em alguns segundos.';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = 'Erro ao gerar QR code: ' + e.message;
+  }
+}
+
+async function desconectarWhatsapp() {
+  if (!(await confirmarAcao('Desconectar o WhatsApp do restaurante? O atendimento automático vai parar até conectar de novo.'))) return;
+  await apiFetch('/api/whatsapp/desconectar', { method: 'POST' });
+  verificarStatusWhatsapp();
+}
+
+let statsAtuais = null;
+let periodoStats = 'hoje';
+
+function mudarPeriodoStats(periodo) {
+  periodoStats = periodo;
+  document.querySelectorAll('#periodo-stats .segmentado-opcao').forEach(btn => {
+    btn.classList.toggle('ativo', btn.dataset.valor === periodo);
+  });
+  aplicarPeriodoStats();
+}
+
+function aplicarPeriodoStats() {
+  if (!statsAtuais) return;
+  const mapa = {
+    hoje:   { fat: statsAtuais.faturamentoHoje,   ped: statsAtuais.pedidosHoje,   rotulo: 'hoje' },
+    semana: { fat: statsAtuais.faturamentoSemana, ped: statsAtuais.pedidosSemana, rotulo: 'nos 7 dias' },
+    mes:    { fat: statsAtuais.faturamentoMes,    ped: statsAtuais.pedidosMes,    rotulo: 'no mês' },
+  };
+  const d = mapa[periodoStats] || mapa.hoje;
+  document.getElementById('stat-faturamento-periodo').textContent = formatarMoeda(d.fat);
+  document.getElementById('stat-pedidos-periodo').textContent = d.ped;
+  document.getElementById('stat-label-faturamento').textContent = `💰 Faturamento ${d.rotulo}`;
+  document.getElementById('stat-label-pedidos').textContent = `🧾 Pedidos ${d.rotulo}`;
+}
+
+function renderizarVendas(pedidos, stats) {
+  statsAtuais = stats;
+  aplicarPeriodoStats();
+  document.getElementById('stat-ticket-medio').textContent = formatarMoeda(stats.ticketMedio);
+  document.getElementById('stat-total-pedidos').textContent = stats.totalPedidos;
+
+  const ranking = document.getElementById('lista-ranking');
+  if (stats.maisVendidos.length === 0) {
+    ranking.innerHTML = vazioHtml('📊', 'Nenhuma venda registrada ainda.');
+  } else {
+    ranking.innerHTML = stats.maisVendidos.map((item, i) => `
+      <div class="ranking-item">
+        <span class="ranking-pos">${i + 1}º</span>
+        <span class="ranking-nome">${item.nome}</span>
+        <span class="ranking-qtd">${item.quantidade}x</span>
+      </div>
+    `).join('');
+  }
+
+  pedidosRecentesAtuais = pedidos;
+  // Reaplica o filtro que a pessoa escolheu — sem isso, a atualização
+  // automática a cada 5s "voltava" a lista pra Todos, mesmo com o botão
+  // WhatsApp (ou Mesas) ainda marcado.
+  aplicarFiltroPedidosRecentes();
+}
+
+let filtroOrigemPedidos = 'todos';
+
+function filtrarPedidosRecentes(origem) {
+  filtroOrigemPedidos = origem;
+  aplicarFiltroPedidosRecentes();
+}
+
+function aplicarFiltroPedidosRecentes() {
+  const origem = filtroOrigemPedidos;
+  document.querySelectorAll('#pedidos-filtro-origem .segmentado-opcao').forEach(btn => {
+    btn.classList.toggle('ativo', btn.dataset.valor === origem);
+  });
+  const filtrados = origem === 'todos'
+    ? pedidosRecentesAtuais
+    : pedidosRecentesAtuais.filter(p => (p.origem || 'whatsapp') === origem);
+  renderizarListaPedidos(filtrados);
+}
+
+function renderizarListaPedidos(pedidos) {
+  const lista = document.getElementById('lista-pedidos');
+  if (pedidos.length === 0) {
+    const mensagemVazia = temFuncionalidade('whatsapp') && temFuncionalidade('mesas')
+      ? 'Os pedidos do WhatsApp e das mesas vão aparecer aqui.'
+      : temFuncionalidade('whatsapp')
+      ? 'Os pedidos confirmados pelo WhatsApp vão aparecer aqui.'
+      : 'Os pedidos das mesas vão aparecer aqui.';
+    lista.innerHTML = vazioHtml('💬', mensagemVazia);
+  } else {
+    lista.innerHTML = pedidos.slice(0, 15).map(p => `
+      <div class="pedido-ticket" style="${p.cancelado ? 'opacity:0.6;' : ''}">
+        <div class="pedido-cabecalho">
+          <span>Pedido #${p.id}${p.origem === 'mesa' ? `<span class="badge-origem mesa">Mesa ${esc(p.mesaNumero || '')}</span>` : `<span class="badge-origem">WhatsApp</span>`}${p.cancelado ? `<span class="badge-origem" style="background:#f5d6d6;color:#a02020;">CANCELADO</span>` : ''}</span>
+          <span>${new Date(p.dataHora).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        ${p.tipoEntrega ? `<div style="font-size:11px;font-family:var(--font-mono);color:${p.tipoEntrega === 'entrega' ? 'var(--flame)' : 'var(--herb)'};margin-bottom:6px;">${p.tipoEntrega === 'entrega' ? '🛵 ENTREGA' : '🏠 RETIRADA'}${p.endereco ? ' — ' + esc(p.endereco) : ''}</div>` : ''}
+        ${p.origem !== 'mesa' ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">📱 ${esc((p.numeroCliente || '').replace('@s.whatsapp.net', ''))}</div>` : ''}
+        ${p.atendenteNome ? `<div style="font-size:11px;font-family:var(--font-mono);color:var(--muted);margin-bottom:6px;">👤 ${esc(p.atendenteNome)}</div>` : ''}
+        ${p.itens.map(item => `
+          <div class="pedido-item">
+            <span class="qtd">${item.quantidade}x</span>
+            <span class="nome">
+              ${esc(item.nome)}${item.porcao === 'meia' ? ' (meia)' : ''}${item.tamanho ? ` (${esc(item.tamanho)})` : ''}
+              ${item.pessoa ? `<span class="badge-origem" style="margin-left:6px;">${esc(item.pessoa)}</span>` : ''}
+              ${item.adicionais && item.adicionais.length > 0 ? `<br><span style="font-size:11px;color:var(--mustard)">+ ${esc(item.adicionais.map(a => a.nome).join(', '))}</span>` : ''}
+              ${item.observacao ? `<br><span style="font-size:11px;color:#8a8073;font-style:italic">obs: ${esc(item.observacao)}</span>` : ''}
+            </span>
+          </div>
+        `).join('')}
+        ${(p.taxaServico > 0 || p.desconto > 0) ? `
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;">
+            <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${formatarMoeda(p.subtotal != null ? p.subtotal : p.total)}</span></div>
+            ${p.taxaServico > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Taxa de serviço</span><span>+ ${formatarMoeda(p.taxaServico)}</span></div>` : ''}
+            ${p.desconto > 0 ? `<div style="display:flex;justify-content:space-between;color:var(--herb);"><span>Desconto${p.descontoMotivo ? ' (' + esc(p.descontoMotivo) + ')' : ''}</span><span>− ${formatarMoeda(p.desconto)}</span></div>` : ''}
+          </div>` : ''}
+        <div class="pedido-total">
+          <span>Total</span>
+          <span>${formatarMoeda(p.total)}</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          ${!p.cancelado ? `
+            ${p.origem === 'mesa' ? `<button class="btn-secundario" style="flex:1;" onclick="reabrirMesaDePedido(${p.id})">Reabrir mesa</button>` : ''}
+            <button class="btn-secundario" style="flex:1;" onclick="cancelarPedido(${p.id})">Cancelar pedido</button>
+          ` : ''}
+          <button class="btn-remover" style="flex:1;" onclick="excluirPedido(${p.id})">Excluir pedido</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+async function reabrirMesaDePedido(pedidoId) {
+  if (!(await confirmarAcao('Reabrir a mesa desse pedido? O pedido some da lista de vendas, os itens voltam pra mesa e o estoque é estornado. Use só se fechou por engano.'))) return;
+  const resp = await apiFetch(`/api/pedidos/${pedidoId}/reabrir-mesa`, { method: 'POST' });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível reabrir a mesa.', 'erro');
+    return;
+  }
+  toast('Mesa reaberta ✓', 'sucesso');
+  carregarTudo();
+}
+
+function renderizarProdutos(produtos, estoque) {
+  atualizarDatalistCategorias(produtos);
+  const lista = document.getElementById('lista-produtos');
+  lista.innerHTML = '';
+
+  if (!produtos || produtos.length === 0) {
+    lista.innerHTML = vazioHtml('🍽️', 'Nenhum produto no cardápio ainda. Cadastre o primeiro no formulário abaixo 👇');
+    return;
+  }
+
+  // Categoria é texto livre — agrupa dinamicamente pelas que esse
+  // restaurante realmente usa, mesmo princípio de catalogoFormatado()
+  // (ai.js). As 4 originais mantêm o rótulo no plural; qualquer categoria
+  // nova é só capitalizada.
+  const rotulosPadrao = { comida: 'Comidas', salada: 'Saladas', bebida: 'Bebidas', sobremesa: 'Sobremesas' };
+  const ordemPadrao = ['comida', 'salada', 'bebida', 'sobremesa'];
+  const porCategoria = new Map();
+  produtos.forEach(p => {
+    const chave = (p.categoria || 'comida').trim() || 'comida';
+    if (!porCategoria.has(chave)) porCategoria.set(chave, []);
+    porCategoria.get(chave).push(p);
+  });
+  // Categorias padrão primeiro (na ordem de sempre), depois as novas em
+  // ordem alfabética — assim o cardápio não "pula" de lugar a cada visita.
+  const categoriasNovas = [...porCategoria.keys()].filter(c => !ordemPadrao.includes(c)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const ordem = [...ordemPadrao, ...categoriasNovas];
+
+  ordem.forEach(categoria => {
+    const itens = porCategoria.get(categoria);
+    if (!itens || itens.length === 0) return;
+
+    const titulo = document.createElement('div');
+    titulo.className = 'categoria-titulo';
+    titulo.textContent = rotulosPadrao[categoria] || (categoria.charAt(0).toUpperCase() + categoria.slice(1));
+    lista.appendChild(titulo);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    itens.forEach(p => {
+      const qtdEstoque = estoque[p.id] ?? 0;
+      const div = document.createElement('div');
+      const pausado = p.disponivel === false;
+      div.className = 'produto' + (pausado ? ' produto-indisponivel' : '');
+      div.innerHTML = `
+        ${p.foto ? `<img src="${esc(p.foto)}" alt="" style="width:48px; height:48px; object-fit:cover; border-radius:4px; border:1px solid var(--line); flex-shrink:0;" />` : ''}
+        <div class="produto-info">
+          <div class="produto-linha-nome">
+            <span class="produto-nome">${esc(p.nome)}${p.unidade ? ` <span style="font-weight:400;color:var(--muted);font-size:12px;">(${esc(p.unidade)})</span>` : ''}${pausado ? ' <span class="badge-origem" style="background:#f9e4dc;color:var(--flame);">pausado</span>' : ''}</span>
+            <span class="produto-leader"></span>
+            <span class="produto-preco">${p.tamanhos && p.tamanhos.length > 0 ? `a partir de ${formatarMoeda(p.preco)}` : formatarMoeda(p.preco)}</span>
+          </div>
+          <div class="produto-descricao">${esc(p.descricao || '')}</div>
+          ${(p.tamanhos && p.tamanhos.length > 0) ? `<div class="produto-adicionais">Tamanhos: ${p.tamanhos.map(t => `${esc(t.nome)} (${formatarMoeda(t.preco)})`).join(' · ')}</div>` : ''}
+          ${(p.adicionais && p.adicionais.length > 0) ? `<div class="produto-adicionais">+ ${p.adicionais.map(a => `${esc(a.nome)} (${formatarMoeda(a.preco)})`).join(' · ')}</div>` : ''}
+          <div class="produto-estoque ${qtdEstoque < 10 ? 'baixo' : ''}">estoque: ${qtdEstoque}</div>
+        </div>
+        <div class="botoes-produto">
+          <button class="btn-secundario" onclick="alternarDisponibilidadeProduto('${esc(p.id)}', ${pausado})" title="${pausado ? 'Voltar a vender' : 'Some do cardápio da IA e das mesas, sem apagar'}">${pausado ? 'reativar' : 'pausar'}</button>
+          <button class="btn-secundario" onclick="editarProduto('${esc(p.id)}')">editar</button>
+          <button class="btn-remover" onclick="removerProduto('${esc(p.id)}')">remover</button>
+        </div>
+      `;
+      card.appendChild(div);
+    });
+    lista.appendChild(card);
+  });
+}
+
+function renderizarAdicionaisForm() {
+  const container = document.getElementById('lista-adicionais-form');
+  container.innerHTML = adicionaisFormAtual.map((a, i) => `
+    <span class="adicional-tag">
+      ${a.nome} (${formatarMoeda(a.preco)})
+      <button type="button" class="remover-tag" onclick="removerAdicionalDaLista(${i})">×</button>
+    </span>
+  `).join('');
+}
+
+function adicionarAdicionalNaLista() {
+  const nome = document.getElementById('adicional-nome').value.trim();
+  const preco = parseFloat(document.getElementById('adicional-preco').value);
+  if (!nome || isNaN(preco)) {
+    toast('Preencha o nome e o preço do adicional.', 'erro');
+    return;
+  }
+  const slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  // Sufixo aleatorio garante id unico mesmo quando o nome nao tem letra/numero
+  // (ex: so emoji) ou quando dois adicionais "colapsam" pro mesmo slug.
+  const id = 'add-' + (slug || 'item') + '-' + Math.random().toString(36).slice(2, 7);
+  adicionaisFormAtual.push({ id, nome, preco });
+  document.getElementById('adicional-nome').value = '';
+  document.getElementById('adicional-preco').value = '';
+  renderizarAdicionaisForm();
+}
+
+function removerAdicionalDaLista(indice) {
+  adicionaisFormAtual.splice(indice, 1);
+  renderizarAdicionaisForm();
+}
+
+// Mesmo padrão dos adicionais acima, só que pra tamanhos (nome + preço
+// livres, ex: pizza "PP/P/M/G"). Quando a lista tem algo, o campo de
+// "Preço" único vira só informativo (desabilitado) — o preço de verdade
+// passa a vir de cada tamanho.
+function renderizarTamanhosForm() {
+  const container = document.getElementById('lista-tamanhos-form');
+  container.innerHTML = tamanhosFormAtual.map((t, i) => `
+    <span class="adicional-tag">
+      ${esc(t.nome)} (${formatarMoeda(t.preco)})
+      <button type="button" class="remover-tag" onclick="removerTamanhoDaLista(${i})">×</button>
+    </span>
+  `).join('');
+
+  const campoPreco = document.getElementById('produto-preco');
+  const labelPreco = document.getElementById('produto-preco-label');
+  const temTamanhos = tamanhosFormAtual.length > 0;
+  campoPreco.disabled = temTamanhos;
+  labelPreco.textContent = temTamanhos ? 'Preço (a partir de — calculado pelos tamanhos)' : 'Preço (R$)';
+  if (temTamanhos) {
+    campoPreco.value = Math.min(...tamanhosFormAtual.map((t) => t.preco));
+  }
+}
+
+function adicionarTamanhoNaLista() {
+  const nome = document.getElementById('tamanho-nome').value.trim();
+  const preco = parseFloat(document.getElementById('tamanho-preco').value);
+  if (!nome || isNaN(preco)) {
+    toast('Preencha o nome e o preço do tamanho.', 'erro');
+    return;
+  }
+  tamanhosFormAtual.push({ nome, preco });
+  document.getElementById('tamanho-nome').value = '';
+  document.getElementById('tamanho-preco').value = '';
+  renderizarTamanhosForm();
+}
+
+function removerTamanhoDaLista(indice) {
+  tamanhosFormAtual.splice(indice, 1);
+  renderizarTamanhosForm();
+}
+
+// --- Importar cardápio por foto ---
+
+function abrirModalImportarCardapio() {
+  itensCardapioImportado = [];
+  document.getElementById('importar-cardapio-arquivos').value = '';
+  document.getElementById('importar-cardapio-nicho-bloco').style.display = 'none';
+  document.getElementById('importar-cardapio-nicho').value = '';
+  document.getElementById('importar-cardapio-passo-upload').style.display = 'block';
+  document.getElementById('importar-cardapio-passo-revisao').style.display = 'none';
+  document.getElementById('modal-importar-cardapio').style.display = 'flex';
+}
+
+function fecharModalImportarCardapio() {
+  document.getElementById('modal-importar-cardapio').style.display = 'none';
+}
+
+async function lerCardapioImportado(botao) {
+  const arquivos = document.getElementById('importar-cardapio-arquivos').files;
+  if (!arquivos || arquivos.length === 0) {
+    toast('Escolha ao menos uma foto ou um PDF do cardápio.', 'erro');
+    return;
+  }
+
+  await comBotaoDesabilitado(botao, 'Lendo cardápio...', async () => {
+    const formData = new FormData();
+    for (const arquivo of arquivos) formData.append('arquivos', arquivo);
+
+    const resposta = await apiFetch('/api/cardapio/importar-preview', { method: 'POST', body: formData });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      toast(dados.erro || 'Não foi possível ler o cardápio.', 'erro');
+      return;
+    }
+    if (dados.itens.length === 0) {
+      toast('Não encontrei nenhum item legível nessas imagens. Tente fotos mais nítidas.', 'erro');
+      return;
+    }
+
+    // Pra marcar por padrão como desmarcado o que já existe no cardápio —
+    // compara pelo nome (minúsculo, sem espaço nas pontas), já que o item
+    // importado ainda não tem id nenhum em comum com o catálogo atual.
+    const catalogoResp = await apiFetch('/api/produtos');
+    const catalogoAtual = await catalogoResp.json();
+    const nomesExistentes = new Set((catalogoAtual.produtos || []).map((p) => p.nome.trim().toLowerCase()));
+
+    itensCardapioImportado = dados.itens.map((item) => ({
+      ...item,
+      jaExiste: nomesExistentes.has((item.nome || '').trim().toLowerCase()),
+      selecionado: !nomesExistentes.has((item.nome || '').trim().toLowerCase()),
+    }));
+
+    if (dados.nichoSugerido) {
+      document.getElementById('importar-cardapio-nicho-bloco').style.display = 'block';
+      document.getElementById('importar-cardapio-nicho').value = dados.nichoSugerido;
+    }
+
+    document.getElementById('importar-cardapio-passo-upload').style.display = 'none';
+    document.getElementById('importar-cardapio-passo-revisao').style.display = 'block';
+    renderizarListaImportacao();
+  });
+}
+
+function renderizarListaImportacao() {
+  const lista = document.getElementById('importar-cardapio-lista');
+  lista.innerHTML = itensCardapioImportado.map((item, i) => {
+    const temTamanhos = Array.isArray(item.tamanhos) && item.tamanhos.length > 0;
+    return `
+    <div style="border:1px solid ${item.duvida ? 'var(--mustard)' : 'var(--line)'}; background:${item.jaExiste ? 'var(--paper-dim)' : 'var(--paper)'}; padding:12px; margin-bottom:8px; border-radius:2px;">
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <input type="checkbox" ${item.selecionado ? 'checked' : ''} onchange="itensCardapioImportado[${i}].selecionado = this.checked" style="width:18px; height:18px; margin-top:6px; flex-shrink:0;" />
+        <div style="flex:1; min-width:0;">
+          ${item.jaExiste ? `<div style="font-size:11px; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; margin-bottom:4px;">Já existe no seu cardápio</div>` : ''}
+          ${item.duvida ? `<div style="font-size:12px; color:var(--flame); margin-bottom:6px;">⚠ ${esc(item.duvida)}</div>` : ''}
+          <input type="text" value="${esc(item.nome)}" placeholder="Nome" oninput="itensCardapioImportado[${i}].nome = this.value" style="margin-bottom:6px; font-weight:600;" />
+          <div class="linha" style="margin-bottom:6px;">
+            ${temTamanhos
+              ? `<div style="font-size:12px; color:var(--muted); padding-top:10px;">Tem tamanhos (abaixo) — sem preço único</div>`
+              : `<div><input type="number" step="0.01" value="${item.preco ?? ''}" placeholder="Preço (obrigatório)" oninput="itensCardapioImportado[${i}].preco = this.value === '' ? null : parseFloat(this.value)" style="${item.preco == null ? 'border-color:var(--flame);' : ''}" /></div>`}
+            <div><input type="text" value="${esc(item.categoria || 'comida')}" list="lista-categorias-existentes" placeholder="Categoria" oninput="itensCardapioImportado[${i}].categoria = this.value" /></div>
+          </div>
+          <input type="text" value="${esc(item.descricao || '')}" placeholder="Ingredientes / descrição (opcional)" oninput="itensCardapioImportado[${i}].descricao = this.value" style="font-size:13px; margin-bottom:8px;" />
+
+          <div style="font-size:11px; color:var(--muted); font-family:var(--font-mono); text-transform:uppercase; margin-bottom:4px;">Tamanhos (deixe vazio se o item tem um preço só)</div>
+          ${(item.tamanhos || []).map((t, j) => `
+            <div class="linha" style="margin-bottom:4px;">
+              <div><input type="text" value="${esc(t.nome)}" placeholder="Ex: G" oninput="itensCardapioImportado[${i}].tamanhos[${j}].nome = this.value" /></div>
+              <div style="flex:0 0 100px"><input type="number" step="0.01" value="${t.preco ?? ''}" placeholder="30.00" oninput="itensCardapioImportado[${i}].tamanhos[${j}].preco = this.value === '' ? null : parseFloat(this.value)" /></div>
+              <div style="flex:0 0 auto"><button type="button" class="btn-secundario" onclick="itensCardapioImportado[${i}].tamanhos.splice(${j},1); renderizarListaImportacao();" style="width:36px; height:36px; padding:0;">×</button></div>
+            </div>
+          `).join('')}
+          <button type="button" class="btn-secundario" onclick="(itensCardapioImportado[${i}].tamanhos ||= []).push({nome:'', preco: null}); renderizarListaImportacao();" style="font-size:12px; padding:6px 10px;">+ tamanho</button>
+        </div>
+        <button type="button" class="btn-secundario" onclick="itensCardapioImportado.splice(${i},1); renderizarListaImportacao();" style="width:32px; height:32px; padding:0; flex-shrink:0;">✕</button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+async function confirmarImportacaoCardapio(botao) {
+  const selecionados = itensCardapioImportado.filter((item) => item.selecionado);
+  if (selecionados.length === 0) {
+    toast('Marque ao menos um item pra salvar.', 'erro');
+    return;
+  }
+  // Item com tamanhos não precisa de preço único — mas cada tamanho
+  // precisa ter nome E preço preenchidos (mesma regra do cadastro manual).
+  const temTamanhosValidos = (item) =>
+    Array.isArray(item.tamanhos) && item.tamanhos.length > 0
+    && item.tamanhos.every((t) => t.nome && t.nome.trim() && typeof t.preco === 'number' && !isNaN(t.preco));
+
+  const invalido = selecionados.find((item) => {
+    if (Array.isArray(item.tamanhos) && item.tamanhos.length > 0) return !temTamanhosValidos(item);
+    return item.preco == null || isNaN(item.preco);
+  });
+  if (invalido) {
+    toast(`Preencha o preço de "${invalido.nome}" (ou os tamanhos dele) antes de salvar.`, 'erro');
+    return;
+  }
+
+  await comBotaoDesabilitado(botao, 'Salvando...', async () => {
+    // Mesmo esquema de id usado no cadastro manual (slug do nome + sufixo
+    // aleatório) — ver salvarProduto() acima.
+    const produtos = selecionados.map((item) => {
+      const slug = item.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+      return {
+        id: (slug || 'item') + '-' + Math.random().toString(36).slice(2, 7),
+        nome: item.nome,
+        preco: item.preco,
+        categoria: item.categoria,
+        descricao: item.descricao || '',
+        unidade: item.unidade || '',
+        temMeiaPorcao: Boolean(item.temMeiaPorcao),
+        precoMeia: item.temMeiaPorcao ? item.precoMeia : null,
+        tamanhos: item.tamanhos || [],
+        adicionais: item.adicionais || [],
+      };
+    });
+
+    const resposta = await apiFetch('/api/cardapio/importar-confirmar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ produtos }),
+    });
+    const dados = await resposta.json();
+    if (!resposta.ok) {
+      toast(dados.erro || 'Não foi possível salvar os itens.', 'erro');
+      return;
+    }
+
+    // Tipo de negócio: só atualiza se o dono deixou algo preenchido nesse
+    // campo (a sugestão da IA, editada ou não) — campo em branco = não mexe.
+    const nicho = document.getElementById('importar-cardapio-nicho').value.trim();
+    if (nicho) {
+      await apiFetch('/api/empresa', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: nicho }),
+      });
+    }
+
+    fecharModalImportarCardapio();
+    toast(`${produtos.length} item(ns) importado(s) ✓`, 'sucesso');
+    carregarTudo();
+  });
+}
+
+// Preenche as sugestões do campo de categoria (datalist) com as que esse
+// restaurante já usa no próprio cardápio — categoria é texto livre, isso
+// só ajuda a reaproveitar o nome certo em vez de digitar de novo.
+function atualizarDatalistCategorias(produtos) {
+  const categorias = [...new Set((produtos || []).map(p => (p.categoria || 'comida').trim() || 'comida'))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  document.getElementById('lista-categorias-existentes').innerHTML =
+    categorias.map(c => `<option value="${esc(c)}"></option>`).join('');
+}
+
+function editarProduto(id) {
+  apiFetch('/api/produtos').then(r => r.json()).then(({ produtos, estoque }) => {
+    const p = produtos.find(x => x.id === id);
+    if (!p) return;
+    produtoEmEdicao = id;
+    document.getElementById('produto-categoria').value = p.categoria || 'comida';
+    document.getElementById('produto-nome').value = p.nome;
+    document.getElementById('produto-unidade').value = p.unidade || '';
+    document.getElementById('produto-preco').value = p.preco;
+    document.getElementById('produto-estoque').value = estoque[id] ?? 0;
+    document.getElementById('produto-descricao').value = p.descricao || '';
+    document.getElementById('produto-tem-meia').checked = !!p.temMeiaPorcao;
+    document.getElementById('produto-preco-meia').value = p.precoMeia || '';
+    document.getElementById('linha-preco-meia').style.display = p.temMeiaPorcao ? 'block' : 'none';
+    adicionaisFormAtual = p.adicionais ? [...p.adicionais] : [];
+    renderizarAdicionaisForm();
+    tamanhosFormAtual = p.tamanhos ? [...p.tamanhos] : [];
+    renderizarTamanhosForm();
+    document.getElementById('produto-foto-aviso-novo').style.display = 'none';
+    document.getElementById('produto-foto-bloco').style.display = 'block';
+    mostrarPreviaFotoProduto(p.foto);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  });
+}
+
+async function salvarProduto() {
+  const nome = document.getElementById('produto-nome').value.trim();
+  const unidade = document.getElementById('produto-unidade').value.trim();
+  const preco = parseFloat(document.getElementById('produto-preco').value);
+  // Estoque em branco: produto NOVO começa com 50 (bate com o placeholder do
+  // campo e o padrão do backend). Antes virava 0 e o produto já nascia
+  // "ESGOTADO", sem poder ser lançado numa mesa.
+  const estoqueRaw = document.getElementById('produto-estoque').value.trim();
+  const estoqueInicial = estoqueRaw === ''
+    ? (produtoEmEdicao ? 0 : 50)
+    : (parseInt(estoqueRaw, 10) || 0);
+  const descricao = document.getElementById('produto-descricao').value.trim();
+  const temMeiaPorcao = document.getElementById('produto-tem-meia').checked;
+  const precoMeia = temMeiaPorcao ? parseFloat(document.getElementById('produto-preco-meia').value) : null;
+
+  // Produto com tamanhos (PP/P/M/G etc.) não precisa do preço único — o
+  // preço de verdade vem de cada tamanho.
+  if (!nome || (tamanhosFormAtual.length === 0 && isNaN(preco))) {
+    toast('Preencha ao menos o nome e o preço (ou cadastre os tamanhos).', 'erro');
+    return;
+  }
+  if (temMeiaPorcao && isNaN(precoMeia)) {
+    toast('Preencha o preço da meia porção, ou desmarque a opção.', 'erro');
+    return;
+  }
+
+  // Id de produto novo: slug do nome + sufixo aleatorio. O sufixo evita dois
+  // bugs reais: nome so com emoji/acento virava id vazio, e dois produtos de
+  // nome parecido ("Coca-Cola" / "Coca Cola") colidiam e um sobrescrevia o
+  // outro via ON CONFLICT. Ao editar, mantem o id que ja existe.
+  const eraEdicao = Boolean(produtoEmEdicao);
+  const slugProduto = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const id = produtoEmEdicao || (slugProduto || 'item') + '-' + Math.random().toString(36).slice(2, 7);
+
+  await apiFetch('/api/produtos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, nome, unidade, categoria: document.getElementById('produto-categoria').value, preco, descricao, disponivel: true, estoqueInicial, adicionais: adicionaisFormAtual, temMeiaPorcao, precoMeia, tamanhos: tamanhosFormAtual }),
+  });
+
+  if (produtoEmEdicao) {
+    await apiFetch(`/api/estoque/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantidade: estoqueInicial }),
+    });
+  }
+
+  mostrarSalvo();
+
+  if (!eraEdicao) {
+    // Produto acabou de ser criado: já entra no modo edição desse mesmo
+    // produto, pra poder adicionar uma foto sem precisar clicar em
+    // "editar" de novo (a foto só pode ser enviada depois de o produto
+    // já existir, já que o upload referencia o id dele).
+    carregarTudo();
+    editarProduto(id);
+    return;
+  }
+
+  produtoEmEdicao = null;
+  adicionaisFormAtual = [];
+  document.getElementById('produto-categoria').value = '';
+  document.getElementById('produto-nome').value = '';
+  document.getElementById('produto-unidade').value = '';
+  document.getElementById('produto-preco').value = '';
+  document.getElementById('produto-estoque').value = '';
+  document.getElementById('produto-descricao').value = '';
+  document.getElementById('produto-tem-meia').checked = false;
+  document.getElementById('produto-preco-meia').value = '';
+  document.getElementById('linha-preco-meia').style.display = 'none';
+  renderizarAdicionaisForm();
+  tamanhosFormAtual = [];
+  renderizarTamanhosForm();
+  document.getElementById('produto-foto-bloco').style.display = 'none';
+  document.getElementById('produto-foto-aviso-novo').style.display = 'block';
+  mostrarPreviaFotoProduto(null);
+
+  carregarTudo();
+}
+
+async function removerProduto(id) {
+  if (!(await confirmarAcao('Remover esse produto do cardápio? Ele não aparecerá mais pros clientes.'))) return;
+  await apiFetch(`/api/produtos/${id}`, { method: 'DELETE' });
+  mostrarSalvo();
+  carregarTudo();
+}
+
+// --- Foto do produto ---
+
+function mostrarPreviaFotoProduto(caminho) {
+  const img = document.getElementById('produto-foto-preview');
+  const btnRemover = document.getElementById('btn-remover-foto-produto');
+  if (caminho) {
+    // "?t=" evita o navegador mostrar a miniatura antiga em cache depois
+    // de trocar a foto (o caminho novo tem nome de arquivo diferente, mas
+    // isso aqui é reforço extra pra quando o navegador cacheia agressivo).
+    img.src = caminho + '?t=' + Date.now();
+    img.style.display = 'block';
+    btnRemover.style.display = 'block';
+  } else {
+    img.src = '';
+    img.style.display = 'none';
+    btnRemover.style.display = 'none';
+  }
+}
+
+async function enviarFotoProduto() {
+  const input = document.getElementById('produto-foto-arquivo');
+  const arquivo = input.files[0];
+  if (!arquivo || !produtoEmEdicao) return;
+
+  const formData = new FormData();
+  formData.append('foto', arquivo);
+  const resp = await apiFetch(`/api/produtos/${produtoEmEdicao}/foto`, { method: 'POST', body: formData });
+  const dados = await resp.json();
+  input.value = '';
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível enviar a foto.', 'erro');
+    return;
+  }
+  mostrarPreviaFotoProduto(dados.foto);
+  toast('Foto salva ✓', 'sucesso');
+  carregarTudo();
+}
+
+async function removerFotoProdutoAtual() {
+  if (!produtoEmEdicao) return;
+  if (!(await confirmarAcao('Remover a foto desse produto?'))) return;
+  await apiFetch(`/api/produtos/${produtoEmEdicao}/foto`, { method: 'DELETE' });
+  mostrarPreviaFotoProduto(null);
+  toast('Foto removida ✓', 'sucesso');
+  carregarTudo();
+}
+
+// Pausar/reativar um produto sem apagar: pausado some do cardápio da IA e
+// da busca de itens nas mesas, mas continua cadastrado (preço, estoque,
+// adicionais) pra reativar depois.
+async function alternarDisponibilidadeProduto(id, pausadoAtual) {
+  const novoDisponivel = pausadoAtual === true; // se estava pausado, reativa
+  const resp = await apiFetch(`/api/produtos/${encodeURIComponent(id)}/disponivel`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disponivel: novoDisponivel }),
+  });
+  if (!resp.ok) {
+    toast('Não foi possível mudar o produto.', 'erro');
+    return;
+  }
+  toast(novoDisponivel ? 'Produto reativado ✓' : 'Produto pausado — não aparece mais pros clientes', 'sucesso');
+  carregarTudo();
+}
+
+async function salvarEmpresa() {
+  const formasPagamento = [];
+  if (document.getElementById('pag-pix').checked) formasPagamento.push('pix');
+  if (document.getElementById('pag-dinheiro').checked) formasPagamento.push('dinheiro');
+  if (document.getElementById('pag-cartao').checked) formasPagamento.push('cartão');
+
+  const diasFuncionamento = Array.from(document.querySelectorAll('.dia-funcionamento'))
+    .filter((el) => el.checked)
+    .map((el) => el.value);
+
+  const resp = await apiFetch('/api/empresa', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nome: document.getElementById('empresa-nome').value,
+      tipo: document.getElementById('empresa-tipo').value,
+      endereco: document.getElementById('empresa-endereco').value,
+      slug: document.getElementById('empresa-slug').value,
+      numeroWhatsapp: document.getElementById('empresa-numero-whatsapp').value,
+      ofereceCardapioDigital: document.getElementById('empresa-oferece-cardapio-digital').checked,
+      aceitaEntrega: document.getElementById('empresa-entrega').checked,
+      exigePagamentoAntecipado: document.getElementById('empresa-pagamento-antecipado').checked,
+      entenderAudio: document.getElementById('empresa-entender-audio').checked,
+      taxaServicoPercent: document.getElementById('empresa-taxa-servico-on').checked
+        ? (parseFloat(document.getElementById('empresa-taxa-servico-percent').value) || 0)
+        : 0,
+      separarBebidaComanda: document.getElementById('empresa-separar-bebida').checked,
+      impressoras: {
+        principal: {
+          nome: document.getElementById('impressora-nome').value.trim(),
+          ip: document.getElementById('impressora-ip').value.trim(),
+          porta: parseInt(document.getElementById('impressora-porta').value, 10) || 9100,
+        },
+        cozinha: document.getElementById('ip-impressora-cozinha').value.trim(),
+        salada: document.getElementById('ip-impressora-salada').value.trim(),
+        bar: document.getElementById('ip-impressora-bar').value.trim(),
+      },
+      formasPagamento,
+      diasFuncionamento,
+      horarioAbertura: document.getElementById('empresa-horario-abertura').value,
+      horarioFechamento: document.getElementById('empresa-horario-fechamento').value,
+    }),
+  });
+  const dados = await resp.json();
+  if (!resp.ok) {
+    toast(dados.erro || 'Não foi possível salvar.', 'erro');
+    return;
+  }
+  document.getElementById('empresa-slug').value = dados.slug || '';
+  atualizarPreviaSlug();
+  mostrarSalvo();
+  carregarTudo();
+}
+
+function atualizarPreviaSlug() {
+  const slug = document.getElementById('empresa-slug').value.trim();
+  const previa = document.getElementById('empresa-slug-previa');
+  if (!slug) {
+    previa.textContent = 'Sem endereço definido — o cardápio digital ainda não fica acessível.';
+    return;
+  }
+  const url = `${window.location.origin}/c/${slug}`;
+  previa.innerHTML = `Vai ficar em: <a href="${esc(url)}" target="_blank" style="color:var(--flame);">${esc(url)}</a>`;
+}
+
+function cancelarComFeedback() {
+  const feedback = document.getElementById('feedback-cancelamento').value.trim();
+  const nomeEmpresa = document.getElementById('topo-empresa-nome').textContent || 'meu restaurante';
+  let mensagem = `Oi! Quero cancelar o Vendly do "${nomeEmpresa}".`;
+  if (feedback) {
+    mensagem += `\n\nMotivo/feedback: ${feedback}`;
+  }
+  window.open(`https://wa.me/5544999874707?text=${encodeURIComponent(mensagem)}`, '_blank');
+}
+
+let toastTimeoutId = null;
+// Estado vazio consistente em toda a interface — ícone + texto, sempre
+// no mesmo formato, em vez de cada lista inventar o próprio jeito de
+// mostrar "não tem nada aqui ainda".
+function vazioHtml(icone, texto) {
+  return `<div class="vazio"><span class="vazio-icone">${icone}</span>${texto}</div>`;
+}
+
+function toast(mensagem, tipo = 'sucesso') {
+  const el = document.getElementById('toast');
+  el.textContent = mensagem;
+  el.className = tipo === 'erro' ? 'erro visivel' : tipo === 'sucesso' ? 'sucesso visivel' : 'visivel';
+  clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(() => el.classList.remove('visivel'), 2600);
+}
+
+function mostrarSalvo() {
+  toast('Salvo ✓', 'sucesso');
+}
+
+// Substitui o confirm() feio do navegador por uma caixa no estilo do
+// Vendly. Uso: if (await confirmarAcao('Tem certeza?')) { ... }
+let _confirmarResolverAtual = null;
+function confirmarAcao(mensagem) {
+  document.getElementById('modal-confirmar-texto').textContent = mensagem;
+  document.getElementById('modal-confirmar').style.display = 'flex';
+  return new Promise((resolve) => { _confirmarResolverAtual = resolve; });
+}
+function _confirmarResolver(valor) {
+  document.getElementById('modal-confirmar').style.display = 'none';
+  if (_confirmarResolverAtual) _confirmarResolverAtual(valor);
+  _confirmarResolverAtual = null;
+}
+
+// Evita clique duplo (que causaria erro real, tipo criar mesa 2x) —
+// desabilita o botão e troca o texto enquanto a ação está em andamento.
+async function comBotaoDesabilitado(botao, textoCarregando, acao) {
+  const textoOriginal = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = textoCarregando;
+  try {
+    await acao();
+  } finally {
+    botao.disabled = false;
+    botao.textContent = textoOriginal;
+  }
+}
+
+// Só inicia o carregamento de dados depois de confirmar que tem um login
+// válido — antes disso, mostra a tela de login e não chama nenhuma API.
+let appJaIniciado = false;
+let tipoUsuario = 'empresa';
+
+async function iniciarApp() {
+  if (appJaIniciado) return;
+  appJaIniciado = true;
+
+  const me = await apiFetch('/api/me').then(r => r.json());
+  tipoUsuario = me.tipo;
+
+  if (tipoUsuario === 'atendente') {
+    // Atendente só usa a aba de Mesas — nem carrega o resto do painel,
+    // que ele não tem permissão de ver mesmo (o servidor bloquearia).
+    const empresaResp = await apiFetch('/api/empresa').then(r => r.json());
+    document.getElementById('topo-empresa-nome').textContent = empresaResp.nome || '';
+    planoAtual = empresaResp.plano || 'base';
+    empresaTaxaServicoPercent = Number(empresaResp.taxaServicoPercent) || 0;
+    ajustarMenuParaAtendente();
+    mudarAba('mesas');
+    setInterval(carregarMesas, 5000);
+  } else {
+    carregarTudo();
+    setInterval(atualizarVendasEAtendimentos, 5000);
+  }
+}
+
+// Esconde tudo que não seja a aba de Mesas — um atendente não tem
+// permissão pra mais nada, então nem faz sentido mostrar essas abas.
+function ajustarMenuParaAtendente() {
+  ['vendas', 'atendimentos', 'cardapio', 'regras', 'whatsapp', 'equipe'].forEach((aba) => {
+    const botaoAba = document.querySelector(`.aba[data-aba="${aba}"]`);
+    if (botaoAba) botaoAba.style.display = 'none';
+  });
+  const botaoTutorial = document.querySelector('button[onclick*="modal-tutorial"]');
+  if (botaoTutorial) botaoTutorial.style.display = 'none';
+  // Criar/apagar mesa é só o dono — o atendente só opera as que já existem.
+  const cardAdicionarMesa = document.getElementById('card-adicionar-mesa');
+  if (cardAdicionarMesa) cardAdicionarMesa.style.display = 'none';
+}
+
+if (localStorage.getItem('vendly_token')) {
+  mostrarApp();
+  iniciarApp();
+} else {
+  mostrarTelaLogin();
+}
+</script>
+
+</div><!-- fim de #app-principal -->
+
+</body>
+</html>
